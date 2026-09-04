@@ -137,6 +137,10 @@ Webhook receiver:
 
 Only subscribe to required event types. Retain enough raw data for troubleshooting under the declared retention policy.
 
+The provider-neutral contract, canonical lifecycle, redacted values and per-operation timeout/retry policy are
+implemented in `docs/implementation/BILLING_PROVIDER_CONTRACT.md`. Ordinary access reads the trusted local
+projection and never calls the provider synchronously.
+
 ## 8. Slack notifications
 
 The MVP uses a Slack app or incoming webhook strategy selected during implementation. The domain adapter accepts structured messages, not preformatted provider payloads.

@@ -27,5 +27,25 @@ module Billing
     def checkout_available?(**attributes)
       CheckoutAvailability.new.call(**attributes)
     end
+
+    def provider(provider_key:, registry: ProviderRegistry.new)
+      registry.fetch(provider_key)
+    end
+
+    def operation_policies
+      Provider::OPERATION_POLICIES
+    end
+
+    def register_customer_mapping(**attributes)
+      RegisterCustomerMapping.new.call(**attributes)
+    end
+
+    def customer_mapping(**attributes)
+      CustomerMappingLookup.new.call(**attributes)
+    end
+
+    def plan_mapping(**attributes)
+      PlanMappingLookup.new.call(**attributes)
+    end
   end
 end

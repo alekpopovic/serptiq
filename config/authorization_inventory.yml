@@ -157,6 +157,11 @@ domain_operations:
   Billing::Public.plan_provider_mappings: { kind: system, reason: provider_mapping_consistency_projection }
   Billing::Public.active_subscription: { kind: context, reason: explicit_tenant_subscription_projection }
   Billing::Public.checkout_available?: { kind: context, reason: safe_provider_mapping_availability_projection }
+  Billing::Public.provider: { kind: system, reason: configured_provider_adapter_resolution }
+  Billing::Public.operation_policies: { kind: system, reason: provider_transport_policy_contract }
+  Billing::Public.register_customer_mapping: { kind: context, reason: verified_provider_customer_correlation }
+  Billing::Public.customer_mapping: { kind: context, reason: explicit_tenant_provider_customer_projection }
+  Billing::Public.plan_mapping: { kind: context, reason: exact_provider_plan_variant_projection }
   Entitlements::Public.validate_catalog: { kind: system, reason: governed_entitlement_definition_validation }
   Entitlements::Public.sync_catalog: { kind: system, reason: operator_entitlement_catalog_synchronization }
   Entitlements::Public.catalog_entries: { kind: context, reason: public_commercial_catalog_projection }

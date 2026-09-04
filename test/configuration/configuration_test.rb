@@ -104,6 +104,20 @@ class SearchopsConfigurationTest < ActiveSupport::TestCase
     assert_equal 2, configuration.secret(:encryption_primary_keys).size
   end
 
+  test "allows the fake billing adapter only outside protected environments" do
+    development = load_configuration(
+      environment: "development",
+      env: { "SEARCHOPS_BILLING_PROVIDER" => "fake" }
+    )
+    assert_equal "fake", development.fetch(:billing_provider)
+
+    environment = complete_production_environment.merge("SEARCHOPS_BILLING_PROVIDER" => "fake")
+    error = assert_raises(Searchops::Configuration::Error) do
+      load_configuration(environment: "production", env: environment)
+    end
+    assert_includes error.message, "limited to development and test"
+  end
+
   test "rejects aggregate database pools above the declared capacity" do
     error = assert_raises(Searchops::Configuration::Error) do
       load_configuration(

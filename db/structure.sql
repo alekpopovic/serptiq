@@ -39,6 +39,26 @@ COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
 
 
 --
+-- Name: enforce_billing_customer_mapping_immutability(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.enforce_billing_customer_mapping_immutability() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF TG_OP = 'DELETE' OR
+     NEW.organization_id IS DISTINCT FROM OLD.organization_id OR
+     NEW.provider IS DISTINCT FROM OLD.provider OR
+     NEW.environment IS DISTINCT FROM OLD.environment OR
+     NEW.provider_customer_id IS DISTINCT FROM OLD.provider_customer_id THEN
+    RAISE EXCEPTION 'billing customer mappings are immutable' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: enforce_entitlement_definition_stability(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -468,6 +488,24 @@ CREATE TABLE public.authorization_scope_references (
     CONSTRAINT authorization_scopes_lifecycle CHECK (((((status)::text = 'active'::text) AND (archived_at IS NULL)) OR (((status)::text = 'archived'::text) AND (archived_at IS NOT NULL)))),
     CONSTRAINT authorization_scopes_shape CHECK (((((scope_type)::text = 'Organization'::text) AND (id = organization_id) AND (project_id IS NULL) AND (project_scope_type IS NULL)) OR (((scope_type)::text = 'Project'::text) AND (id <> organization_id) AND (project_id IS NULL) AND (project_scope_type IS NULL)) OR (((scope_type)::text = 'Property'::text) AND (id <> organization_id) AND (project_id IS NOT NULL) AND ((project_scope_type)::text = 'Project'::text) AND (id <> project_id)))),
     CONSTRAINT authorization_scopes_type_allowlist CHECK (((scope_type)::text = ANY (ARRAY[('Organization'::character varying)::text, ('Project'::character varying)::text, ('Property'::character varying)::text])))
+);
+
+
+--
+-- Name: billing_customers; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.billing_customers (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    provider character varying(32) NOT NULL,
+    environment character varying(16) NOT NULL,
+    provider_customer_id character varying(191) NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT billing_customers_environment_allowlist CHECK (((environment)::text = ANY ((ARRAY['development'::character varying, 'test'::character varying, 'staging'::character varying, 'production'::character varying])::text[]))),
+    CONSTRAINT billing_customers_provider_format CHECK (((provider)::text ~ '^[a-z][a-z0-9_]{1,31}$'::text)),
+    CONSTRAINT billing_customers_provider_id_format CHECK (((provider_customer_id)::text ~ '^[A-Za-z0-9][A-Za-z0-9_.:-]{0,190}$'::text))
 );
 
 
@@ -1027,10 +1065,31 @@ CREATE TABLE public.subscriptions (
     created_at timestamp(6) with time zone NOT NULL,
     updated_at timestamp(6) with time zone NOT NULL,
     lock_version integer DEFAULT 0 NOT NULL,
+    billing_customer_id uuid,
+    provider character varying(32),
+    provider_environment character varying(16),
+    provider_subscription_id character varying(191),
+    access_state character varying(24) DEFAULT 'full'::character varying NOT NULL,
+    provider_metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    current_period_starts_at timestamp(6) with time zone,
+    current_period_ends_at timestamp(6) with time zone,
+    trial_ends_at timestamp(6) with time zone,
+    cancel_at_period_end boolean DEFAULT false NOT NULL,
+    canceled_at timestamp(6) with time zone,
+    provider_updated_at timestamp(6) with time zone,
+    last_synced_at timestamp(6) with time zone,
+    CONSTRAINT subscriptions_access_state_allowlist CHECK (((access_state)::text = ANY ((ARRAY['pending'::character varying, 'full'::character varying, 'grace'::character varying, 'read_only'::character varying, 'suspended'::character varying])::text[]))),
+    CONSTRAINT subscriptions_cancellation_shape CHECK ((((cancel_at_period_end OR ((status)::text = 'canceled'::text)) AND (canceled_at IS NOT NULL)) OR (((status)::text = 'expired'::text) AND (NOT cancel_at_period_end)) OR ((NOT cancel_at_period_end) AND ((status)::text <> ALL ((ARRAY['canceled'::character varying, 'expired'::character varying])::text[])) AND (canceled_at IS NULL)))),
     CONSTRAINT subscriptions_interval_allowlist CHECK (((billing_interval)::text = ANY ((ARRAY['monthly'::character varying, 'annual'::character varying, 'custom'::character varying])::text[]))),
-    CONSTRAINT subscriptions_lifecycle_shape CHECK (((((status)::text = 'active'::text) AND (ended_at IS NULL)) OR (((status)::text = 'inactive'::text) AND (ended_at IS NOT NULL)))),
+    CONSTRAINT subscriptions_lifecycle_shape CHECK (((((status)::text = 'expired'::text) AND (ended_at IS NOT NULL)) OR (((status)::text <> 'expired'::text) AND (ended_at IS NULL)))),
+    CONSTRAINT subscriptions_period_shape CHECK ((((current_period_starts_at IS NULL) AND (current_period_ends_at IS NULL)) OR ((current_period_starts_at IS NOT NULL) AND (current_period_ends_at IS NOT NULL) AND (current_period_ends_at > current_period_starts_at)))),
+    CONSTRAINT subscriptions_provider_metadata_bounded CHECK (((jsonb_typeof(provider_metadata) = 'object'::text) AND (pg_column_size(provider_metadata) <= 4096))),
+    CONSTRAINT subscriptions_provider_shape CHECK ((((billing_customer_id IS NULL) AND (provider IS NULL) AND (provider_environment IS NULL) AND (provider_subscription_id IS NULL) AND (provider_updated_at IS NULL) AND (last_synced_at IS NULL) AND (provider_metadata = '{}'::jsonb)) OR ((billing_customer_id IS NOT NULL) AND (provider IS NOT NULL) AND (provider_environment IS NOT NULL) AND (provider_subscription_id IS NOT NULL) AND (provider_updated_at IS NOT NULL) AND (last_synced_at IS NOT NULL) AND (provider_metadata ? 'raw_status'::text)))),
+    CONSTRAINT subscriptions_provider_sync_order CHECK ((((last_synced_at IS NULL) OR (provider_updated_at IS NULL)) OR (last_synced_at >= provider_updated_at))),
     CONSTRAINT subscriptions_snapshot_price_shape CHECK (((((pricing_kind_snapshot)::text = 'fixed'::text) AND ((billing_interval)::text = ANY ((ARRAY['monthly'::character varying, 'annual'::character varying])::text[])) AND (price_cents_snapshot IS NOT NULL) AND (price_cents_snapshot >= 0)) OR (((pricing_kind_snapshot)::text = 'custom'::text) AND ((billing_interval)::text = 'custom'::text) AND (price_cents_snapshot IS NULL)))),
-    CONSTRAINT subscriptions_status_allowlist CHECK (((status)::text = ANY ((ARRAY['active'::character varying, 'inactive'::character varying])::text[])))
+    CONSTRAINT subscriptions_status_access_shape CHECK (((((status)::text = 'pending'::text) AND ((access_state)::text = 'pending'::text)) OR (((status)::text = ANY ((ARRAY['trialing'::character varying, 'active'::character varying])::text[])) AND ((access_state)::text = 'full'::text)) OR (((status)::text = 'past_due'::text) AND ((access_state)::text = ANY ((ARRAY['grace'::character varying, 'read_only'::character varying])::text[]))) OR (((status)::text = 'paused'::text) AND ((access_state)::text = ANY ((ARRAY['read_only'::character varying, 'suspended'::character varying])::text[]))) OR (((status)::text = 'canceled'::text) AND ((access_state)::text = ANY ((ARRAY['full'::character varying, 'read_only'::character varying])::text[]))) OR (((status)::text = 'expired'::text) AND ((access_state)::text = 'read_only'::text)))),
+    CONSTRAINT subscriptions_status_allowlist CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'trialing'::character varying, 'active'::character varying, 'past_due'::character varying, 'paused'::character varying, 'canceled'::character varying, 'expired'::character varying])::text[]))),
+    CONSTRAINT subscriptions_trial_end_order CHECK (((trial_ends_at IS NULL) OR (trial_ends_at >= started_at)))
 );
 
 
@@ -1372,6 +1431,14 @@ ALTER TABLE ONLY public.authorization_scope_references
 
 
 --
+-- Name: billing_customers billing_customers_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_customers
+    ADD CONSTRAINT billing_customers_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: billing_plan_provider_mappings billing_plan_provider_mappings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1702,6 +1769,27 @@ CREATE INDEX index_authorization_scopes_on_org_and_project ON public.authorizati
 --
 
 CREATE UNIQUE INDEX index_authorization_scopes_on_org_id_and_type ON public.authorization_scope_references USING btree (organization_id, id, scope_type);
+
+
+--
+-- Name: index_billing_customers_on_composite_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_billing_customers_on_composite_identity ON public.billing_customers USING btree (id, organization_id, provider, environment);
+
+
+--
+-- Name: index_billing_customers_on_provider_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_billing_customers_on_provider_identity ON public.billing_customers USING btree (provider, environment, provider_customer_id);
+
+
+--
+-- Name: index_billing_customers_on_tenant_provider; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_billing_customers_on_tenant_provider ON public.billing_customers USING btree (organization_id, provider, environment);
 
 
 --
@@ -2181,10 +2269,10 @@ CREATE INDEX index_sessions_on_user_id_and_expires_at ON public.sessions USING b
 
 
 --
--- Name: index_subscriptions_on_active_organization; Type: INDEX; Schema: public; Owner: -
+-- Name: index_subscriptions_on_current_organization; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX index_subscriptions_on_active_organization ON public.subscriptions USING btree (organization_id) WHERE ((status)::text = 'active'::text);
+CREATE UNIQUE INDEX index_subscriptions_on_current_organization ON public.subscriptions USING btree (organization_id) WHERE (ended_at IS NULL);
 
 
 --
@@ -2199,6 +2287,13 @@ CREATE UNIQUE INDEX index_subscriptions_on_org_id_plan_version ON public.subscri
 --
 
 CREATE INDEX index_subscriptions_on_plan_version_id_and_status ON public.subscriptions USING btree (plan_version_id, status);
+
+
+--
+-- Name: index_subscriptions_on_provider_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_subscriptions_on_provider_identity ON public.subscriptions USING btree (provider, provider_environment, provider_subscription_id) WHERE (provider_subscription_id IS NOT NULL);
 
 
 --
@@ -2419,6 +2514,13 @@ CREATE UNIQUE INDEX index_users_on_active_normalized_email ON public.users USING
 
 
 --
+-- Name: billing_customers billing_customers_immutable_mapping; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER billing_customers_immutable_mapping BEFORE DELETE OR UPDATE ON public.billing_customers FOR EACH ROW EXECUTE FUNCTION public.enforce_billing_customer_mapping_immutability();
+
+
+--
 -- Name: entitlement_definitions entitlement_definitions_stable; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -2528,6 +2630,14 @@ ALTER TABLE ONLY public.entitlement_subscription_contexts
 
 
 --
+-- Name: subscriptions fk_subscriptions_tenant_provider_customer; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.subscriptions
+    ADD CONSTRAINT fk_subscriptions_tenant_provider_customer FOREIGN KEY (billing_customer_id, organization_id, provider, provider_environment) REFERENCES public.billing_customers(id, organization_id, provider, environment) ON DELETE RESTRICT;
+
+
+--
 -- Name: organization_entitlement_overrides fk_entitlement_overrides_definition_type; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2597,6 +2707,14 @@ ALTER TABLE ONLY public.plan_entitlements
 
 ALTER TABLE ONLY public.billing_plan_provider_mappings
     ADD CONSTRAINT fk_rails_0b34a5e891 FOREIGN KEY (plan_version_id) REFERENCES public.plan_versions(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: billing_customers fk_rails_6d4927c1b8; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_customers
+    ADD CONSTRAINT fk_rails_6d4927c1b8 FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE RESTRICT;
 
 
 --
@@ -3070,6 +3188,7 @@ ALTER TABLE ONLY public.usage_windows
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904093000'),
 ('20260904092000'),
 ('20260904091000'),
 ('20260904090000'),

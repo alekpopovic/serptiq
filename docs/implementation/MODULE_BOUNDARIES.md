@@ -106,6 +106,11 @@ does not gain authority to publish global pricing. `Administration` composes the
 Billing subscriber counts and mapping summaries for review, consistency checks and subscriber-aware
 retirement; neither domain reads the other's tables directly.
 
+Billing also owns normalized provider values, adapter contracts, environment-scoped customer/variant mappings
+and canonical subscription/access lifecycle. Provider adapters may retain required bounded provider facts, but
+raw payloads and hosted bearer links never leave Billing values unredacted. Entitlements consumes only its
+local subscription projection; Authorization and access decisions never import provider classes or IDs.
+
 Entitlements owns typed definitions, materialized plan values, organization overrides and the request-scoped
 resolver. Billing calls `Entitlements::Public.bind_subscription` in the subscription transaction; a composite
 database FK makes that projection tenant/plan-consistent without Entitlements reading Billing models.

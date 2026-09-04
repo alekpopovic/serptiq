@@ -20,6 +20,7 @@ module Searchops
       REVERSED_PLAN_COMPARISON = /["'](?:#{COMMERCIAL_PLAN_KEYS.join('|')})["']\s*(?:==|!=|===)\s*\bplan/i
       DIRECT_QUOTA_CALL = /\bUsage::Public\.(?:reserve|extend_reservation|finalize_reservation|release_reservation)\b/
       DIRECT_QUOTA_MODEL_MUTATION = /\bUsage::(?:QuotaReservation|ReservationOperation|UsageEvent)\.(?:create!?|insert!?|upsert!?|update(?:_all|!)?|delete(?:_all)?|destroy(?:_all|!)?)\b/
+      PROVIDER_SPECIFIC_ACCESS = /\b(?:LemonSqueezy|lemon_squeezy|provider_variant_id)\b/
       AUTHORIZED_QUOTA_CALLERS = %w[
         app/domains/authorization/access_boundary.rb
         app/domains/usage/public.rb
@@ -30,7 +31,8 @@ module Searchops
       end
 
       def check
-        (plan_name_violations + quota_violations).sort_by { |violation| [ violation.path, violation.line ] }
+        (plan_name_violations + quota_violations + provider_access_violations)
+          .sort_by { |violation| [ violation.path, violation.line ] }
       end
 
       private
@@ -50,6 +52,13 @@ module Searchops
 
           line_violations(path, [ DIRECT_QUOTA_CALL, DIRECT_QUOTA_MODEL_MUTATION ],
             "quota mutations must go through Authorization::Public.with_access or the Usage owner")
+        end
+      end
+
+      def provider_access_violations
+        @root.join("app/domains/authorization").glob("**/*.rb").flat_map do |path|
+          line_violations(path, [ PROVIDER_SPECIFIC_ACCESS ],
+            "core access code must not reference provider classes or provider variant identifiers")
         end
       end
 

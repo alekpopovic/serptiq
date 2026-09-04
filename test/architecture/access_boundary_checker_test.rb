@@ -40,6 +40,14 @@ class AccessBoundaryCheckerTest < ActiveSupport::TestCase
     assert_empty checker.check
   end
 
+  test "rejects billing provider classes and identifiers in core access code" do
+    write("app/domains/authorization/provider_gate.rb", "LemonSqueezy::Variant.find(provider_variant_id)\n")
+
+    violation = checker.check.sole
+
+    assert_match(/provider classes/, violation.reason)
+  end
+
   private
 
   def checker

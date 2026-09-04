@@ -43,7 +43,7 @@ class AdministrationPlanGrandfatheringTest < ActiveSupport::TestCase
       metadata: { "operation" => "retire", "status" => "grandfathered", "subscriber_count" => 1 }
     )
 
-    subscription.update!(status: "inactive", ended_at: Time.current)
+    subscription.update!(status: "expired", access_state: "read_only", ended_at: Time.current)
     assert_equal "retired", retire.status
   end
 

@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-09-04
 - Owners: Billing
-- Last reviewed: 2026-09-04 (Prompt 005)
+- Last reviewed: 2026-09-04 (Prompt 043)
 
 ## Context
 
@@ -19,3 +19,12 @@ Define an internal billing interface and canonical subscription model. Implement
 - Webhook ordering and reconciliation remain explicit.
 - Provider-specific checkout/tax/invoice UX can still differ behind the adapter.
 - Billing state is provider-informed; access state is determined by canonical application policy.
+
+## Implementation status
+
+Prompt 043 defines immutable normalized adapter values, bounded failure categories and operation transport
+policies; supplies a deterministic development/test fake; adds tenant/provider/environment customer mappings;
+and expands the local subscription into separately constrained canonical status and access state. Provider raw
+status is bounded metadata, hosted links and identifiers redact themselves, and the access/entitlement domains
+remain provider-free. Prompt 044 supplies the first production adapter and later prompts own webhook projection
+and reconciliation workflows.

@@ -101,7 +101,7 @@ module Searchops
       auth_account_security_max_per_session: Definition.new("SEARCHOPS_AUTH_ACCOUNT_SECURITY_MAX_PER_SESSION", :integer,
         20, 1, 1000, nil, false, nil),
       billing_provider: Definition.new("SEARCHOPS_BILLING_PROVIDER", :enum, "disabled", nil, nil,
-        %w[disabled lemon_squeezy], false, nil),
+        %w[disabled fake lemon_squeezy], false, nil),
       billing_store_id: Definition.new("SEARCHOPS_BILLING_STORE_ID", :string, nil, nil, nil, nil, false, nil),
       encryption_key_version: Definition.new("SEARCHOPS_ENCRYPTION_KEY_VERSION", :string, "v1", nil, nil, nil, false, nil),
       crawler_max_urls_per_scan: Definition.new("SEARCHOPS_CRAWLER_MAX_URLS_PER_SCAN", :integer, 10_000,
@@ -365,6 +365,8 @@ module Searchops
       require_settings(errors, :application_origin, :release_sha, :database_connection_budget)
       require_secrets(errors, :secret_key_base, :encryption_primary_keys,
         :encryption_deterministic_key, :encryption_key_derivation_salt)
+      errors << "SEARCHOPS_BILLING_PROVIDER=fake is limited to development and test" if
+        fetch(:billing_provider) == "fake"
       if present?(secret(:database_url))
         require_secrets(errors, :queue_database_url, :cache_database_url, :cable_database_url)
       elsif present?(secret(:database_password))

@@ -128,7 +128,7 @@ class EntitlementsResolverTest < ActiveSupport::TestCase
       organization_id: owner.organization.id,
       status: "active"
     )
-    previous_subscription.update!(status: "inactive", ended_at: Time.current)
+    previous_subscription.update!(status: "expired", access_state: "read_only", ended_at: Time.current)
     growth = publish_catalog_version(
       plan_key: "growth", version: 1, authorization: @platform_authorization
     )

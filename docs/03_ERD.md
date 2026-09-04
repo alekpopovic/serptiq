@@ -489,7 +489,9 @@ revocation transition; every public mutation also creates a durable audit event.
 
 ### `billing_customers`
 
-One canonical billing customer per organization/provider/environment.
+One immutable canonical billing customer mapping per organization/provider/environment. The provider customer
+ID is also unique per provider/environment. A composite identity index supports a tenant/provider/environment
+foreign key from subscriptions, preventing a customer reference from crossing tenants or test/live modes.
 
 ### `subscriptions`
 
@@ -504,13 +506,23 @@ One canonical billing customer per organization/provider/environment.
 | currency_snapshot | string | historical pricing currency |
 | pricing_kind_snapshot | string | fixed or custom |
 | price_cents_snapshot | bigint | selected interval price; null for custom |
-| status | string | active, inactive |
+| status | string | pending, trialing, active, past_due, paused, canceled, expired |
+| access_state | string | pending, full, grace, read_only, suspended |
 | billing_interval | string | monthly, annual, custom |
 | started_at | timestamptz | |
 | ended_at | timestamptz | |
+| billing_customer_id | uuid nullable | composite tenant/provider mapping FK |
+| provider / provider_environment | string nullable | adapter and isolated runtime mode |
+| provider_subscription_id | string nullable | opaque provider identity |
+| provider_metadata | jsonb | bounded facts including raw provider status; never raw payload |
+| current_period_starts_at / current_period_ends_at | timestamptz nullable | exact provider period |
+| trial_ends_at / canceled_at | timestamptz nullable | provider lifecycle observations |
+| cancel_at_period_end | boolean | scheduled cancellation intent |
+| provider_updated_at / last_synced_at | timestamptz nullable | ordering and freshness |
 
-This initial provider-neutral reference is extended by Billing provider projections in later billing prompts;
-provider identifiers and raw provider state remain owned by Billing.
+Exactly one row with no `ended_at` exists per organization, including scheduled cancellation. Canonical status
+and application access state are separate. Provider-backed rows require a complete same-tenant customer and
+provider identity; provider identifiers and bounded raw status metadata remain owned by Billing.
 
 ### `billing_webhook_events`
 
