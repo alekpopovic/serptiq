@@ -139,6 +139,34 @@ Controls:
 - CSP and XSS prevention;
 - no sensitive data in cookie payload.
 
+### T-04a Organization invitation interception and replay
+
+Attack examples:
+
+- a raw invitation token is recovered from the database, logs, OAuth state, or browser history;
+- a signed-in account accepts a link intended for a different provider-verified email;
+- two requests consume the same token or create duplicate memberships;
+- resend leaves the previous token usable;
+- a crafted initial role or scope crosses an organization boundary;
+- issue responses disclose whether the destination already has an account.
+
+Controls:
+
+- 256-bit random opaque token with only a keyed digest stored in PostgreSQL;
+- public entry captures a format-valid token in a short-lived encrypted, `HttpOnly`, `SameSite=Lax`
+  cookie and OAuth stores only the fixed local review path;
+- acceptance requires an active identity and an exact email assertion from an active,
+  provider-verified identity; primary/profile email alone is insufficient;
+- invitation row lock, unique organization/user membership, one pending organization/email,
+  and same-organization composite foreign keys;
+- explicit accepted/revoked/expired/superseded terminal states and resend-as-new-token;
+- removed memberships never reactivate through invitation acceptance; suspended memberships
+  reactivate only through explicit acceptance;
+- allowlisted organization-scoped initial role intent, backend owner authorization, neutral
+  issue response, HMAC-keyed rate limits, and structured audit outcomes;
+- `no-store` and `no-referrer` on entry/review/error responses and one generic unavailable page
+  for invalid, expired, revoked, replayed, or wrong-email links.
+
 ### T-05 Billing forgery, replay, and state corruption
 
 Attack examples:

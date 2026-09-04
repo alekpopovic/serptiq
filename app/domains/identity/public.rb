@@ -50,6 +50,28 @@ module Identity
       ProviderIdentity.find_by(provider: provider.to_s.downcase, provider_subject: provider_subject.to_s)
     end
 
+    def verified_email?(user:, email:)
+      return false unless active_user?(user)
+
+      ProviderIdentity.where(
+        user_id: user.id,
+        email: email.to_s.strip.downcase,
+        email_verified: true,
+        revoked_at: nil
+      ).exists?
+    end
+
+    def verified_emails(user:)
+      return [].freeze unless active_user?(user)
+
+      ProviderIdentity.where(user_id: user.id, email_verified: true, revoked_at: nil)
+        .where.not(email: nil)
+        .distinct
+        .order(:email)
+        .pluck(:email)
+        .freeze
+    end
+
     def resolve_account(normalized_identity:)
       AccountResolver.new.call(normalized_identity: normalized_identity)
     end

@@ -67,6 +67,10 @@ Stable public error codes, request/job correlation, structured event naming
 and logging prohibitions are documented in
 [`docs/implementation/OBSERVABILITY.md`](./docs/implementation/OBSERVABILITY.md).
 
+One-time organization invitation issuance, verified-email acceptance, token/cookie handling,
+rate limits, expiration, and operational behavior are documented in
+[`docs/implementation/SECURE_INVITATIONS.md`](./docs/implementation/SECURE_INVITATIONS.md).
+
 Load-balancer liveness/readiness behavior, safe release provenance and private
 worker heartbeat inspection are documented in
 [`docs/implementation/HEALTH_ENDPOINTS.md`](./docs/implementation/HEALTH_ENDPOINTS.md).

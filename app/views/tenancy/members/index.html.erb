@@ -9,7 +9,7 @@
   <div class="mt-6">
     <p class="so-eyebrow">Organization access</p>
     <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950">Members</h1>
-    <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">This list uses membership display labels only. Invitation controls arrive with the secured invitation workflow.</p>
+    <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">This list uses membership display labels only. Owners manage one-time links from <%= link_to "Invitations", organization_invitations_path(Current.organization.slug), class: "font-semibold underline" %>.</p>
   </div>
 
   <div class="so-table-wrap mt-8" role="region" aria-label="Organization members" tabindex="0">

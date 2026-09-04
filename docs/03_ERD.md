@@ -236,10 +236,29 @@ the current assignment, and ownership transfer remains a dedicated domain operat
 | invited_by_membership_id | uuid | FK |
 | email | citext | |
 | token_digest | string | unique |
+| status | string | pending, accepted, revoked, expired, superseded |
 | expires_at | timestamptz | |
 | accepted_at | timestamptz | |
+| accepted_by_membership_id | uuid | same-organization membership FK |
 | revoked_at | timestamptz | |
-| initial_access_spec | jsonb | validated role/scope request |
+| expired_at | timestamptz | |
+| superseded_at | timestamptz | |
+| initial_role_key | string | nullable allowlisted intent for the RBAC workflow |
+| initial_scope_type | string | nullable; only Organization |
+| initial_scope_id | uuid | nullable; must equal organization_id |
+
+Only the keyed digest of the random one-time token is stored. A partial unique index permits
+one pending invitation per organization/email, while resend supersedes the old row and issues
+a fresh token. Lifecycle CHECK constraints bind each terminal status to exactly one timestamp;
+composite foreign keys prevent cross-organization inviter and acceptor substitution. The
+initial access columns are a bounded organization-scoped intent until the role-assignment
+workflow applies it.
+
+### `invitation_rate_limit_buckets`
+
+Fixed-window counters keyed by HMAC digests protect invitation issue actor, destination email,
+and acceptance IP dimensions. Raw addresses and IPs are never retained; expired buckets are
+deleted by the recurring invitation maintenance job.
 
 ### `teams`
 

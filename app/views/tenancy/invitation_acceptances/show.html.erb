@@ -1,0 +1,16 @@
+<% content_for :title, "Review invitation" %>
+
+<section class="so-card mx-auto max-w-2xl p-6 sm:p-8" aria-labelledby="invitation-title">
+  <p class="so-eyebrow">Organization invitation</p>
+  <h1 id="invitation-title" class="mt-2 text-3xl font-black tracking-tight text-slate-950">Join <%= @invitation.organization_name %></h1>
+  <p class="mt-4 text-sm leading-6 text-slate-600">
+    This invitation is bound to the verified provider email <strong><%= @invitation.email %></strong>
+    and expires <%= l(@invitation.expires_at, format: :long) %>.
+  </p>
+  <% if @invitation.initial_role_key %>
+    <p class="mt-3 text-sm leading-6 text-slate-600">Requested initial access: <%= @invitation.initial_role_key.humanize %>.</p>
+  <% end %>
+  <%= button_to "Accept invitation", accept_invitation_path, method: :post,
+    class: "so-button so-button-primary mt-6" %>
+  <p class="mt-4 text-xs leading-5 text-slate-500">Acceptance creates or reactivates one membership. A previously removed membership requires an owner-reviewed policy action.</p>
+</section>

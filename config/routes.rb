@@ -1,6 +1,7 @@
 Rails.application.routes.draw do
   root "public_pages#home"
   get "sign-in", to: "public_pages#sign_in", as: :sign_in
+  get "invitations", to: "tenancy/invitation_entries#show", as: :invitation_entry
   post "auth/google", to: "identity/google_oauth#create", as: :google_oauth_authorization
   get "auth/google/callback", to: "identity/google_oauth#callback", as: :google_oauth_callback
   post "auth/github", to: "identity/github_oauth#create", as: :github_oauth_authorization
@@ -20,6 +21,20 @@ Rails.application.routes.draw do
   get "dashboard/organizations/:organization_slug/members",
     to: "tenancy/members#index",
     as: :organization_members
+  get "dashboard/organizations/:organization_slug/invitations",
+    to: "tenancy/invitations#index",
+    as: :organization_invitations
+  get "dashboard/organizations/:organization_slug/invitations/new",
+    to: "tenancy/invitations#new",
+    as: :new_organization_invitation
+  post "dashboard/organizations/:organization_slug/invitations",
+    to: "tenancy/invitations#create"
+  patch "dashboard/organizations/:organization_slug/invitations/:id/revoke",
+    to: "tenancy/invitations#revoke",
+    as: :revoke_organization_invitation
+  post "dashboard/organizations/:organization_slug/invitations/:id/resend",
+    to: "tenancy/invitations#resend",
+    as: :resend_organization_invitation
   get "dashboard/organizations/:organization_slug/members/:id",
     to: "tenancy/members#show",
     as: :organization_member
@@ -56,6 +71,12 @@ Rails.application.routes.draw do
     as: :organization_team_member
   get "dashboard/organizations/:organization_slug", to: "dashboard#index", as: :organization_dashboard
   get "onboarding", to: "onboarding#show", as: :onboarding
+  get "dashboard/invitations/review",
+    to: "tenancy/invitation_acceptances#show",
+    as: :invitation_review
+  post "dashboard/invitations/accept",
+    to: "tenancy/invitation_acceptances#create",
+    as: :accept_invitation
   get "dashboard/account/profile", to: "identity/profiles#show", as: :account_profile
   patch "dashboard/account/profile", to: "identity/profiles#update"
   get "dashboard/account/security", to: "identity/account_security#show", as: :account_security

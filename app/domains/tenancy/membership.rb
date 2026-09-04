@@ -14,6 +14,12 @@ module Tenancy
     has_many :team_membership_additions, class_name: "Tenancy::TeamMembership",
       foreign_key: :added_by_membership_id, inverse_of: :added_by_membership,
       dependent: :restrict_with_exception
+    has_many :sent_invitations, class_name: "Tenancy::Invitation",
+      foreign_key: :invited_by_membership_id, inverse_of: :invited_by_membership,
+      dependent: :restrict_with_exception
+    has_many :accepted_invitations, class_name: "Tenancy::Invitation",
+      foreign_key: :accepted_by_membership_id, inverse_of: :accepted_by_membership,
+      dependent: :restrict_with_exception
 
     validates :user_id, presence: true, uniqueness: { scope: :organization_id }
     validates :status, inclusion: { in: STATUSES }

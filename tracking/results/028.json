@@ -1,0 +1,82 @@
+{
+  "prompt_id": "028",
+  "title": "Implement secure organization invitations",
+  "status": "completed",
+  "started_at": "2026-09-04T06:58:43Z",
+  "finished_at": "2026-09-04T07:20:26Z",
+  "summary": "Implemented owner-managed, one-time organization invitations with HMAC-only token storage, encrypted browser handoff, exact verified-provider-email acceptance, atomic membership activation, revoke/resend/expiry lifecycle, HMAC-keyed rate limits, audit events, multi-invite onboarding, accessible screens and synchronous mail previews/fakes.",
+  "tests": [
+    {
+      "command": "RAILS_ENV=test DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_006_test QUEUE_DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_006_test_queue CACHE_DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_006_test_cache CABLE_DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_006_test_cable SEARCHOPS_PROCESS_ROLE=worker_default mise exec ruby@3.4.10 -- bin/rails test",
+      "outcome": "passed",
+      "notes": "326 runs, 2693 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "RAILS_ENV=test DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_006_test QUEUE_DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_006_test_queue CACHE_DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_006_test_cache CABLE_DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_006_test_cable SEARCHOPS_PROCESS_ROLE=worker_default mise exec ruby@3.4.10 -- bin/rails test:system",
+      "outcome": "passed",
+      "notes": "17 runs, 86 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "RAILS_ENV=test DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_006_test QUEUE_DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_006_test_queue CACHE_DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_006_test_cache CABLE_DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_006_test_cable SEARCHOPS_PROCESS_ROLE=worker_default mise exec ruby@3.4.10 -- bin/rails db:migrate:redo:primary VERSION=20260904073000",
+      "outcome": "passed",
+      "notes": "new invitation tables, indexes, checks and composite foreign keys reverted and reapplied"
+    },
+    {
+      "command": "SEARCHOPS_PROCESS_ROLE=worker_default mise exec ruby@3.4.10 -- bin/quality",
+      "outcome": "passed",
+      "notes": "12 checks, 347 Ruby files, 39 ERB files, zero Brakeman warnings and zero advisory findings"
+    },
+    {
+      "command": "mise exec ruby@3.4.10 -- bin/rails zeitwerk:check",
+      "outcome": "passed",
+      "notes": "application eager loaded successfully; mail preview directory was separately exercised by mailer test"
+    },
+    {
+      "command": "ruby tracking/scripts/prompt_tracker.rb validate",
+      "outcome": "passed",
+      "notes": "120 prompts; catalog and state consistent before completion"
+    }
+  ],
+  "files_changed": [
+    "README.md",
+    "app/controllers/tenancy",
+    "app/domains/identity/public.rb",
+    "app/domains/tenancy",
+    "app/jobs/tenancy/invitation_maintenance_job.rb",
+    "app/mailers/organization_invitation_mailer.rb",
+    "app/views/organization_invitation_mailer",
+    "app/views/tenancy/invitation_acceptances",
+    "app/views/tenancy/invitations",
+    "app/views/onboarding/show.html.erb",
+    "config/recurring.yml",
+    "config/routes.rb",
+    "db/migrate/20260904073000_create_secure_organization_invitations.rb",
+    "db/schema.rb",
+    "docs/03_ERD.md",
+    "docs/07_SECURITY_AND_THREAT_MODEL.md",
+    "docs/implementation/SECURE_INVITATIONS.md",
+    "test/database/invitation_acceptance_concurrency_test.rb",
+    "test/domain/tenancy/invitation_test.rb",
+    "test/jobs/tenancy/invitation_maintenance_job_test.rb",
+    "test/mailers/organization_invitation_mailer_test.rb",
+    "test/requests/invitation_flow_test.rb",
+    "test/system/invitation_social_login_test.rb"
+  ],
+  "migrations": [
+    "20260904073000 creates new invitations and invitation_rate_limit_buckets tables with lifecycle and normalization checks",
+    "partial uniqueness",
+    "HMAC digest validation",
+    "and same-organization composite foreign keys; no existing table rewrite"
+  ],
+  "decisions": [
+    "raw invitation tokens remain only in mail and a two-hour encrypted HttpOnly cookie; OAuth persists only the fixed review path; acceptance requires an active provider-verified matching email; removed memberships are never invitation-reactivated; initial role data is bounded intent until RBAC assignment exists"
+  ],
+  "risks": [
+    "Initial generic multi-database redo and TEST= system invocations were rejected by Rails command routing",
+    "then corrected namespaced/direct commands passed; effective application of initial role intent is deliberately deferred to the role-assignment prompt; synchronous mail delivery may require an owner resend after provider failure"
+  ],
+  "next_steps": [
+    "Prompt 029 implements the canonical permission registry and immutable system-role templates used by later invitation role assignment"
+  ],
+  "commit": null
+}

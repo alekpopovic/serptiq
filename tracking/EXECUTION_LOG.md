@@ -58,3 +58,5 @@
 | 2026-09-04T06:47:22Z | 026 | completed | Added durable invited active suspended and removed membership states; locked lifecycle operations; last-owner protection; immediate session revocation; hashed actor/subject audit; paginated member UI and retained attribution. |
 | 2026-09-04T06:47:58Z | 027 | started | Implement teams and team memberships |
 | 2026-09-04T06:58:02Z | 027 | completed | Added organization-scoped teams with composite tenant FKs; locked create rename archive and idempotent membership operations; bounded paginated UI/search; archive semantics and an immutable authorization-principals boundary. |
+| 2026-09-04T06:58:43Z | 028 | started | Implement secure organization invitations |
+| 2026-09-04T07:20:26Z | 028 | completed | Implemented owner-managed, one-time organization invitations with HMAC-only token storage, encrypted browser handoff, exact verified-provider-email acceptance, atomic membership activation, revoke/resend/expiry lifecycle, HMAC-keyed rate limits, audit events, multi-invite onboarding, accessible screens and synchronous mail previews/fakes. |

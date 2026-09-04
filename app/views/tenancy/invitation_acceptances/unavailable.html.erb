@@ -1,0 +1,13 @@
+<% content_for :title, "Invitation unavailable" %>
+
+<section class="so-card mx-auto max-w-2xl p-6 sm:p-8" aria-labelledby="invitation-unavailable-title">
+  <p class="so-eyebrow">Organization invitation</p>
+  <h1 id="invitation-unavailable-title" class="mt-2 text-3xl font-black tracking-tight text-slate-950">This invitation is unavailable</h1>
+  <p class="mt-4 text-sm leading-6 text-slate-600" role="alert">
+    The link may be invalid, expired, revoked, already used, or intended for another verified provider email.
+  </p>
+  <div class="mt-6 flex flex-wrap gap-3">
+    <%= link_to "Return to dashboard", dashboard_path, class: "so-button so-button-primary" %>
+    <%= link_to "Review linked providers", account_security_path, class: "so-button so-button-secondary" %>
+  </div>
+</section>

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_04_071000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_04_073000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -55,6 +55,52 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_071000) do
     t.check_constraint "jsonb_typeof(profile) = 'object'::text AND octet_length(profile::text) <= 8192", name: "identities_profile_object"
     t.check_constraint "provider::text = ANY (ARRAY['google'::character varying, 'github'::character varying]::text[])", name: "identities_provider_allowlist"
     t.check_constraint "revoked_at IS NULL OR revoked_at >= created_at", name: "identities_revocation_follows_creation"
+  end
+
+  create_table "invitation_rate_limit_buckets", id: false, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "expires_at", null: false
+    t.string "key_digest", limit: 64, null: false
+    t.integer "request_count", null: false
+    t.string "scope", limit: 32, null: false
+    t.datetime "updated_at", null: false
+    t.datetime "window_started_at", null: false
+    t.index ["expires_at"], name: "index_invitation_rate_limit_buckets_on_expires_at"
+    t.index ["scope", "key_digest", "window_started_at"], name: "index_invitation_rate_limits_on_identity", unique: true
+    t.check_constraint "expires_at > window_started_at", name: "invitation_rate_limits_bounded_window"
+    t.check_constraint "key_digest::text ~ '^[0-9a-f]{64}$'::text", name: "invitation_rate_limits_key_digest_format"
+    t.check_constraint "request_count > 0", name: "invitation_rate_limits_positive_count"
+    t.check_constraint "scope::text = ANY (ARRAY['issue_actor'::character varying, 'issue_destination'::character varying, 'accept_ip'::character varying]::text[])", name: "invitation_rate_limits_scope_allowlist"
+  end
+
+  create_table "invitations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "accepted_at"
+    t.uuid "accepted_by_membership_id"
+    t.datetime "created_at", null: false
+    t.citext "email", null: false
+    t.datetime "expired_at"
+    t.datetime "expires_at", null: false
+    t.string "initial_role_key", limit: 64
+    t.uuid "initial_scope_id"
+    t.string "initial_scope_type", limit: 32
+    t.uuid "invited_by_membership_id", null: false
+    t.uuid "organization_id", null: false
+    t.datetime "revoked_at"
+    t.string "status", limit: 24, default: "pending", null: false
+    t.datetime "superseded_at"
+    t.string "token_digest", limit: 64, null: false
+    t.datetime "updated_at", null: false
+    t.index ["email", "status", "expires_at"], name: "index_invitations_on_email_status_and_expiry"
+    t.index ["organization_id", "email"], name: "index_invitations_on_pending_org_and_email", unique: true, where: "((status)::text = 'pending'::text)"
+    t.index ["organization_id", "status", "created_at"], name: "index_invitations_on_org_status_and_created"
+    t.index ["organization_id"], name: "index_invitations_on_organization_id"
+    t.index ["token_digest"], name: "index_invitations_on_token_digest", unique: true
+    t.check_constraint "char_length(email::text) >= 3 AND char_length(email::text) <= 320 AND email::text = lower(btrim(email::text))", name: "invitations_email_format"
+    t.check_constraint "expires_at > created_at AND expires_at <= (created_at + 'P30D'::interval)", name: "invitations_expiry_window"
+    t.check_constraint "initial_role_key IS NULL AND initial_scope_type IS NULL AND initial_scope_id IS NULL OR (initial_role_key::text = ANY (ARRAY['organization_admin'::character varying, 'billing_admin'::character varying, 'seo_lead'::character varying, 'developer'::character varying, 'content_editor'::character varying, 'analyst'::character varying, 'viewer'::character varying]::text[])) AND initial_scope_type::text = 'Organization'::text AND initial_scope_id = organization_id", name: "invitations_initial_access_consistency"
+    t.check_constraint "status::text = 'pending'::text AND accepted_at IS NULL AND accepted_by_membership_id IS NULL AND revoked_at IS NULL AND expired_at IS NULL AND superseded_at IS NULL OR status::text = 'accepted'::text AND accepted_at IS NOT NULL AND accepted_by_membership_id IS NOT NULL AND revoked_at IS NULL AND expired_at IS NULL AND superseded_at IS NULL OR status::text = 'revoked'::text AND revoked_at IS NOT NULL AND accepted_at IS NULL AND accepted_by_membership_id IS NULL AND expired_at IS NULL AND superseded_at IS NULL OR status::text = 'expired'::text AND expired_at IS NOT NULL AND accepted_at IS NULL AND accepted_by_membership_id IS NULL AND revoked_at IS NULL AND superseded_at IS NULL OR status::text = 'superseded'::text AND superseded_at IS NOT NULL AND accepted_at IS NULL AND accepted_by_membership_id IS NULL AND revoked_at IS NULL AND expired_at IS NULL", name: "invitations_lifecycle_consistency"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'accepted'::character varying, 'revoked'::character varying, 'expired'::character varying, 'superseded'::character varying]::text[])", name: "invitations_status_allowlist"
+    t.check_constraint "token_digest::text ~ '^[0-9a-f]{64}$'::text", name: "invitations_token_digest_format"
   end
 
   create_table "memberships", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -248,6 +294,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_071000) do
   end
 
   add_foreign_key "identities", "users", on_delete: :restrict
+  add_foreign_key "invitations", "memberships", column: ["organization_id", "accepted_by_membership_id"], primary_key: ["organization_id", "id"], name: "fk_invitations_same_org_acceptor", on_delete: :restrict
+  add_foreign_key "invitations", "memberships", column: ["organization_id", "invited_by_membership_id"], primary_key: ["organization_id", "id"], name: "fk_invitations_same_org_inviter", on_delete: :restrict
+  add_foreign_key "invitations", "organizations", on_delete: :restrict
   add_foreign_key "memberships", "organizations", on_delete: :restrict
   add_foreign_key "memberships", "users", on_delete: :restrict
   add_foreign_key "oauth_transactions", "sessions", column: "link_session_id", on_delete: :restrict

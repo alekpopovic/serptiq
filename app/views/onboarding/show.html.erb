@@ -9,9 +9,14 @@
         A workspace invitation is waiting for this account. SearchOps will not create a separate organization before you review that invitation.
       </p>
       <p class="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
-        Invitation acceptance is completed by the secured invitation workflow. No membership has been inferred from your provider email.
+        Invitation acceptance starts from the one-time link in the invitation email. No membership has been inferred from your provider email.
       </p>
-      <%= link_to "Review local account details", account_profile_path, class: "so-button so-button-secondary mt-6" %>
+      <ul class="mt-5 space-y-2" aria-label="Pending invitations">
+        <% @pending_invitations.each do |invitation| %>
+          <li class="rounded-lg border border-slate-200 px-4 py-3 text-sm"><strong><%= invitation.organization_name %></strong> — check the invitation email before <%= l(invitation.expires_at, format: :long) %>.</li>
+        <% end %>
+      </ul>
+      <%= link_to "Review linked providers", account_security_path, class: "so-button so-button-secondary mt-6" %>
     </section>
   <% else %>
     <section class="so-card p-6 sm:p-8" aria-labelledby="new-onboarding-title">

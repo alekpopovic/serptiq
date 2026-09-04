@@ -1,0 +1,5 @@
+<h1>Join <%= @organization_name %> on SearchOps</h1>
+<p><%= @inviter_name %> invited this email address to join their organization.</p>
+<p><%= link_to "Review invitation", @invitation_url %></p>
+<p>This one-time link expires <%= l(@expires_at, format: :long) %>. Sign in with a provider that verifies this email address.</p>
+<p>If you were not expecting this invitation, you can ignore this message.</p>

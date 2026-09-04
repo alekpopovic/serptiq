@@ -7,8 +7,54 @@ module Tenancy
     def first_run_status(user:)
       raise ArgumentError, "active identity user is required" unless Identity::Public.active_user?(user)
 
-      kind = OrganizationNavigation.new.call(user: user).any? ? :returning : :no_organization
+      kind = if OrganizationNavigation.new.call(user: user).any?
+        :returning
+      elsif pending_invitation_summaries(user: user).any?
+        :invited
+      else
+        :no_organization
+      end
       FirstRunStatus.new(kind: kind)
+    end
+
+    def pending_invitation_summaries(user:)
+      emails = Identity::Public.verified_emails(user: user)
+      return [].freeze if emails.empty?
+
+      Invitation.includes(:organization)
+        .where(email: emails, status: "pending", expires_at: Time.current..)
+        .order(:expires_at, :id)
+        .map { |invitation|
+          InvitationSummary.new(
+            organization_name: invitation.organization.name,
+            expires_at: invitation.expires_at
+          )
+        }
+        .freeze
+    end
+
+    def issue_invitation(actor_membership:, email:, initial_role_key: nil)
+      IssueInvitation.new.call(
+        actor_membership: actor_membership,
+        email: email,
+        initial_role_key: initial_role_key
+      )
+    end
+
+    def review_invitation(token:, user:)
+      ReviewInvitation.new.call(token: token, user: user)
+    end
+
+    def accept_invitation(token:, user:, rate_limit_key:)
+      AcceptInvitation.new.call(token: token, user: user, rate_limit_key: rate_limit_key)
+    end
+
+    def revoke_invitation(actor_membership:, invitation_id:)
+      ManageInvitation.new.revoke(actor_membership: actor_membership, invitation_id: invitation_id)
+    end
+
+    def resend_invitation(actor_membership:, invitation_id:)
+      ManageInvitation.new.resend(actor_membership: actor_membership, invitation_id: invitation_id)
     end
 
     def create_organization(user:, name:, slug:, default_locale: "en", time_zone: "UTC", data_region: "global")

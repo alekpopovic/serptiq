@@ -19,6 +19,11 @@ default: &default
     queue: maintenance
     priority: 50
     schedule: every hour at minute 42
+  maintain_organization_invitations:
+    command: "Tenancy::InvitationMaintenanceJob.perform_later"
+    queue: maintenance
+    priority: 50
+    schedule: every hour at minute 52
 
 development:
   <<: *default

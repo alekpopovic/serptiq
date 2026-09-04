@@ -3,7 +3,7 @@
   "project": "SearchOps Rails Production MVP",
   "catalog_sha256": "79759682fd3d3fcc759bb98d814334f863f198f11079a390854809547a3b5bd8",
   "created_at": "2026-09-03T23:18:11Z",
-  "updated_at": "2026-09-04T06:58:02Z",
+  "updated_at": "2026-09-04T07:20:26Z",
   "current_prompt": null,
   "prompts": {
     "000": {
@@ -315,14 +315,14 @@
       "commit": null
     },
     "028": {
-      "status": "pending",
-      "attempts": 0,
-      "started_at": null,
-      "finished_at": null,
+      "status": "completed",
+      "attempts": 1,
+      "started_at": "2026-09-04T06:58:43Z",
+      "finished_at": "2026-09-04T07:20:26Z",
       "blocked_at": null,
       "block_reason": null,
-      "summary": null,
-      "result_file": null,
+      "summary": "Implemented owner-managed, one-time organization invitations with HMAC-only token storage, encrypted browser handoff, exact verified-provider-email acceptance, atomic membership activation, revoke/resend/expiry lifecycle, HMAC-keyed rate limits, audit events, multi-invite onboarding, accessible screens and synchronous mail previews/fakes.",
+      "result_file": "tracking/results/028.json",
       "commit": null
     },
     "029": {
@@ -1690,6 +1690,19 @@
       "prompt_id": "027",
       "summary": "Added organization-scoped teams with composite tenant FKs; locked create rename archive and idempotent membership operations; bounded paginated UI/search; archive semantics and an immutable authorization-principals boundary.",
       "result_file": "tracking/results/027.json",
+      "commit": null
+    },
+    {
+      "at": "2026-09-04T06:58:43Z",
+      "event": "started",
+      "prompt_id": "028"
+    },
+    {
+      "at": "2026-09-04T07:20:26Z",
+      "event": "completed",
+      "prompt_id": "028",
+      "summary": "Implemented owner-managed, one-time organization invitations with HMAC-only token storage, encrypted browser handoff, exact verified-provider-email acceptance, atomic membership activation, revoke/resend/expiry lifecycle, HMAC-keyed rate limits, audit events, multi-invite onboarding, accessible screens and synchronous mail previews/fakes.",
+      "result_file": "tracking/results/028.json",
       "commit": null
     }
   ]
