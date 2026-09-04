@@ -31,7 +31,7 @@ module Billing
 
     def call(raw_body:, headers:)
       verified = @provider.verify_webhook(raw_body: raw_body, headers: headers)
-      provider_event = @provider.parse_event(webhook: verified)
+      provider_event = @provider.identify_webhook(webhook: verified)
       checksum = Digest::SHA256.hexdigest(verified.raw_body)
       safe_headers = @header_filter.call(headers: headers, body_bytes: verified.raw_body.bytesize)
       ciphertext = @cipher.encrypt(verified.raw_body)
@@ -58,7 +58,7 @@ module Billing
           provider_event_id: provider_event.reference
         ) do |candidate|
           candidate.assign_attributes(
-            event_type: provider_event.name,
+            event_type: provider_event.event_type,
             payload_checksum: checksum,
             payload_ciphertext: ciphertext,
             request_headers: safe_headers,
@@ -75,7 +75,7 @@ module Billing
     end
 
     def register_duplicate(record, provider_event, checksum, received_at)
-      if record.payload_checksum == checksum && record.event_type == provider_event.name
+      if record.payload_checksum == checksum && record.event_type == provider_event.event_type
         record.update!(
           duplicate_count: record.duplicate_count + 1,
           last_received_at: [ record.last_received_at, received_at ].max

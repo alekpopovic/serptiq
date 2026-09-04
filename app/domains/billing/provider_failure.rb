@@ -4,7 +4,7 @@ module Billing
   class ProviderFailure < Shared::Public::ExternalProviderError
     CATEGORIES = %w[
       authentication authorization validation not_found rate_limited timeout unavailable malformed_response
-      signature_invalid unsupported_operation
+      signature_invalid unsupported_event unsupported_operation
     ].freeze
 
     attr_reader :provider, :operation, :category, :retry_after

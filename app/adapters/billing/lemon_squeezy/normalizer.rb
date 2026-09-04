@@ -145,6 +145,7 @@ module Billing
           access_state: access_state,
           billing_interval: mapping.billing_interval,
           currency: mapping.currency,
+          started_at: timestamp(attributes, "created_at"),
           trial_ends_at: optional_timestamp(attributes, "trial_ends_at"),
           cancel_at_period_end: canceled,
           canceled_at: canceled ? updated_at : nil,

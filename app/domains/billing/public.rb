@@ -77,7 +77,15 @@ module Billing
     end
 
     def prepare_webhook_projection(**attributes)
-      PrepareWebhookProjection.new.call(**attributes)
+      process_webhook_event(**attributes)
+    end
+
+    def process_webhook_event(processor: WebhookProjectionJob.processor_builder.call, **attributes)
+      processor.call(**attributes)
+    end
+
+    def replay_webhook_event(replayer:, **attributes)
+      replayer.call(**attributes)
     end
   end
 end

@@ -46,7 +46,8 @@ identity is therefore a visible conflict rather than an overwrite.
 The payload uses application-key-derived AES-256-GCM authenticated encryption and is checksum-verified after
 decryption. Only Billing code can request decryption. Normal inventory projections deliberately omit the event
 reference, raw body and ciphertext. States `pending`, `processing`, `processed`, `retryable` and `dead_letter`,
-plus replay/failure counters and timestamps, provide the foundation for Prompts 047 and 049.
+plus replay/failure counters and timestamps, feed the Prompt 047 projection described in
+`BILLING_WEBHOOK_PROJECTION.md` and provide the support foundation for Prompt 049.
 
 The event transaction commits before `Billing::WebhookProjectionJob` is enqueued. If enqueue fails, the
 endpoint returns 503 and a retry can enqueue the still-pending record. Projection/replay code must lock the

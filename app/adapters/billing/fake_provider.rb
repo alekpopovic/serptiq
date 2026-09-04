@@ -170,6 +170,26 @@ module Billing
       end
     end
 
+    def identify_webhook(webhook:)
+      require_type!(webhook, VerifiedWebhook, "identify_webhook")
+      perform("identify_webhook", body_bytes: webhook.raw_body.bytesize) do
+        payload = JSON.parse(webhook.raw_body)
+        event_type = ProviderEvent::NAMES.include?(payload.fetch("name")) ? payload.fetch("name") : "unknown"
+        WebhookEventIdentity.new(
+          provider: provider_key,
+          reference: payload.fetch("id"),
+          event_type: event_type
+        )
+      rescue JSON::ParserError, KeyError, ArgumentError => error
+        raise ProviderFailure.new(
+          provider: provider_key,
+          operation: "identify_webhook",
+          category: "malformed_response",
+          retryable: false
+        ), cause: error
+      end
+    end
+
     private
 
     def perform(operation, **safe_request)

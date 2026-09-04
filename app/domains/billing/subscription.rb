@@ -21,6 +21,9 @@ module Billing
     validates :plan_display_name_snapshot, presence: true, length: { maximum: 80 }
     validates :currency_snapshot, format: { with: /\A[A-Z]{3}\z/ }
     validates :pricing_kind_snapshot, inclusion: { in: PRICING_KINDS }
+    validates :provider_event_precedence,
+      numericality: { only_integer: true, greater_than_or_equal_to: 0 }
+    validates :provider_event_digest, format: { with: /\A[0-9a-f]{64}\z/ }, allow_nil: true
     validates :organization_id, uniqueness: {
       conditions: -> { where(ended_at: nil) },
       if: -> { ended_at.nil? }

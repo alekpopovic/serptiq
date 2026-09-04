@@ -9,6 +9,7 @@ module Shared
     ExternalProviderError = Errors::ExternalProviderError
     QuotaError = Errors::QuotaError
     RateLimitError = Errors::RateLimitError
+    TransientInfrastructureError = Errors::TransientInfrastructureError
     ValidationError = Errors::ValidationError
     FILTERED_VALUE = Redaction::FILTERED
 

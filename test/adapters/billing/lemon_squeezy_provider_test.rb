@@ -190,7 +190,7 @@ class LemonSqueezyProviderTest < ActiveSupport::TestCase
     bad_signature = OpenSSL::HMAC.hexdigest("SHA256", webhook_secret, tampered)
     malformed = provider.verify_webhook(raw_body: tampered, headers: { "x-signature" => bad_signature })
     error = assert_raises(Billing::ProviderFailure) { provider.parse_event(webhook: malformed) }
-    assert_equal "malformed_response", error.category
+    assert_equal "unsupported_event", error.category
   end
 
   test "accepts only exact bytes signed by the current or controlled previous secret" do

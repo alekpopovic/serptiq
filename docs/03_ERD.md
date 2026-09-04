@@ -519,6 +519,8 @@ foreign key from subscriptions, preventing a customer reference from crossing te
 | trial_ends_at / canceled_at | timestamptz nullable | provider lifecycle observations |
 | cancel_at_period_end | boolean | scheduled cancellation intent |
 | provider_updated_at / last_synced_at | timestamptz nullable | ordering and freshness |
+| provider_event_precedence | integer | deterministic equal-timestamp tie-break |
+| provider_event_digest | string nullable | SHA-256 of last applied provider event identity |
 
 Exactly one row with no `ended_at` exists per organization, including scheduled cancellation. Canonical status
 and application access state are separate. Provider-backed rows require a complete same-tenant customer and
@@ -541,9 +543,12 @@ accepted payload is encrypted with authenticated encryption and never replaced b
 | request_headers | jsonb | allowlisted media type, body length and user-agent digest only |
 | state | string | pending, processing, processed, retryable, dead_letter |
 | attempt_count / duplicate_count / conflict_count | integer | non-negative operational counters |
-| failure_code | string nullable | bounded internal classification, never exception text |
+| replay_count / parser_version | integer | retained operator attempts and local parser contract |
+| processing_result | string nullable | applied, stale, observed, ignored |
+| last_error_category | string nullable | bounded internal classification, never exception text |
 | received_at / last_received_at | timestamptz | first and latest accepted deliveries |
-| last_attempted_at / processed_at / failed_at | timestamptz nullable | lifecycle timestamps |
+| last_attempted_at / next_attempt_at / processed_at / failed_at | timestamptz nullable | lifecycle timestamps |
+| organization_id / subscription_id | uuid nullable | tenant-safe correlation set only after projection |
 | lock_version | integer | optimistic concurrency control |
 
 Unique `(provider, provider_environment, provider_event_id)`. Database checks enforce checksum shape,

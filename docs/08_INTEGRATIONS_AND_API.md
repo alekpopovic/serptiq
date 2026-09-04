@@ -137,8 +137,11 @@ Webhook receiver:
 
 The ingress portion is implemented at `POST /webhooks/billing/lemon_squeezy` with a 512 KiB exact-body limit,
 current/previous-secret HMAC rotation, encrypted durable payloads, logical-event/checksum conflict detection
-and commit-before-enqueue behavior. See `docs/implementation/BILLING_WEBHOOK_INGRESS.md`. Projection into
-canonical subscription state follows in Prompt 047.
+and commit-before-enqueue behavior. Prompt 047 adds versioned asynchronous parsing, exact customer/plan and
+checkout-correlation validation, row-locked stale-safe subscription projection, dead letters and confirmed
+replay. Order and subscription-invoice events are correlated observations; the accompanying Subscription
+object remains the authoritative lifecycle snapshot. See `docs/implementation/BILLING_WEBHOOK_INGRESS.md` and
+`docs/implementation/BILLING_WEBHOOK_PROJECTION.md`.
 
 Only subscribe to required event types. Retain enough raw data for troubleshooting under the declared retention policy.
 

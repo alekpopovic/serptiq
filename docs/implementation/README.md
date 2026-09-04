@@ -63,6 +63,8 @@ Do not pre-populate these reports with fictional implementation or test results.
   publication scheduling, checkout selection, grandfathering and deletion safety.
 - [`ENTITLEMENTS.md`](./ENTITLEMENTS.md) defines strict entitlement types, safe defaults,
   subscription/override precedence, request caching and tenant-safe diagnostics.
+- [`BILLING_WEBHOOK_PROJECTION.md`](./BILLING_WEBHOOK_PROJECTION.md) defines mapping-authenticated,
+  stale-safe canonical billing projection, retry/dead-letter behavior and controlled replay.
 - [`USAGE_LEDGER.md`](./USAGE_LEDGER.md) defines immutable weighted usage events, explicit metering
   windows, corrections, read models, retention and partitioning policy.
 - [`USAGE_QUOTAS.md`](./USAGE_QUOTAS.md) defines atomic quota admission, immutable limit snapshots,

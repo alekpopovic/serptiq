@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-09-04
 - Owners: Billing
-- Last reviewed: 2026-09-04 (Prompt 044)
+- Last reviewed: 2026-09-04 (Prompt 047)
 
 ## Context
 
@@ -33,3 +33,10 @@ Prompt 044 implements the Lemon Squeezy JSON:API adapter, exact store/product/va
 bounded TLS transport, short safe-GET retries, redacted request metrics and sanitized fixtures. Lemon Squeezy
 does not document provider-side mutation idempotency, so the adapter deliberately performs no automatic
 mutation retries and treats the hashed local key as correlation only.
+
+Prompt 046 persists verified exact bodies before enqueue. Prompt 047 projects those records through the
+provider-neutral event value: provider/customer/plan/environment mappings and signed checkout custom data are
+revalidated, canonical subscription rows are locked, provider timestamps plus a deterministic restrictive
+tie-break prevent stale downgrade, and entitlement context changes only with canonical access inputs. Order
+and subscription-invoice events are observations because Lemon Squeezy also emits an authoritative
+`subscription_updated` snapshot for lifecycle changes.

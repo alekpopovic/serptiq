@@ -4,7 +4,7 @@ module Billing
   SubscriptionSnapshot = Data.define(
     :provider, :customer_reference, :subscription_reference, :variant_reference,
     :status, :access_state, :billing_interval, :currency, :current_period_starts_at,
-    :current_period_ends_at, :trial_ends_at, :cancel_at_period_end, :canceled_at,
+    :current_period_ends_at, :trial_ends_at, :started_at, :cancel_at_period_end, :canceled_at,
     :ended_at, :provider_updated_at, :invoice_link, :metadata
   ) do
     BILLING_INTERVALS = %w[monthly annual custom].freeze
@@ -12,7 +12,7 @@ module Billing
     def initialize(provider:, customer_reference:, subscription_reference:, variant_reference:,
       status:, access_state:, billing_interval:, currency:, provider_updated_at:,
       current_period_starts_at: nil, current_period_ends_at: nil, trial_ends_at: nil,
-      cancel_at_period_end: false, canceled_at: nil, ended_at: nil, invoice_link: nil,
+      started_at: nil, cancel_at_period_end: false, canceled_at: nil, ended_at: nil, invoice_link: nil,
       metadata:)
       normalized_status = status.to_s
       normalized_access = access_state.to_s
@@ -56,6 +56,7 @@ module Billing
         current_period_starts_at: period_start,
         current_period_ends_at: period_end,
         trial_ends_at: ValueNormalization.time!(trial_ends_at, name: "trial end", optional: true),
+        started_at: ValueNormalization.time!(started_at || provider_updated_at, name: "subscription start"),
         cancel_at_period_end: cancel_at_period_end,
         canceled_at: cancellation,
         ended_at: ending,
@@ -83,6 +84,7 @@ module Billing
         current_period_starts_at: current_period_starts_at,
         current_period_ends_at: current_period_ends_at,
         trial_ends_at: trial_ends_at,
+        started_at: started_at,
         cancel_at_period_end: cancel_at_period_end,
         canceled_at: canceled_at,
         ended_at: ended_at,

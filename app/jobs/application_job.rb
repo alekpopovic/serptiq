@@ -36,7 +36,7 @@ class ApplicationJob < ActiveJob::Base
   around_perform :with_current_reset
   around_perform :with_observability_context
 
-  retry_on Shared::JobErrors::Transient,
+  retry_on Shared::Public::TransientInfrastructureError,
     ActiveRecord::Deadlocked,
     ActiveRecord::LockWaitTimeout,
     wait: :polynomially_longer,

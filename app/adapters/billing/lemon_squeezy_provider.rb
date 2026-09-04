@@ -19,7 +19,10 @@ module Billing
       "subscription_unpaused" => "subscription.unpaused",
       "subscription_payment_success" => "payment.succeeded",
       "subscription_payment_failed" => "payment.failed",
-      "subscription_payment_recovered" => "payment.recovered"
+      "subscription_payment_recovered" => "payment.recovered",
+      "subscription_payment_refunded" => "payment.refunded",
+      "order_created" => "order.created",
+      "order_refunded" => "order.refunded"
     }.freeze
 
     def self.from_settings(settings: Rails.application.config.x.searchops, environment: Rails.env.to_s,
@@ -251,8 +254,11 @@ module Billing
         meta.fetch("event_name"), name: "webhook event name", maximum: 64,
         pattern: ValueNormalization::KEY_PATTERN
       )
-      canonical_name = WEBHOOK_EVENTS.fetch(event_name) do
-        raise ArgumentError, "webhook event is unsupported"
+      canonical_name = WEBHOOK_EVENTS[event_name]
+      unless canonical_name
+        raise ProviderFailure.new(
+          provider: provider_key, operation: "parse_event", category: "unsupported_event", retryable: false
+        )
       end
       validate_event_environment!(meta, attributes)
       ProviderEvent.new(
@@ -263,12 +269,41 @@ module Billing
         customer_reference: optional_numeric(attributes["customer_id"], "customer reference"),
         subscription_reference: event_subscription_reference(data, attributes),
         variant_reference: optional_numeric(attributes["variant_id"], "variant reference"),
-        metadata: event_metadata(meta, event_name)
+        metadata: event_metadata(meta, event_name),
+        subscription_snapshot: subscription_snapshot(payload, data)
       )
+    rescue ProviderFailure
+      raise
     rescue JSON::ParserError, JSON::NestingError, KeyError, ArgumentError
       raise ProviderFailure.new(
         provider: provider_key,
         operation: "parse_event",
+        category: "malformed_response",
+        retryable: false
+      ), cause: nil
+    end
+
+    def identify_webhook(webhook:)
+      require_type!(webhook, VerifiedWebhook, "identify_webhook")
+      require_provider!(webhook.provider, "identify_webhook")
+      payload = JSON.parse(webhook.raw_body, max_nesting: 32)
+      meta = required_hash(payload, "meta")
+      data = required_hash(payload, "data")
+      attributes = required_hash(data, "attributes")
+      event_name = ValueNormalization.string!(
+        meta.fetch("event_name"), name: "webhook event name", maximum: 64,
+        pattern: ValueNormalization::KEY_PATTERN
+      )
+      validate_event_environment!(meta, attributes)
+      WebhookEventIdentity.new(
+        provider: provider_key,
+        reference: event_reference(event_name, data, attributes),
+        event_type: WEBHOOK_EVENTS.fetch(event_name, "unknown")
+      )
+    rescue JSON::ParserError, JSON::NestingError, KeyError, ArgumentError
+      raise ProviderFailure.new(
+        provider: provider_key,
+        operation: "identify_webhook",
         category: "malformed_response",
         retryable: false
       ), cause: nil
@@ -380,6 +415,12 @@ module Billing
         attributes["subscription_id"]
       end
       optional_numeric(value, "subscription reference")
+    end
+
+    def subscription_snapshot(payload, data)
+      return unless data["type"] == "subscriptions"
+
+      @normalizer.subscription(payload)
     end
 
     def event_reference(event_name, data, attributes)

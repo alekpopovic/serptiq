@@ -184,6 +184,8 @@ domain_operations:
   Billing::Public.receive_webhook: { kind: system, reason: exact_raw_body_provider_signature_boundary }
   Billing::Public.webhook_events: { kind: system, reason: support_visibility_foundation }
   Billing::Public.prepare_webhook_projection: { kind: system, reason: durable_verified_event_dispatch }
+  Billing::Public.process_webhook_event: { kind: system, reason: idempotent_canonical_billing_projection }
+  Billing::Public.replay_webhook_event: { kind: system, reason: confirmed_dead_letter_recovery }
   Entitlements::Public.validate_catalog: { kind: system, reason: governed_entitlement_definition_validation }
   Entitlements::Public.sync_catalog: { kind: system, reason: operator_entitlement_catalog_synchronization }
   Entitlements::Public.catalog_entries: { kind: context, reason: public_commercial_catalog_projection }

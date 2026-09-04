@@ -4,7 +4,7 @@ module Billing
   class Provider
     OPERATIONS = %w[
       create_customer create_checkout customer_portal fetch_subscription change_subscription
-      cancel_subscription resume_subscription reconciliation_page verify_webhook parse_event
+      cancel_subscription resume_subscription reconciliation_page verify_webhook identify_webhook parse_event
     ].freeze
     RAW_POLICIES = {
       "create_customer" => [ "POST", 0, "required" ],
@@ -16,6 +16,7 @@ module Billing
       "resume_subscription" => [ "PATCH", 1, "required" ],
       "reconciliation_page" => [ "GET", 2, "none" ],
       "verify_webhook" => [ "LOCAL", 0, "provider_reference" ],
+      "identify_webhook" => [ "LOCAL", 0, "provider_reference" ],
       "parse_event" => [ "LOCAL", 0, "provider_reference" ]
     }.freeze
     OPERATION_POLICIES = RAW_POLICIES.to_h do |operation, (method, retries, idempotency)|
