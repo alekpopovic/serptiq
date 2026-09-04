@@ -59,6 +59,10 @@ Fast, default, full, security and browser test commands and their deterministic
 support contracts are documented in
 [`docs/implementation/TESTING.md`](./docs/implementation/TESTING.md).
 
+CI jobs, the required branch-protection check, immutable action policy and
+local reproduction commands are documented in
+[`docs/implementation/CI.md`](./docs/implementation/CI.md).
+
 The initial Rails scaffold was generated outside the repository and merged without overwriting the blueprint:
 
 ```bash

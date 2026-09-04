@@ -1,0 +1,90 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+image="${SEARCHOPS_CI_IMAGE:-searchops-ci:local}"
+build_sha="${SEARCHOPS_CI_BUILD_SHA:-local}"
+build_timestamp="${SEARCHOPS_CI_BUILD_TIMESTAMP:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
+database_host="${SEARCHOPS_CI_DATABASE_HOST:-host.docker.internal}"
+database_port="${SEARCHOPS_CI_DATABASE_PORT:-5432}"
+database_prefix="${SEARCHOPS_CI_DATABASE_PREFIX:-searchops_container_ci}"
+database_password="${SEARCHOPS_CI_DATABASE_PASSWORD:-}"
+docker_network="${SEARCHOPS_CI_DOCKER_NETWORK:-}"
+http_port="${SEARCHOPS_CI_HTTP_PORT:-3080}"
+container_name="searchops-ci-smoke-${GITHUB_RUN_ID:-local}-$$"
+artifact_directory="${root}/tmp/container-boot"
+
+mkdir -p "${artifact_directory}"
+
+cleanup() {
+  status=$?
+  if docker inspect "${container_name}" >/dev/null 2>&1; then
+    if (( status != 0 )); then
+      docker logs "${container_name}" >"${artifact_directory}/container.log" 2>&1 || true
+    fi
+    docker rm -f "${container_name}" >/dev/null 2>&1 || true
+  fi
+  exit "${status}"
+}
+trap cleanup EXIT
+
+if [[ -n "${database_password}" ]]; then
+  database_authority="postgres:${database_password}@${database_host}:${database_port}"
+else
+  database_authority="postgres@${database_host}:${database_port}"
+fi
+
+network_arguments=()
+if [[ -n "${docker_network}" ]]; then
+  network_arguments=(--network "${docker_network}")
+fi
+
+docker build \
+  --build-arg "SEARCHOPS_BUILD_SHA=${build_sha}" \
+  --build-arg "SEARCHOPS_BUILD_TIMESTAMP=${build_timestamp}" \
+  --tag "${image}" \
+  "${root}"
+
+docker run --detach \
+  --name "${container_name}" \
+  --add-host host.docker.internal:host-gateway \
+  "${network_arguments[@]}" \
+  --publish "127.0.0.1:${http_port}:80" \
+  --env SEARCHOPS_APPLICATION_ORIGIN=https://ci.searchops.example \
+  --env "SEARCHOPS_RELEASE_SHA=${build_sha}" \
+  --env "SEARCHOPS_BUILD_TIMESTAMP=${build_timestamp}" \
+  --env SEARCHOPS_DATABASE_CONNECTION_BUDGET=25 \
+  --env SEARCHOPS_DATABASE_ROLE=web \
+  --env SEARCHOPS_PROCESS_ROLE=web \
+  --env "DATABASE_URL=postgresql://${database_authority}/${database_prefix}" \
+  --env "QUEUE_DATABASE_URL=postgresql://${database_authority}/${database_prefix}_queue" \
+  --env "CACHE_DATABASE_URL=postgresql://${database_authority}/${database_prefix}_cache" \
+  --env "CABLE_DATABASE_URL=postgresql://${database_authority}/${database_prefix}_cable" \
+  --env SEARCHOPS_OBJECT_STORAGE_BUCKET=searchops-ci-placeholder \
+  --env SEARCHOPS_OBJECT_STORAGE_REGION=us-east-1 \
+  --env SECRET_KEY_BASE=ci-smoke-only-secret-key-base-not-for-production \
+  --env ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEYS=ci-smoke-only-primary-key \
+  --env ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY=ci-smoke-only-deterministic-key \
+  --env ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT=ci-smoke-only-derivation-salt \
+  "${image}" >/dev/null
+
+runtime_uid="$(docker exec "${container_name}" id -u)"
+if [[ "${runtime_uid}" == "0" ]]; then
+  echo "Production container unexpectedly runs as root" >&2
+  exit 1
+fi
+
+for attempt in $(seq 1 45); do
+  status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
+    --header 'Host: ci.searchops.example' \
+    --header 'X-Forwarded-Proto: https' \
+    "http://127.0.0.1:${http_port}/up" || true)"
+  if [[ "${status}" == "200" ]]; then
+    echo "Production container passed: /up returned 200 as UID ${runtime_uid}"
+    exit 0
+  fi
+  sleep 1
+done
+
+echo "Production container failed to return 200 from /up within 45 seconds" >&2
+exit 1

@@ -33,5 +33,7 @@ Do not pre-populate these reports with fictional implementation or test results.
   time-bounded advisory waiver process.
 - [`TESTING.md`](./TESTING.md) defines suite tiers, deterministic support,
   tenant/provider boundaries and failure artifacts.
+- [`CI.md`](./CI.md) defines the merge gate, immutable dependency pins,
+  branch-protection settings and local job equivalents.
 - [`../../tracking/README.md`](../../tracking/README.md) defines prompt evidence,
   recovery and state integrity.

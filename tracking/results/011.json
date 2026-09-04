@@ -1,0 +1,70 @@
+{
+  "prompt_id": "011",
+  "title": "Create GitHub Actions continuous integration",
+  "status": "completed",
+  "started_at": "2026-09-04T02:35:42Z",
+  "finished_at": "2026-09-04T02:49:20Z",
+  "summary": "Added a least-privilege split GitHub Actions pipeline with immutable action and service pins lockfile caching tracker quality Rails security browser and production image gates bounded failure artifacts branch-aware concurrency an aggregate merge check automated policy validation and local reproduction documentation",
+  "tests": [
+    {
+      "command": "mise exec ruby@3.4.10 -- bin/quality",
+      "outcome": "passed",
+      "notes": "12 quality lint asset architecture workflow and security checks passed"
+    },
+    {
+      "command": "mise exec ruby@3.4.10 -- bundle exec rails test",
+      "outcome": "passed",
+      "notes": "64 runs 400 assertions 0 failures 0 errors"
+    },
+    {
+      "command": "mise exec ruby@3.4.10 -- bundle exec rails test:system",
+      "outcome": "passed",
+      "notes": "3 runs 11 assertions 0 failures 0 errors"
+    },
+    {
+      "command": "mise exec ruby@3.4.10 -- bundle exec rails test test/security test/adapters/contracts",
+      "outcome": "passed",
+      "notes": "5 runs 16 assertions 0 failures 0 errors"
+    },
+    {
+      "command": "mise exec ruby@3.4.10 -- bin/bundler-audit check --update",
+      "outcome": "passed",
+      "notes": "advisory database updated and no vulnerabilities found"
+    },
+    {
+      "command": "script/ci_container_smoke",
+      "outcome": "passed",
+      "notes": "production image built from pinned base and /up returned 200 as UID 1000"
+    },
+    {
+      "command": "ruby tracking/scripts/test_prompt_tracker.rb",
+      "outcome": "passed",
+      "notes": "12 runs 122 assertions 0 failures 0 errors"
+    }
+  ],
+  "files_changed": [
+    ".github/workflows/ci.yml",
+    ".node-version",
+    "Dockerfile",
+    "README.md",
+    "bin/quality",
+    "docs/implementation/CI.md",
+    "docs/implementation/README.md",
+    "script/ci_container_smoke",
+    "script/support/ci_workflow_validator.rb",
+    "script/validate_ci_workflow",
+    "test/quality/ci_workflow_validator_test.rb",
+    "tracking/EXECUTION_LOG.md",
+    "tracking/execution_log.jsonl",
+    "tracking/state.json"
+  ],
+  "migrations": [],
+  "decisions": [],
+  "risks": [
+    "GitHub-hosted execution has not yet been observed and repository administrators must enable the documented CI / Required CI branch protection check"
+  ],
+  "next_steps": [
+    "Execute prompt 012"
+  ],
+  "commit": null
+}

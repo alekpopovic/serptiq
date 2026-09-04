@@ -1,0 +1,18 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "pathname"
+require_relative "support/ci_workflow_validator"
+
+root = Pathname(__dir__).join("..").expand_path
+path = root.join(".github/workflows/ci.yml")
+errors = Searchops::Quality::CiWorkflowValidator.new(path: path).validate
+
+if errors.empty?
+  puts "GitHub Actions policy: passed (#{path.relative_path_from(root)})"
+  exit 0
+end
+
+warn "GitHub Actions policy: #{errors.count} error(s)"
+errors.each { |error| warn "- #{error}" }
+exit 1

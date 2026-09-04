@@ -9,7 +9,7 @@
 
 # Make sure RUBY_VERSION matches the Ruby version in .ruby-version
 ARG RUBY_VERSION=3.4.10
-FROM docker.io/library/ruby:$RUBY_VERSION-slim AS base
+FROM docker.io/library/ruby:$RUBY_VERSION-slim@sha256:9d50d98e61ccbe4f1ef436349911e09b53c42a00364bcd3bda6ac107abc29528 AS base
 
 # Rails app lives here
 WORKDIR /rails
@@ -24,7 +24,7 @@ RUN apt-get update -qq && \
 ENV RAILS_ENV="production" \
     BUNDLE_DEPLOYMENT="1" \
     BUNDLE_PATH="/usr/local/bundle" \
-    BUNDLE_WITHOUT="development" \
+    BUNDLE_WITHOUT="development:test" \
     LD_PRELOAD="/usr/local/lib/libjemalloc.so"
 
 # Throw-away build stage to reduce size of final image
@@ -51,14 +51,31 @@ COPY . .
 # -j 1 disable parallel compilation to avoid a QEMU bug: https://github.com/rails/bootsnap/issues/495
 RUN bundle exec bootsnap precompile -j 1 app/ lib/
 
-# Precompiling assets for production without requiring secret RAILS_MASTER_KEY
-RUN SECRET_KEY_BASE_DUMMY=1 ./bin/rails assets:precompile
-
-
-
+# These values only satisfy fail-closed boot validation while assets compile.
+# They are non-provider, non-production placeholders and are not runtime defaults.
+RUN SEARCHOPS_APPLICATION_ORIGIN=https://build.searchops.example \
+    SEARCHOPS_RELEASE_SHA=asset-build \
+    SEARCHOPS_DATABASE_CONNECTION_BUDGET=25 \
+    SEARCHOPS_OBJECT_STORAGE_BUCKET=searchops-build-placeholder \
+    SEARCHOPS_OBJECT_STORAGE_REGION=us-east-1 \
+    DATABASE_URL=postgresql://build@db.invalid/searchops_build \
+    QUEUE_DATABASE_URL=postgresql://build@db.invalid/searchops_build_queue \
+    CACHE_DATABASE_URL=postgresql://build@db.invalid/searchops_build_cache \
+    CABLE_DATABASE_URL=postgresql://build@db.invalid/searchops_build_cable \
+    SECRET_KEY_BASE=ci-build-only-secret-key-base-not-for-runtime \
+    ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEYS=ci-build-only-primary-key \
+    ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY=ci-build-only-deterministic-key \
+    ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT=ci-build-only-derivation-salt \
+    ./bin/rails assets:precompile
 
 # Final stage for app image
 FROM base
+
+ARG SEARCHOPS_BUILD_SHA=unknown
+ARG SEARCHOPS_BUILD_TIMESTAMP=unknown
+LABEL org.opencontainers.image.revision="$SEARCHOPS_BUILD_SHA" \
+      org.opencontainers.image.created="$SEARCHOPS_BUILD_TIMESTAMP" \
+      org.opencontainers.image.source="https://github.com/alekpopovic/searchops"
 
 # Run and own only the runtime files as a non-root user for security
 RUN groupadd --system --gid 1000 rails && \

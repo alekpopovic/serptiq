@@ -4,163 +4,256 @@ on:
   pull_request:
   push:
     branches: [ main ]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != format('refs/heads/{0}', github.event.repository.default_branch) }}
+
+env:
+  RAILS_ENV: test
+  SEARCHOPS_PROCESS_ROLE: worker_default
 
 jobs:
   tracker:
+    name: Tracker contracts
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-
+    timeout-minutes: 5
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
       - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+      - name: Validate tracker and its mutation contract
+        run: |
+          ruby tracking/scripts/prompt_tracker.rb validate
+          ruby tracking/scripts/test_prompt_tracker.rb
+          ruby script/check_adr_index
 
-      - name: Validate prompt tracker without mutating state
-        run: ruby tracking/scripts/prompt_tracker.rb validate
-
-      - name: Test prompt tracker in isolated temporary repositories
-        run: ruby tracking/scripts/test_prompt_tracker.rb
-
-      - name: Check ADR index and required metadata
-        run: ruby script/check_adr_index
-
-  scan_ruby:
+  quality:
+    name: Quality and static analysis
     runs-on: ubuntu-latest
-
+    timeout-minutes: 15
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Ruby and locked gems
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
         with:
           bundler-cache: true
-
-      - name: Scan for common Rails security vulnerabilities using static analysis
-        run: bin/brakeman --no-pager
-
-      - name: Scan for known security vulnerabilities in gems used
-        run: bin/bundler-audit
-
-  scan_js:
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
+      - name: Set up pinned Node.js for module syntax checks
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
-          bundler-cache: true
-
-      - name: Scan for security vulnerabilities in JavaScript dependencies
-        run: bin/importmap audit
-
-  lint:
-    runs-on: ubuntu-latest
-    env:
-      RUBOCOP_CACHE_ROOT: tmp/rubocop
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
-        with:
-          bundler-cache: true
-
-      - name: Prepare RuboCop cache
-        uses: actions/cache@v4
-        env:
-          DEPENDENCIES_HASH: ${{ hashFiles('.ruby-version', '**/.rubocop.yml', '**/.rubocop_todo.yml', 'Gemfile.lock') }}
-        with:
-          path: ${{ env.RUBOCOP_CACHE_ROOT }}
-          key: rubocop-${{ runner.os }}-${{ env.DEPENDENCIES_HASH }}-${{ github.ref_name == github.event.repository.default_branch && github.run_id || 'default' }}
-          restore-keys: |
-            rubocop-${{ runner.os }}-${{ env.DEPENDENCIES_HASH }}-
-
-      - name: Lint code for consistent style
-        run: bin/rubocop -f github
+          node-version-file: .node-version
+      - name: Run deterministic quality gates
+        run: bin/quality
 
   test:
+    name: Rails tests
     runs-on: ubuntu-latest
-
+    timeout-minutes: 15
     services:
       postgres:
-        image: postgres
+        image: postgres:17-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: searchops_test
         ports:
           - 5432:5432
-        options: --health-cmd="pg_isready" --health-interval=10s --health-timeout=5s --health-retries=3
-
+        options: >-
+          --health-cmd="pg_isready -U postgres -d searchops_test"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/searchops_test
+      QUEUE_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/searchops_test_queue
+      CACHE_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/searchops_test_cache
+      CABLE_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/searchops_test_cable
     steps:
-      - name: Install packages
+      - name: Install runtime packages
         run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libpq-dev libvips
-
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Ruby and locked gems
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
         with:
           bundler-cache: true
+      - name: Prepare all PostgreSQL schemas
+        run: bin/rails db:prepare
+      - name: Run non-browser suite
+        run: bin/rails test
 
-      - name: Run tests
-        env:
-          RAILS_ENV: test
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/searchops_test
-          QUEUE_DATABASE_URL: postgres://postgres:postgres@localhost:5432/searchops_test_queue
-          CACHE_DATABASE_URL: postgres://postgres:postgres@localhost:5432/searchops_test_cache
-          CABLE_DATABASE_URL: postgres://postgres:postgres@localhost:5432/searchops_test_cable
-          # RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
-        run: bin/rails db:test:prepare test
-
-  system-test:
+  security:
+    name: Security and provider contracts
     runs-on: ubuntu-latest
-
+    timeout-minutes: 15
     services:
       postgres:
-        image: postgres
+        image: postgres:17-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
         env:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: searchops_security_test
         ports:
           - 5432:5432
-        options: --health-cmd="pg_isready" --health-interval=10s --health-timeout=5s --health-retries=3
-
+        options: >-
+          --health-cmd="pg_isready -U postgres -d searchops_security_test"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/searchops_security_test
+      QUEUE_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/searchops_security_test_queue
+      CACHE_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/searchops_security_test_cache
+      CABLE_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/searchops_security_test_cable
     steps:
-      - name: Install packages
+      - name: Install runtime packages
         run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libpq-dev libvips
-
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Ruby and locked gems
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
         with:
           bundler-cache: true
+      - name: Update advisory data and scan dependencies
+        run: |
+          bin/bundler-audit check --update
+          bin/importmap audit
+      - name: Run Rails static analysis
+        run: bin/brakeman --quiet --config-file config/brakeman.yml
+      - name: Prepare PostgreSQL and run security contracts
+        run: |
+          bin/rails db:prepare
+          bin/rails test test/security test/adapters/contracts
 
-      - name: Run System Tests
+  system_test:
+    name: Browser system tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    services:
+      postgres:
+        image: postgres:17-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
         env:
-          RAILS_ENV: test
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432/searchops_test
-          QUEUE_DATABASE_URL: postgres://postgres:postgres@localhost:5432/searchops_test_queue
-          CACHE_DATABASE_URL: postgres://postgres:postgres@localhost:5432/searchops_test_cache
-          CABLE_DATABASE_URL: postgres://postgres:postgres@localhost:5432/searchops_test_cable
-          # RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
-        run: bin/rails db:test:prepare test:system
-
-      - name: Keep browser diagnostics from failed system tests
-        uses: actions/upload-artifact@v4
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: searchops_system_test
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d searchops_system_test"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    env:
+      DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/searchops_system_test
+      QUEUE_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/searchops_system_test_queue
+      CACHE_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/searchops_system_test_cache
+      CABLE_DATABASE_URL: postgres://postgres:postgres@127.0.0.1:5432/searchops_system_test_cable
+    steps:
+      - name: Install runtime packages
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y libpq-dev libvips
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Ruby and locked gems
+        uses: ruby/setup-ruby@95ef2b042f9d7a56d8268cba8559e2842e2ad01b # v1.321.0
+        with:
+          bundler-cache: true
+      - name: Prepare all PostgreSQL schemas
+        run: bin/rails db:prepare
+      - name: Run browser suite
+        run: bin/rails test:system
+      - name: Upload failure-only browser diagnostics
         if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         with:
-          name: system-test-artifacts
-          path: ${{ github.workspace }}/tmp/system-test-artifacts
+          name: system-test-artifacts-${{ github.run_id }}
+          path: tmp/system-test-artifacts
           if-no-files-found: ignore
           retention-days: 3
+
+  production_container:
+    name: Production image boot
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    services:
+      postgres:
+        image: postgres:17-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: searchops_container_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd="pg_isready -U postgres -d searchops_container_ci"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=10
+    steps:
+      - name: Install PostgreSQL client
+        run: sudo apt-get update && sudo apt-get install --no-install-recommends -y postgresql-client
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Create isolated container-smoke databases
+        env:
+          PGPASSWORD: postgres
+        run: |
+          createdb -h 127.0.0.1 -U postgres searchops_container_ci_queue
+          createdb -h 127.0.0.1 -U postgres searchops_container_ci_cache
+          createdb -h 127.0.0.1 -U postgres searchops_container_ci_cable
+      - name: Build and boot the production image
+        env:
+          SEARCHOPS_CI_BUILD_SHA: ${{ github.sha }}
+          SEARCHOPS_CI_DATABASE_PASSWORD: postgres
+          SEARCHOPS_CI_DATABASE_PORT: "5432"
+          SEARCHOPS_CI_DATABASE_PREFIX: searchops_container_ci
+          SEARCHOPS_CI_HTTP_PORT: "3080"
+          SEARCHOPS_CI_IMAGE: searchops-ci:${{ github.sha }}
+        run: |
+          mkdir -p tmp/container-boot
+          script/ci_container_smoke 2>&1 | tee tmp/container-boot/smoke.log
+      - name: Upload failure-only container diagnostics
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: container-boot-artifacts-${{ github.run_id }}
+          path: tmp/container-boot
+          if-no-files-found: ignore
+          retention-days: 3
+
+  required:
+    name: Required CI
+    if: always()
+    needs: [ tracker, quality, test, security, system_test, production_container ]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Require every CI job to pass
+        env:
+          TRACKER_RESULT: ${{ needs.tracker.result }}
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          TEST_RESULT: ${{ needs.test.result }}
+          SECURITY_RESULT: ${{ needs.security.result }}
+          SYSTEM_RESULT: ${{ needs.system_test.result }}
+          CONTAINER_RESULT: ${{ needs.production_container.result }}
+        run: |
+          for result in "$TRACKER_RESULT" "$QUALITY_RESULT" "$TEST_RESULT" "$SECURITY_RESULT" "$SYSTEM_RESULT" "$CONTAINER_RESULT"; do
+            test "$result" = "success" || exit 1
+          done

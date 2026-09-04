@@ -9,6 +9,7 @@ steps = [
   [ "ERB templates", %w[bundle exec erb_lint --lint-all] ],
   [ "JavaScript modules", %w[ruby script/validate_javascript] ],
   [ "YAML and JSON", %w[ruby script/validate_data_files] ],
+  [ "GitHub Actions policy", %w[ruby script/validate_ci_workflow] ],
   [ "Blueprint contracts", %w[ruby tracking/scripts/validate_blueprint.rb] ],
   [ "Architecture boundaries", %w[ruby script/check_architecture] ],
   [ "ADR index", %w[ruby script/check_adr_index] ],
