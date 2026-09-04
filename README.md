@@ -63,6 +63,10 @@ CI jobs, the required branch-protection check, immutable action policy and
 local reproduction commands are documented in
 [`docs/implementation/CI.md`](./docs/implementation/CI.md).
 
+Stable public error codes, request/job correlation, structured event naming
+and logging prohibitions are documented in
+[`docs/implementation/OBSERVABILITY.md`](./docs/implementation/OBSERVABILITY.md).
+
 The initial Rails scaffold was generated outside the repository and merged without overwriting the blueprint:
 
 ```bash

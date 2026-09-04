@@ -35,5 +35,7 @@ Do not pre-populate these reports with fictional implementation or test results.
   tenant/provider boundaries and failure artifacts.
 - [`CI.md`](./CI.md) defines the merge gate, immutable dependency pins,
   branch-protection settings and local job equivalents.
+- [`OBSERVABILITY.md`](./OBSERVABILITY.md) defines public error codes,
+  structured event fields, correlation lifecycle and prohibited log data.
 - [`../../tracking/README.md`](../../tracking/README.md) defines prompt evidence,
   recovery and state integrity.

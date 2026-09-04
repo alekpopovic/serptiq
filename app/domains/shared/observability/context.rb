@@ -1,0 +1,55 @@
+# frozen_string_literal: true
+
+module Shared
+  module Observability
+    class Context < ActiveSupport::CurrentAttributes
+      CORRELATION_ID_PATTERN = /\A[a-zA-Z0-9][a-zA-Z0-9_.:-]{0,127}\z/
+      RESOURCE_ID_PATTERN = /\A[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}\z/i
+      HASH_PATTERN = /\A[0-9a-f]{24}\z/
+      FIELDS = %i[
+        request_id trace_id job_id release environment organization_id_hash project_id scan_id
+      ].freeze
+
+      attribute(*FIELDS)
+
+      class << self
+        def snapshot
+          instance.attributes.compact.transform_keys(&:to_s).freeze
+        end
+
+        def normalize_correlation_id(value, fallback: nil)
+          candidate = value.to_s
+          return candidate.freeze if CORRELATION_ID_PATTERN.match?(candidate)
+
+          fallback
+        end
+
+        def attach_resources(organization_id: nil, project_id: nil, scan_id: nil, identifier_hasher: nil)
+          if organization_id
+            hasher = identifier_hasher || IdentifierHasher.default
+            self.organization_id_hash = normalize_organization_hash(hasher.call(organization_id))
+          end
+          self.project_id = normalize_resource_id(:project_id, project_id) if project_id
+          self.scan_id = normalize_resource_id(:scan_id, scan_id) if scan_id
+          snapshot
+        end
+
+        private
+
+        def normalize_organization_hash(value)
+          candidate = value.to_s
+          raise ArgumentError, "organization hash must be a safe keyed digest" unless HASH_PATTERN.match?(candidate)
+
+          candidate.freeze
+        end
+
+        def normalize_resource_id(name, value)
+          candidate = value.respond_to?(:id) ? value.id.to_s : value.to_s
+          raise ArgumentError, "#{name} must be an application UUID" unless RESOURCE_ID_PATTERN.match?(candidate)
+
+          candidate.downcase.freeze
+        end
+      end
+    end
+  end
+end

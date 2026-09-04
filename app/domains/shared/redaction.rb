@@ -21,10 +21,18 @@ module Shared
       :private_key,
       :encryption_key,
       :_key,
+      :email,
+      :body,
+      :html,
+      :dom,
+      :har,
+      :lighthouse_json,
+      :screenshot,
       :page_body,
       :raw_body,
       :userinfo,
       /api[-_]?key/i,
+      /client[-_]?secret/i,
       /(?:oauth|authorization)[-_]?code/i,
       /\Acode\z/i,
       /\Astate\z/i,
@@ -41,7 +49,17 @@ module Shared
       value.is_a?(Hash) ? @filter.filter(value) : value
     end
     alias_method :headers, :filter
-    alias_method :structured_event, :filter
+
+    def payload(value)
+      value.is_a?(Hash) ? filter(value) : FILTERED
+    end
+    alias_method :structured_event, :payload
+
+    def query(value)
+      filtered_query(value.to_s)
+    rescue ArgumentError, EncodingError
+      FILTERED
+    end
 
     def url(value)
       uri = URI.parse(value.to_s)
@@ -50,6 +68,7 @@ module Shared
         uri.password = nil
       end
       uri.query = filtered_query(uri.query) if uri.query
+      uri.fragment = nil
       uri.to_s
     rescue ArgumentError, EncodingError, URI::InvalidURIError, URI::InvalidComponentError
       FILTERED_URL
@@ -58,8 +77,9 @@ module Shared
     private
 
     def filtered_query(query)
-      pairs = URI.decode_www_form(query).map do |key, value|
-        [ key, @filter.filter(key => value).fetch(key) ]
+      pairs = URI.decode_www_form(query).map do |key, _value|
+        safe_key = key.match?(/\A[a-zA-Z0-9_.-]{1,64}\z/) ? key : "filtered_key"
+        [ safe_key, FILTERED ]
       end
       URI.encode_www_form(pairs)
     end

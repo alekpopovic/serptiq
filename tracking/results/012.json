@@ -1,0 +1,81 @@
+{
+  "prompt_id": "012",
+  "title": "Implement structured events and error taxonomy",
+  "status": "completed",
+  "started_at": "2026-09-04T02:50:18Z",
+  "finished_at": "2026-09-04T03:07:16Z",
+  "summary": "Implemented a stable domain error taxonomy safe JSON and HTML error mapping structured allowlisted events keyed tenant identifiers request and ActiveJob trace correlation fail-safe context clearing expanded nested payload header query and URL redaction operator cause reporting and observability governance documentation",
+  "tests": [
+    {
+      "command": "CI=true mise exec ruby@3.4.10 -- bundle exec rails test",
+      "outcome": "passed",
+      "notes": "83 runs 538 assertions 0 failures 0 errors"
+    },
+    {
+      "command": "mise exec ruby@3.4.10 -- bundle exec rails test test/configuration/redaction_test.rb test/domain/shared/errors_test.rb test/domain/shared/structured_event_test.rb test/domain/shared/request_context_test.rb test/jobs/application_job_observability_test.rb test/controllers/error_handling_test.rb",
+      "outcome": "passed",
+      "notes": "focused redaction correlation error mapping logging and isolation tests passed"
+    },
+    {
+      "command": "mise exec ruby@3.4.10 -- bundle exec rails test:system",
+      "outcome": "passed",
+      "notes": "3 runs 11 assertions 0 failures 0 errors"
+    },
+    {
+      "command": "mise exec ruby@3.4.10 -- bin/quality",
+      "outcome": "passed",
+      "notes": "12 quality lint asset architecture workflow and security checks passed"
+    },
+    {
+      "command": "CI=true mise exec ruby@3.4.10 -- bundle exec rails zeitwerk:check",
+      "outcome": "passed",
+      "notes": "all eager-loaded constants valid"
+    },
+    {
+      "command": "script/ci_container_smoke",
+      "outcome": "passed",
+      "notes": "production image booted and /up returned 200 as UID 1000"
+    },
+    {
+      "command": "ruby tracking/scripts/test_prompt_tracker.rb",
+      "outcome": "passed",
+      "notes": "12 runs 122 assertions 0 failures 0 errors"
+    }
+  ],
+  "files_changed": [
+    "README.md",
+    "app/controllers/application_controller.rb",
+    "app/domains/shared/errors.rb",
+    "app/domains/shared/job_errors.rb",
+    "app/domains/shared/observability.rb",
+    "app/domains/shared/observability/context.rb",
+    "app/domains/shared/observability/event_emitter.rb",
+    "app/domains/shared/observability/identifier_hasher.rb",
+    "app/domains/shared/observability/job_context.rb",
+    "app/domains/shared/observability/request_context.rb",
+    "app/domains/shared/redaction.rb",
+    "app/jobs/application_job.rb",
+    "app/views/errors/show.html.erb",
+    "config/initializers/observability.rb",
+    "docs/implementation/OBSERVABILITY.md",
+    "docs/implementation/README.md",
+    "test/configuration/redaction_test.rb",
+    "test/controllers/error_handling_test.rb",
+    "test/domain/shared/errors_test.rb",
+    "test/domain/shared/request_context_test.rb",
+    "test/domain/shared/structured_event_test.rb",
+    "test/jobs/application_job_observability_test.rb",
+    "tracking/EXECUTION_LOG.md",
+    "tracking/execution_log.jsonl",
+    "tracking/state.json"
+  ],
+  "migrations": [],
+  "decisions": [],
+  "risks": [
+    "No external log or error-reporting backend is configured yet; when one is added it must enforce the documented privileged access and retention policy"
+  ],
+  "next_steps": [
+    "Execute prompt 013"
+  ],
+  "commit": null
+}
