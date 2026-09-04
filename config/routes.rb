@@ -7,6 +7,7 @@ Rails.application.routes.draw do
   get "auth/github/callback", to: "identity/github_oauth#callback", as: :github_oauth_callback
   delete "logout", to: "identity/sessions#destroy", as: :logout
   get "dashboard", to: "dashboard#index", as: :dashboard
+  get "dashboard/organizations/:organization_slug", to: "dashboard#index", as: :organization_dashboard
   get "onboarding", to: "onboarding#show", as: :onboarding
   get "dashboard/account/profile", to: "identity/profiles#show", as: :account_profile
   patch "dashboard/account/profile", to: "identity/profiles#update"

@@ -49,5 +49,7 @@ Do not pre-populate these reports with fictional implementation or test results.
 - [`AUTHENTICATION_SECURITY.md`](./AUTHENTICATION_SECURITY.md) defines atomic
   authentication rate limits, privacy-safe keys, bounded failure metrics and
   the dedicated protocol/session regression command.
+- [`TENANCY_FOUNDATION.md`](./TENANCY_FOUNDATION.md) defines organization,
+  ownership and membership invariants plus verified request/job context.
 - [`../../tracking/README.md`](../../tracking/README.md) defines prompt evidence,
   recovery and state integrity.

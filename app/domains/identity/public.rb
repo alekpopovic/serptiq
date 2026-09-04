@@ -8,6 +8,10 @@ module Identity
       user.is_a?(User) && user.active?
     end
 
+    def find_user!(id:)
+      User.find(id)
+    end
+
     def issue_session(user:, metadata: SessionMetadata.empty, clock: -> { Time.current })
       SessionLifecycle.new(clock: clock).issue(user: user, metadata: metadata)
     end

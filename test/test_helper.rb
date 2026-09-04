@@ -18,6 +18,7 @@ module ActiveSupport
     include TestSupport::DeterministicHelpers
     include TestSupport::JobAssertions
     include TestSupport::IdentitySessionHelpers
+    include TestSupport::TenancyHelpers
     include TestSupport::GoogleOauthHelpers
     include TestSupport::GithubOauthHelpers
     include TestSupport::PermissionAssertions
@@ -28,5 +29,6 @@ end
 
 class ActionDispatch::IntegrationTest
   include TestSupport::IdentitySessionHelpers
+  include TestSupport::TenancyHelpers
   include TestSupport::TenantIsolationAssertions
 end

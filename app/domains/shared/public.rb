@@ -3,6 +3,7 @@
 module Shared
   module Public
     AuthenticationError = Errors::AuthenticationError
+    AuthorizationError = Errors::AuthorizationError
     ConflictError = Errors::ConflictError
     ExternalProviderError = Errors::ExternalProviderError
     RateLimitError = Errors::RateLimitError

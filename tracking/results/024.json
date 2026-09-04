@@ -1,0 +1,81 @@
+{
+  "prompt_id": "024",
+  "title": "Implement organizations, slugs and current tenant context",
+  "status": "completed",
+  "started_at": "2026-09-04T06:08:12Z",
+  "finished_at": "2026-09-04T06:21:47Z",
+  "summary": "Added constrained organization, durable ownership and membership aggregates; atomic owner creation; verified request/job tenant context; safe active-membership switcher; lifecycle/rename audit; tenant isolation helpers and documentation.",
+  "tests": [
+    {
+      "command": "bundle exec rails test test/domain/tenancy/organization_test.rb test/domain/tenancy/organization_context_test.rb test/domain/tenancy/first_run_status_test.rb test/requests/organization_context_test.rb test/jobs/tenancy/current_organization_job_test.rb",
+      "outcome": "passed",
+      "notes": "16 runs, 116 assertions"
+    },
+    {
+      "command": "bundle exec rails db:migrate:redo:primary VERSION=20260904061000",
+      "outcome": "passed",
+      "notes": "rollback removed existing circular FK and all tables; forward recreated constraints"
+    },
+    {
+      "command": "bin/quality",
+      "outcome": "passed",
+      "notes": "12 checks; 274 Ruby files; zero Brakeman warnings and advisory findings"
+    },
+    {
+      "command": "bundle exec rails test",
+      "outcome": "passed",
+      "notes": "285 runs, 2416 assertions"
+    },
+    {
+      "command": "bundle exec rails test:system",
+      "outcome": "passed",
+      "notes": "11 runs, 57 assertions"
+    },
+    {
+      "command": "bundle exec rails zeitwerk:check",
+      "outcome": "passed",
+      "notes": "application eager loaded successfully"
+    }
+  ],
+  "files_changed": [
+    "app/controllers/concerns/tenancy/current_organization.rb",
+    "app/controllers/dashboard_controller.rb",
+    "app/domains/identity/public.rb",
+    "app/domains/shared/public.rb",
+    "app/domains/tenancy",
+    "app/jobs/application_job.rb",
+    "app/models/current.rb",
+    "app/views/dashboard/index.html.erb",
+    "config/routes.rb",
+    "db/migrate/20260904061000_create_organization_tenancy_foundation.rb",
+    "db/schema.rb",
+    "docs/03_ERD.md",
+    "docs/implementation/README.md",
+    "docs/implementation/TENANCY_FOUNDATION.md",
+    "test/controllers/application_shell_test.rb",
+    "test/domain/tenancy",
+    "test/jobs/tenancy",
+    "test/requests/authentication_sessions_test.rb",
+    "test/requests/organization_context_test.rb",
+    "test/support/tenant_isolation_assertions.rb",
+    "test/support/tenancy_helpers.rb",
+    "test/test_helper.rb"
+  ],
+  "migrations": [
+    "20260904061000_create_organization_tenancy_foundation.rb creates organizations",
+    "memberships",
+    "organization_ownerships with lifecycle checks",
+    "unique indexes and deferred ownership FK"
+  ],
+  "decisions": [
+    "ownership remains a dedicated durable assignment separate from generic RBAC; route selectors never authorize access; jobs reauthorize explicit user and organization IDs"
+  ],
+  "risks": [
+    "inline indexes take ordinary DDL locks on deployment; tables are new and empty in this migration"
+  ],
+  "next_steps": [
+    "Prompt 025 builds authorized creation",
+    "settings and switcher UI flows"
+  ],
+  "commit": null
+}

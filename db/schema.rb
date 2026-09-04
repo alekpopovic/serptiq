@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_04_055000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_04_061000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -57,6 +57,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_055000) do
     t.check_constraint "revoked_at IS NULL OR revoked_at >= created_at", name: "identities_revocation_follows_creation"
   end
 
+  create_table "memberships", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "joined_at", null: false
+    t.datetime "last_accessed_at"
+    t.datetime "left_at"
+    t.integer "lock_version", default: 0, null: false
+    t.uuid "organization_id", null: false
+    t.string "status", limit: 32, default: "active", null: false
+    t.datetime "suspended_at"
+    t.datetime "updated_at", null: false
+    t.uuid "user_id", null: false
+    t.index ["organization_id", "id"], name: "index_memberships_on_organization_and_id", unique: true
+    t.index ["organization_id", "user_id"], name: "index_memberships_on_organization_id_and_user_id", unique: true
+    t.index ["organization_id"], name: "index_memberships_on_organization_id"
+    t.index ["user_id", "status", "organization_id"], name: "index_memberships_on_user_status_and_org"
+    t.check_constraint "status::text = 'active'::text AND suspended_at IS NULL AND left_at IS NULL OR status::text = 'suspended'::text AND suspended_at IS NOT NULL AND left_at IS NULL OR status::text = 'left'::text AND left_at IS NOT NULL", name: "memberships_lifecycle_consistency"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'suspended'::character varying, 'left'::character varying]::text[])", name: "memberships_status_allowlist"
+  end
+
   create_table "oauth_transactions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.integer "attempt_count", default: 0, null: false
     t.datetime "consumed_at"
@@ -93,6 +112,42 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_055000) do
     t.check_constraint "provider::text = ANY (ARRAY['google'::character varying, 'github'::character varying]::text[])", name: "oauth_transactions_provider_allowlist"
     t.check_constraint "return_to ~ '^/dashboard(?:/[A-Za-z0-9_-]+)*$'::text AND char_length(return_to) <= 2048", name: "oauth_transactions_safe_return_path"
     t.check_constraint "state_digest::text ~ '^[0-9a-f]{64}$'::text", name: "oauth_transactions_state_digest_format"
+  end
+
+  create_table "organization_ownerships", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "assigned_at", null: false
+    t.datetime "created_at", null: false
+    t.datetime "ended_at"
+    t.uuid "membership_id", null: false
+    t.uuid "organization_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["membership_id"], name: "index_organization_ownerships_on_active_membership", where: "(ended_at IS NULL)"
+    t.index ["organization_id"], name: "index_organization_ownerships_on_active_org", unique: true, where: "(ended_at IS NULL)"
+    t.index ["organization_id"], name: "index_organization_ownerships_on_organization_id"
+    t.check_constraint "ended_at IS NULL OR ended_at >= assigned_at", name: "organization_ownerships_timestamp_order"
+  end
+
+  create_table "organizations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.uuid "current_ownership_id", null: false
+    t.string "data_region", limit: 32, default: "global", null: false
+    t.string "default_locale", limit: 16, default: "en", null: false
+    t.datetime "deleted_at"
+    t.datetime "deletion_requested_at"
+    t.integer "lock_version", default: 0, null: false
+    t.string "name", limit: 160, null: false
+    t.citext "slug", null: false
+    t.string "status", limit: 32, default: "active", null: false
+    t.datetime "suspended_at"
+    t.string "time_zone", limit: 64, default: "UTC", null: false
+    t.datetime "updated_at", null: false
+    t.index ["slug"], name: "index_organizations_on_active_slug", unique: true, where: "(deleted_at IS NULL)"
+    t.check_constraint "char_length(name::text) >= 2 AND char_length(name::text) <= 160 AND name::text = btrim(name::text)", name: "organizations_name_format"
+    t.check_constraint "data_region::text ~ '^[a-z][a-z0-9_-]{1,31}$'::text", name: "organizations_data_region_format"
+    t.check_constraint "default_locale::text ~ '^[a-z]{2}(?:-[A-Z]{2})?$'::text", name: "organizations_locale_format"
+    t.check_constraint "slug::text ~ '^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$'::text", name: "organizations_slug_format"
+    t.check_constraint "status::text = 'active'::text AND suspended_at IS NULL AND deletion_requested_at IS NULL AND deleted_at IS NULL OR status::text = 'suspended'::text AND suspended_at IS NOT NULL AND deletion_requested_at IS NULL AND deleted_at IS NULL OR status::text = 'pending_deletion'::text AND deletion_requested_at IS NOT NULL AND deleted_at IS NULL OR status::text = 'deleted'::text AND deletion_requested_at IS NOT NULL AND deleted_at IS NOT NULL AND deleted_at >= deletion_requested_at", name: "organizations_lifecycle_consistency"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'suspended'::character varying, 'pending_deletion'::character varying, 'deleted'::character varying]::text[])", name: "organizations_status_allowlist"
   end
 
   create_table "sessions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -145,7 +200,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_055000) do
   end
 
   add_foreign_key "identities", "users", on_delete: :restrict
+  add_foreign_key "memberships", "organizations", on_delete: :restrict
+  add_foreign_key "memberships", "users", on_delete: :restrict
   add_foreign_key "oauth_transactions", "sessions", column: "link_session_id", on_delete: :restrict
+  add_foreign_key "organization_ownerships", "memberships", column: ["organization_id", "membership_id"], primary_key: ["organization_id", "id"], name: "fk_ownerships_same_organization_membership", on_delete: :restrict
+  add_foreign_key "organization_ownerships", "organizations", on_delete: :restrict
+  add_foreign_key "organizations", "organization_ownerships", column: "current_ownership_id", on_delete: :restrict, deferrable: :deferred
   add_foreign_key "sessions", "sessions", column: "rotated_from_id", on_delete: :restrict
   add_foreign_key "sessions", "users", on_delete: :restrict
 end

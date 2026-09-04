@@ -34,7 +34,7 @@ class AuthenticationSessionsRequestTest < ActionDispatch::IntegrationTest
     get dashboard_path
 
     assert_response :success
-    assert_select "p", text: /server-side session is active/
+    assert_select "p", text: /Choose one of your verified organizations/
     assert_select "form[action='#{logout_path}']"
     assert_nil Current.user
     assert_nil Current.session

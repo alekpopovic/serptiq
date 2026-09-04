@@ -168,9 +168,16 @@ Unique: `(provider, provider_subject)`. Avoid automatically merging accounts mer
 | default_locale | string | |
 | time_zone | string | |
 | data_region | string | future-compatible |
+| current_ownership_id | uuid | deferred FK to the current ownership assignment |
+| suspended_at | timestamptz | required while suspended |
+| deletion_requested_at | timestamptz | required once deletion is pending |
 | deleted_at | timestamptz | |
+| lock_version | integer | optimistic lifecycle locking |
 
-Unique active slug index. Historical slug aliases may live in `organization_slug_aliases`.
+Unique active slug index. Every organization points to one current ownership assignment;
+the deferred foreign key allows the organization, initial membership and ownership row to
+be created atomically without an ownerless committed state. Historical slug aliases may
+live in `organization_slug_aliases`.
 
 ### `memberships`
 
@@ -182,9 +189,27 @@ Unique active slug index. Historical slug aliases may live in `organization_slug
 | status | string | active, suspended, left |
 | joined_at | timestamptz | |
 | suspended_at | timestamptz | |
+| left_at | timestamptz | |
 | last_accessed_at | timestamptz | |
+| lock_version | integer | optimistic lifecycle locking |
 
-Unique active `(organization_id, user_id)`.
+Unique `(organization_id, user_id)`; lifecycle operations reactivate the durable
+membership row rather than creating ambiguous duplicate history.
+
+### `organization_ownerships`
+
+Ownership is a dedicated, durable assignment rather than an ordinary RBAC grant.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid | PK |
+| organization_id | uuid | FK |
+| membership_id | uuid | same-organization composite FK |
+| assigned_at | timestamptz | |
+| ended_at | timestamptz | null only for the active owner |
+
+Unique active ownership per organization. `organizations.current_ownership_id` references
+the current assignment, and ownership transfer remains a dedicated domain operation.
 
 ### `invitations`
 

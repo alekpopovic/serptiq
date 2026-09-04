@@ -13,10 +13,14 @@ class TenancyFirstRunStatusTest < ActiveSupport::TestCase
     assert_raises(ArgumentError) { Tenancy::FirstRunStatus.new(kind: :unknown) }
   end
 
-  test "pre-tenancy public boundary honestly routes active users without an organization" do
-    status = Tenancy::Public.first_run_status(user: create_identity_user)
+  test "public boundary distinguishes users with and without an active organization membership" do
+    user = create_identity_user
+    status = Tenancy::Public.first_run_status(user: user)
 
     assert status.no_organization?
+    create_organization_for(user: user, slug: "returning-user-org")
+    assert Tenancy::Public.first_run_status(user: user).returning?
+
     assert_raises(ArgumentError) do
       Tenancy::Public.first_run_status(user: create_identity_user(suspended_at: Time.current))
     end

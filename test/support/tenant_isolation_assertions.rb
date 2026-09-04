@@ -15,5 +15,12 @@ module TestSupport
       yield
       assert_response expected
     end
+
+    def assert_tenant_request_isolated(authorized:, foreign:, success: :success)
+      yield authorized
+      assert_response success
+      yield foreign
+      assert_response :forbidden
+    end
   end
 end

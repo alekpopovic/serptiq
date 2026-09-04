@@ -12,6 +12,7 @@ class ApplicationJob < ActiveJob::Base
   runs_on :default
 
   before_enqueue :capture_observability_trace
+  around_perform :with_current_reset
   around_perform :with_observability_context
 
   retry_on Shared::JobErrors::Transient,
@@ -33,6 +34,13 @@ class ApplicationJob < ActiveJob::Base
   end
 
   private
+
+  def with_current_reset
+    Current.reset
+    yield
+  ensure
+    Current.reset
+  end
 
   def capture_observability_trace
     self.observability_trace_id ||= Shared::Observability::Context.trace_id

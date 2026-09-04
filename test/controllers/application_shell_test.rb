@@ -39,7 +39,7 @@ class ApplicationShellRequestTest < ActionDispatch::IntegrationTest
     assert_select "header details summary[aria-label='Open workspace navigation']"
     assert_select "nav[aria-label='Workspace navigation'] a[aria-current='page']", text: "Dashboard"
     assert_select "turbo-frame#dashboard-shell"
-    assert_select "#workspace-empty-title", text: "No workspace context yet"
+    assert_select "#workspace-empty-title", text: "Choose an organization"
     assert_select ".so-badge", text: "Signed in"
   ensure
     DashboardController.first_run_status_resolver = previous_resolver
