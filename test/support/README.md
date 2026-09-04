@@ -12,7 +12,9 @@ contact external services.
   resets them even after an exception.
 - `TenantIsolationAssertions` covers boolean policy, lookup-error and request
   denial styles. Every tenant-owned feature must exercise a real foreign ID.
-- `ProviderFake` rejects every unscripted operation.
+- `ProviderFake` rejects every unscripted generic operation. The Google and
+  GitHub identity adapter fakes implement the production adapter interface and
+  expose deterministic protocol-specific success and failure scenarios.
 - Job, permission, audit and usage assertions define stable reusable contracts.
 - `Network::MaliciousHttpFixture` binds to `127.0.0.1` on an ephemeral port and
   offers bounded hostile responses. It never accepts a caller-selected bind

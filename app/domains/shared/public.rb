@@ -3,6 +3,7 @@
 module Shared
   module Public
     AuthenticationError = Errors::AuthenticationError
+    ExternalProviderError = Errors::ExternalProviderError
 
     module_function
 

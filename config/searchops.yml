@@ -19,6 +19,10 @@ shared:
   object_storage_service: local
   oauth_google_enabled: false
   oauth_github_enabled: false
+  oauth_http_open_timeout: 2s
+  oauth_http_read_timeout: 5s
+  oauth_http_max_response_bytes: 262144
+  oauth_http_safe_retries: 2
   billing_provider: disabled
   encryption_key_version: v1
   crawler_max_urls_per_scan: 10000

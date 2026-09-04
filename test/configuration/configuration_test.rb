@@ -13,6 +13,10 @@ class SearchopsConfigurationTest < ActiveSupport::TestCase
     assert_equal 25, configuration.fetch(:crawler_max_urls_per_scan)
     assert_equal 5.0, configuration.fetch(:crawler_connect_timeout)
     assert_equal false, configuration.fetch(:oauth_google_enabled)
+    assert_equal 2.0, configuration.fetch(:oauth_http_open_timeout)
+    assert_equal 5.0, configuration.fetch(:oauth_http_read_timeout)
+    assert_equal 262_144, configuration.fetch(:oauth_http_max_response_bytes)
+    assert_equal 2, configuration.fetch(:oauth_http_safe_retries)
   end
 
   test "environment overrides public config and credentials for secrets" do
@@ -37,6 +41,9 @@ class SearchopsConfigurationTest < ActiveSupport::TestCase
   test "rejects invalid integer bounds boolean duration enum and origin" do
     invalid_values = {
       "SEARCHOPS_CRAWLER_MAX_REDIRECTS" => "21",
+      "SEARCHOPS_OAUTH_HTTP_OPEN_TIMEOUT" => "0ms",
+      "SEARCHOPS_OAUTH_HTTP_MAX_RESPONSE_BYTES" => "100",
+      "SEARCHOPS_OAUTH_HTTP_SAFE_RETRIES" => "4",
       "SEARCHOPS_SLACK_ENABLED" => "sometimes",
       "SEARCHOPS_BROWSER_TIMEOUT" => "45",
       "SEARCHOPS_PROCESS_ROLE" => "root",

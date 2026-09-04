@@ -38,5 +38,9 @@ module Identity
     def find_provider_identity(provider:, provider_subject:)
       ProviderIdentity.find_by(provider: provider.to_s.downcase, provider_subject: provider_subject.to_s)
     end
+
+    def resolve_account(normalized_identity:)
+      AccountResolver.new.call(normalized_identity: normalized_identity)
+    end
   end
 end

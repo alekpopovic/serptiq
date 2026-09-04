@@ -43,5 +43,8 @@ Do not pre-populate these reports with fictional implementation or test results.
   session tokens, cookies, request context, rotation and logout behavior.
 - [`IDENTITY_DATA_MODEL.md`](./IDENTITY_DATA_MODEL.md) defines stable provider
   subjects, collision policy, protected OAuth transactions and anonymization.
+- [`IDENTITY_PROVIDER_ADAPTERS.md`](./IDENTITY_PROVIDER_ADAPTERS.md) defines the
+  Google OIDC/GitHub OAuth adapter contract, exact endpoints, bounded HTTP
+  behavior, deterministic fakes and provider addition checklist.
 - [`../../tracking/README.md`](../../tracking/README.md) defines prompt evidence,
   recovery and state integrity.
