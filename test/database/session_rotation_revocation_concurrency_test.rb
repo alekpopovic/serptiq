@@ -49,6 +49,7 @@ class SessionRotationRevocationConcurrencyTest < ActiveSupport::TestCase
   private
 
   def delete_identity_records
+    Auditing::AuditEvent.delete_all
     Identity::OauthTransaction.delete_all
     Identity::Session.delete_all
     Identity::ProviderIdentity.delete_all

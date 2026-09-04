@@ -36,9 +36,10 @@ module Tenancy
         raise OwnershipTransferDenied.new(reason_code: "ownership_target_inactive") unless target.active?
         raise OwnershipTransferDenied.new(reason_code: "ownership_target_unchanged") if target.id == actor.id
 
-        transfer_locked!(organization, previous, actor, target, session, session_metadata)
+        result = transfer_locked!(organization, previous, actor, target, session, session_metadata)
+        emit_success(result)
+        result
       end
-      emit_success(result)
       @notifier.call(result)
       result
     rescue ActiveRecord::RecordNotFound

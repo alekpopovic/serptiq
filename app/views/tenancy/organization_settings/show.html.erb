@@ -44,6 +44,13 @@
   <% end %>
 
   <div class="mt-8 grid gap-5 sm:grid-cols-2">
+    <% if allowed_to?("audit_log.read") %>
+      <section class="so-card p-6" aria-labelledby="audit-settings-title">
+        <h2 id="audit-settings-title" class="font-bold text-slate-950">Audit log</h2>
+        <p class="mt-2 text-sm leading-6 text-slate-600">Review immutable organization and access-management activity with safe filters and request correlation.</p>
+        <%= link_to "View audit log", organization_audit_events_path(Current.organization.slug), class: "so-button so-button-secondary mt-4" %>
+      </section>
+    <% end %>
     <section class="so-card p-6" aria-labelledby="billing-settings-title">
       <h2 id="billing-settings-title" class="font-bold text-slate-950">Billing</h2>
       <p class="mt-2 text-sm leading-6 text-slate-600">Billing controls are not available yet. Plan access will be enforced by separate entitlement and permission checks.</p>

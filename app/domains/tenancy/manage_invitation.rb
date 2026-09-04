@@ -12,10 +12,13 @@ module Tenancy
         actor = lock_actor!(actor_membership, authorization)
         record = Invitation.lock.find_by!(id: invitation_id, organization_id: actor.organization_id)
         record.update!(status: "revoked", revoked_at: @clock.call) if record.pending?
+        Audit.emit("invitation.revoked", outcome: "succeeded", operation: "revoke",
+          organization_id: actor.organization_id,
+          actor_membership_id: actor.id,
+          target_type: "Invitation", target_id: record.id,
+          metadata: { status: record.status })
         record
       end
-      Audit.emit("invitation.revoked", outcome: "succeeded", operation: "revoke",
-        actor_membership_id: actor_membership.id)
       invitation
     rescue StandardError => error
       reject!("revoke", actor_membership, error)
@@ -35,7 +38,10 @@ module Tenancy
         authorization: authorization
       )
       Audit.emit("invitation.resent", outcome: "succeeded", operation: "resend",
-        actor_membership_id: actor_membership.id)
+        organization_id: actor_membership.organization_id,
+        actor_membership_id: actor_membership.id,
+        target_type: "Invitation", target_id: issued.invitation.id,
+        metadata: { status: issued.invitation.status })
       issued
     rescue StandardError => error
       reject!("resend", actor_membership, error)
@@ -62,7 +68,9 @@ module Tenancy
         outcome: "denied",
         operation: operation,
         reason_code: public_error.respond_to?(:reason_code) ? public_error.reason_code : nil,
-        actor_membership_id: actor&.id
+        organization_id: actor&.organization_id,
+        actor_membership_id: actor&.id,
+        target_type: "Invitation"
       )
       raise public_error, cause: nil if public_error != error
 

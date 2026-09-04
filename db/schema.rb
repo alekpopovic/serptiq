@@ -10,11 +10,42 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_04_082000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_04_084000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
+
+  create_table "audit_events", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "action", limit: 96, null: false
+    t.uuid "actor_membership_id"
+    t.string "actor_type", limit: 24, null: false
+    t.uuid "actor_user_id"
+    t.datetime "created_at", null: false
+    t.string "job_id", limit: 128
+    t.jsonb "metadata", default: {}, null: false
+    t.datetime "occurred_at", null: false
+    t.uuid "organization_id"
+    t.string "request_id", limit: 128
+    t.string "result", limit: 24, null: false
+    t.string "source_ip_digest", limit: 64
+    t.uuid "target_id"
+    t.string "target_type", limit: 48, null: false
+    t.string "trace_id", limit: 128
+    t.string "user_agent_digest", limit: 64
+    t.index ["job_id"], name: "index_audit_events_on_job_id", where: "(job_id IS NOT NULL)"
+    t.index ["organization_id", "action", "occurred_at"], name: "index_audit_events_on_org_action", order: { occurred_at: :desc }
+    t.index ["organization_id", "actor_membership_id", "occurred_at"], name: "index_audit_events_on_org_actor", order: { occurred_at: :desc }
+    t.index ["organization_id", "occurred_at", "id"], name: "index_audit_events_on_org_timeline", order: { occurred_at: :desc, id: :desc }
+    t.index ["organization_id", "target_type", "target_id", "occurred_at"], name: "index_audit_events_on_org_target", order: { occurred_at: :desc }
+    t.index ["request_id"], name: "index_audit_events_on_request_id", where: "(request_id IS NOT NULL)"
+    t.check_constraint "(source_ip_digest IS NULL OR source_ip_digest::text ~ '^[0-9a-f]{64}$'::text) AND (user_agent_digest IS NULL OR user_agent_digest::text ~ '^[0-9a-f]{64}$'::text)", name: "audit_events_client_digest_shape"
+    t.check_constraint "action::text ~ '^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$'::text", name: "audit_events_action_format"
+    t.check_constraint "actor_type::text = 'Membership'::text AND organization_id IS NOT NULL AND actor_membership_id IS NOT NULL AND actor_user_id IS NULL OR actor_type::text = 'User'::text AND actor_membership_id IS NULL AND actor_user_id IS NOT NULL OR actor_type::text = 'System'::text AND actor_membership_id IS NULL AND actor_user_id IS NULL", name: "audit_events_actor_shape"
+    t.check_constraint "jsonb_typeof(metadata) = 'object'::text AND pg_column_size(metadata) <= 8192", name: "audit_events_metadata_bounded"
+    t.check_constraint "result::text = ANY (ARRAY['succeeded'::character varying, 'denied'::character varying, 'failed'::character varying, 'ignored'::character varying]::text[])", name: "audit_events_result_allowlist"
+    t.check_constraint "target_type::text ~ '^[A-Z][A-Za-z0-9]{0,47}$'::text", name: "audit_events_target_type_format"
+  end
 
   create_table "authentication_rate_limit_buckets", force: :cascade do |t|
     t.datetime "created_at", null: false
@@ -415,6 +446,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_082000) do
     t.check_constraint "primary_email IS NULL OR char_length(primary_email::text) >= 3 AND char_length(primary_email::text) <= 320 AND primary_email::text = lower(primary_email::text)", name: "users_normalized_email"
   end
 
+  add_foreign_key "audit_events", "memberships", column: ["organization_id", "actor_membership_id"], primary_key: ["organization_id", "id"], name: "fk_audit_events_same_org_actor", on_delete: :restrict
+  add_foreign_key "audit_events", "organizations", on_delete: :restrict
+  add_foreign_key "audit_events", "users", column: "actor_user_id", on_delete: :restrict
   add_foreign_key "authorization_scope_references", "authorization_scope_references", column: ["organization_id", "project_id", "project_scope_type"], primary_key: ["organization_id", "id", "scope_type"], name: "fk_authorization_property_scope_same_org_project", on_delete: :restrict
   add_foreign_key "authorization_scope_references", "organizations", on_delete: :restrict
   add_foreign_key "identities", "users", on_delete: :restrict

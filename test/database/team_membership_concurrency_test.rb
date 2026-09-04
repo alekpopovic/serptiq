@@ -50,7 +50,7 @@ class TeamMembershipConcurrencyTest < ActiveSupport::TestCase
           start.pop
           results << operation.call
         rescue StandardError => error
-          results << "unexpected:#{error.class.name}"
+          results << "unexpected:#{error.class.name}:#{error.message}"
         end
       end
     end

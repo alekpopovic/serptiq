@@ -26,9 +26,16 @@ module Tenancy
 
         apply_transition(target, destination, @clock.call)
         target.save!
+        Audit.emit(
+          "organization.lifecycle_changed",
+          organization_id: target.id,
+          actor_membership_id: membership.id,
+          outcome: "succeeded",
+          operation: target.status,
+          metadata: { to: target.status }
+        )
         target
       end
-      Audit.emit("organization.lifecycle_changed", outcome: "succeeded", operation: organization.status)
       organization
     rescue ActiveRecord::RecordNotFound
       raise OrganizationAccessDenied, cause: nil
@@ -37,6 +44,8 @@ module Tenancy
         "organization.lifecycle_rejected",
         outcome: "denied",
         operation: "transition",
+        organization_id: actor_membership&.organization_id,
+        actor_membership_id: actor_membership&.id,
         reason_code: error.respond_to?(:reason_code) ? error.reason_code : nil
       )
       raise

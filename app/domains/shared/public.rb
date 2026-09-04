@@ -5,11 +5,21 @@ module Shared
     AuthenticationError = Errors::AuthenticationError
     AuthorizationError = Errors::AuthorizationError
     ConflictError = Errors::ConflictError
+    EntitlementError = Errors::EntitlementError
     ExternalProviderError = Errors::ExternalProviderError
     RateLimitError = Errors::RateLimitError
     ValidationError = Errors::ValidationError
+    FILTERED_VALUE = Redaction::FILTERED
 
     module_function
+
+    def observability_context
+      Observability::Context.snapshot
+    end
+
+    def application_uuid?(value)
+      Observability::Context::RESOURCE_ID_PATTERN.match?(value.to_s)
+    end
 
     def emit_structured_event(event_name, **attributes)
       Observability.emitter.emit(event_name, **attributes)

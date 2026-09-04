@@ -17,10 +17,11 @@ module Tenancy
       issued = Invitation.transaction do
         actor = lock_actor!(actor_membership, authorization)
         supersede_pending!(actor.organization_id, normalized_email, now)
-        build_invitation(actor, normalized_email, initial_role_key, now)
+        result = build_invitation(actor, normalized_email, initial_role_key, now)
+        audit("invitation.issued", "succeeded", actor, result.invitation)
+        result
       end
       @delivery.call(issued: issued, inviter: actor_membership)
-      audit("invitation.issued", "succeeded", actor_membership, issued.invitation)
       issued
     rescue StandardError => error
       audit("invitation.issue_rejected", "denied", actor_membership, nil, error)
@@ -89,7 +90,10 @@ module Tenancy
         operation: "issue",
         reason_code: error.respond_to?(:reason_code) ? error.reason_code : nil,
         actor_membership_id: actor&.id,
-        subject_membership_id: invitation&.accepted_by_membership_id
+        organization_id: actor&.organization_id,
+        target_type: "Invitation",
+        target_id: invitation&.id,
+        metadata: { status: invitation&.status }
       )
     end
   end

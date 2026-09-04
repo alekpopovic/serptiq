@@ -21,7 +21,7 @@ module Identity
         revoke_reason: "privilege_changed",
         updated_at: now
       )
-      emit_rotated("ownership_received")
+      emit_rotated("ownership_received", user_id: user_id, revoked_count: count)
       count
     end
 
@@ -41,7 +41,11 @@ module Identity
       Audit.emit(
         "session.risk_response_completed",
         outcome: "succeeded",
-        operation: "suspected_compromise"
+        operation: "suspected_compromise",
+        actor_user_id: user.id,
+        target_type: "User",
+        target_id: user.id,
+        metadata: { revoked_count: count }
       )
       count
     end
@@ -56,7 +60,11 @@ module Identity
       Audit.emit(
         "session.risk_response_completed",
         outcome: "succeeded",
-        operation: "membership_deactivation"
+        operation: "membership_deactivation",
+        actor_user_id: user_id,
+        target_type: "User",
+        target_id: user_id,
+        metadata: { revoked_count: count }
       )
       count
     end
@@ -69,7 +77,7 @@ module Identity
         metadata: metadata,
         reason: "privilege_changed"
       )
-      emit_rotated(operation)
+      emit_rotated(operation, user_id: issued.session.user_id)
       issued
     end
 
@@ -90,17 +98,21 @@ module Identity
           reason: "privilege_changed"
         )
       end
-      emit_rotated(operation)
+      emit_rotated(operation, user_id: issued.session.user_id)
       issued
     rescue ActiveRecord::RecordNotFound
       raise SessionManagementDenied, cause: nil
     end
 
-    def emit_rotated(operation)
+    def emit_rotated(operation, user_id:, revoked_count: nil)
       Audit.emit(
         "session.risk_response_completed",
         outcome: "succeeded",
-        operation: operation
+        operation: operation,
+        actor_user_id: user_id,
+        target_type: "User",
+        target_id: user_id,
+        metadata: { revoked_count: revoked_count }.compact
       )
     end
   end

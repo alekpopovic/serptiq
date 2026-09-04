@@ -4,6 +4,7 @@ require "test_helper"
 
 class OrganizationContextRequestTest < ActionDispatch::IntegrationTest
   setup do
+    Authorization::Public.sync_catalog
     @user = create_identity_user
     @issued = issue_identity_session(user: @user)
     @accessible = create_organization_for(user: @user, name: "Accessible Workspace", slug: "accessible-workspace")

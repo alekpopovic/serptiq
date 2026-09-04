@@ -1,0 +1,25 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+root = File.expand_path("..", __dir__)
+tests = %w[
+  test/security/tenant_isolation_test.rb
+  test/requests/audit_events_test.rb
+  test/requests/invitation_flow_test.rb
+  test/requests/membership_lifecycle_test.rb
+  test/requests/organization_context_test.rb
+  test/requests/team_management_test.rb
+  test/requests/tenant_authorization_enforcement_test.rb
+  test/domain/authorization/decision_test.rb
+  test/domain/authorization/scoped_role_assignment_test.rb
+  test/database/role_assignment_constraints_test.rb
+  test/database/team_membership_concurrency_test.rb
+]
+
+Dir.chdir(root) do
+  abort "TENANCY SECURITY FAILED: tests" unless system("bin/rails", "test", *tests)
+  abort "TENANCY SECURITY FAILED: consistency" unless
+    system("bin/rails", "auditing:consistency:check", "tenancy:ownership:check")
+end
+
+puts "TENANCY SECURITY PASSED"

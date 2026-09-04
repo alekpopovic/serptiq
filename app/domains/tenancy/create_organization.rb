@@ -12,7 +12,7 @@ module Tenancy
     def call(user:, name:, slug:, default_locale: "en", time_zone: "UTC", data_region: "global")
       raise ArgumentError, "active identity user is required" unless Identity::Public.active_user?(user)
 
-      result = Organization.transaction do
+      Organization.transaction do
         OrganizationSlugPolicy.with_namespace_lock do
           now = @clock.call
           organization_id = SecureRandom.uuid
@@ -42,11 +42,17 @@ module Tenancy
             membership: membership,
             assigned_at: now
           )
-          Result.new(organization: organization, membership: membership, ownership: ownership)
+          result = Result.new(organization: organization, membership: membership, ownership: ownership)
+          Audit.emit(
+            "organization.created",
+            organization_id: organization.id,
+            actor_membership_id: membership.id,
+            outcome: "succeeded",
+            operation: "create"
+          )
+          result
         end
       end
-      Audit.emit("organization.created", outcome: "succeeded", operation: "create")
-      result
     rescue StandardError => error
       Audit.emit(
         "organization.create_rejected",

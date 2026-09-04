@@ -37,9 +37,10 @@ module Authorization
           principal_id: principal.id, role: role, scope: scope, expires_at: expires_at
         )
         lock_assignment!(attributes)
-        persist_assignment!(attributes, now)
+        result = persist_assignment!(attributes, now)
+        audit("authorization.role_assigned", result, actor.id, outcome: "succeeded", operation: "assign")
+        result
       end
-      audit("authorization.role_assigned", assignment, actor_id, outcome: "succeeded", operation: "assign")
       assignment
     rescue ActiveRecord::RecordNotUnique
       assignment = RoleAssignment.find_by!(active_identity(attributes_from_call(
@@ -158,7 +159,8 @@ module Authorization
         scope_id: assignment.scope_id,
         outcome: outcome,
         operation: operation,
-        reason_code: reason_code
+        reason_code: reason_code,
+        target_id: assignment.id
       )
     end
 

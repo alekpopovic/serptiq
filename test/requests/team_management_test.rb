@@ -4,6 +4,7 @@ require "test_helper"
 
 class TeamManagementRequestTest < ActionDispatch::IntegrationTest
   setup do
+    Authorization::Public.sync_catalog
     @user = create_identity_user
     @owner = create_organization_for(user: @user, name: "Team Workspace", slug: "team-workspace")
     authenticate_request(issue_identity_session(user: @user))

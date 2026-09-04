@@ -15,13 +15,13 @@ modules:
     allowed_dependencies: []
   identity:
     namespace: Identity
-    allowed_dependencies: [shared]
+    allowed_dependencies: [auditing, shared]
   tenancy:
     namespace: Tenancy
-    allowed_dependencies: [identity, shared]
+    allowed_dependencies: [identity, auditing, shared]
   authorization:
     namespace: Authorization
-    allowed_dependencies: [identity, tenancy, entitlements, usage, shared]
+    allowed_dependencies: [identity, tenancy, entitlements, usage, auditing, shared]
   billing:
     namespace: Billing
     allowed_dependencies: [plans, entitlements, shared]

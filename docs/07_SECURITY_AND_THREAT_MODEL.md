@@ -433,6 +433,12 @@ data.deletion_requested
 
 Security events contain correlation and stable reason codes, not secrets.
 
+Customer-visible tenant and access-management events are also written to the append-only `audit_events`
+ledger. Metadata accepts only bounded internal change keys; email addresses, IP addresses, user agents,
+credentials and payload-like fields are filtered. Raw source IP and user-agent values are never retained;
+only optional keyed digests may be stored. `audit_log.read` gates organization history, while CSV export
+remains fail-closed until both `audit_log.export` and the future `audit.export` entitlement are satisfied.
+
 ## 9. Security test gates
 
 Required before launch:

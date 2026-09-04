@@ -43,9 +43,9 @@ module Tenancy
         apply_transition(target, destination, @clock.call)
         target.save!
         Identity::Public.revoke_sessions_after_membership_deactivation!(user_id: target.user_id) unless target.active?
+        emit(EVENT_NAMES.fetch(operation), operation, actor, target)
         target
       end
-      emit(EVENT_NAMES.fetch(operation), operation, actor_membership, target)
       target
     rescue StandardError => error
       public_error = error.is_a?(ActiveRecord::RecordNotFound) ? OrganizationAccessDenied.new : error
@@ -87,7 +87,9 @@ module Tenancy
         outcome: "succeeded",
         operation: operation,
         actor_membership_id: actor.id,
-        subject_membership_id: target.id
+        subject_membership_id: target.id,
+        organization_id: actor.organization_id,
+        metadata: { to: target.status }
       )
     end
 
@@ -98,7 +100,8 @@ module Tenancy
         operation: operation.presence || "unknown",
         reason_code: error.respond_to?(:reason_code) ? error.reason_code : nil,
         actor_membership_id: actor&.id,
-        subject_membership_id: target_id
+        subject_membership_id: target_id,
+        organization_id: actor&.organization_id
       )
     end
   end

@@ -94,6 +94,11 @@ Cross-module state changes use a target module public operation or a documented
 outbox event. Reporting and Notifications consume stable read models/events.
 Auditing consumes shared event envelopes and never makes business decisions.
 
+Identity, Tenancy and Authorization may call the narrow `Auditing::Public.record!` append-only sink with
+validated scalar identifiers and bounded metadata. Auditing never calls back into those modules; its
+operator consistency report uses database relationship projections only and does not authorize customer
+behavior.
+
 ## Shared primitives
 
 `app/domains/shared/` is owned platform domain code, not a general utilities

@@ -18,6 +18,12 @@ Rails.application.routes.draw do
     as: :organization_settings
   patch "dashboard/organizations/:organization_slug/settings",
     to: "tenancy/organization_settings#update"
+  get "dashboard/organizations/:organization_slug/audit",
+    to: "auditing/audit_events#index",
+    as: :organization_audit_events
+  get "dashboard/organizations/:organization_slug/audit/export",
+    to: "auditing/audit_events#export",
+    as: :organization_audit_export
   get "dashboard/organizations/:organization_slug/settings/ownership-transfer",
     to: "tenancy/ownership_transfers#show",
     as: :organization_ownership_transfer

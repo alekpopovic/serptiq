@@ -13,6 +13,7 @@ module Tenancy
     permission_required "organization.update", only: :update
     permission_hint "organization.update", only: :show
     permission_hint "organization.transfer", only: :show
+    permission_hint "audit_log.read", only: :show
 
     def show
       @organization = Current.organization

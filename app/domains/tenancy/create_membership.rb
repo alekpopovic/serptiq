@@ -20,15 +20,16 @@ module Tenancy
         raise MembershipAlreadyExists if Membership.exists?(organization_id: organization.id, user_id: user.id)
 
         now = @clock.call
-        Membership.create!(
+        membership = Membership.create!(
           organization: organization,
           user_id: user.id,
           display_name: safe_display_name(user),
           status: status,
           accepted_at: status == "active" ? now : nil
         )
+        emit("membership.created", "create_#{status}", actor_membership, membership)
+        membership
       end
-      emit("membership.created", "create_#{status}", actor_membership, membership)
       membership
     rescue ActiveRecord::RecordNotUnique
       error = MembershipAlreadyExists.new
@@ -51,7 +52,8 @@ module Tenancy
         outcome: "succeeded",
         operation: operation,
         actor_membership_id: actor.id,
-        subject_membership_id: target.id
+        subject_membership_id: target.id,
+        organization_id: actor.organization_id
       )
     end
 
@@ -62,7 +64,8 @@ module Tenancy
         operation: operation,
         reason_code: error.respond_to?(:reason_code) ? error.reason_code : nil,
         actor_membership_id: actor&.id,
-        subject_membership_id: target&.id
+        subject_membership_id: target&.id,
+        organization_id: actor&.organization_id
       )
     end
   end

@@ -17,42 +17,49 @@ module Identity
     end
 
     def revoke_other!(session_id:, current_session:)
-      outcome = Session.transaction do
+      Session.transaction do
         now = @clock.call
         current = lock_recent_current!(current_session, now)
         target = Session.lock.find_by(id: session_id, user_id: current.user_id)
         valid = target && target.id != current.id
         raise SessionManagementDenied unless valid
 
-        SessionLifecycle.new(clock: @clock).revoke(session: target, reason: "administrative")
+        outcome = SessionLifecycle.new(clock: @clock).revoke(session: target, reason: "administrative")
+        Audit.emit(
+          "session.management_revocation",
+          outcome: outcome ? "succeeded" : "ignored",
+          operation: "revoke_other",
+          actor_user_id: current.user_id,
+          target_type: "Session",
+          target_id: session_id
+        )
+        outcome
       end
-      Audit.emit(
-        "session.management_revocation",
-        outcome: outcome ? "succeeded" : "ignored",
-        operation: "revoke_other"
-      )
-      outcome
     rescue StandardError => error
       emit_rejection("revoke_other", error)
       raise
     end
 
     def revoke_all_others!(current_session:)
-      count = Session.transaction do
+      Session.transaction do
         now = @clock.call
         current = lock_recent_current!(current_session, now)
-        Session.where(user_id: current.user_id, revoked_at: nil).where.not(id: current.id).update_all(
+        count = Session.where(user_id: current.user_id, revoked_at: nil).where.not(id: current.id).update_all(
           revoked_at: now,
           revoke_reason: "administrative",
           updated_at: now
         )
+        Audit.emit(
+          "session.management_revocation",
+          outcome: "succeeded",
+          operation: "revoke_all_others",
+          actor_user_id: current.user_id,
+          target_type: "User",
+          target_id: current.user_id,
+          metadata: { revoked_count: count }
+        )
+        count
       end
-      Audit.emit(
-        "session.management_revocation",
-        outcome: "succeeded",
-        operation: "revoke_all_others"
-      )
-      count
     rescue StandardError => error
       emit_rejection("revoke_all_others", error)
       raise

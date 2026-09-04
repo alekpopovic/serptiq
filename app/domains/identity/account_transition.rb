@@ -64,6 +64,15 @@ module Identity
         provider_subject: observed.subject
       )
       persist_observation(record, observed, now)
+      Audit.emit(
+        "auth.identity_linked",
+        outcome: "succeeded",
+        operation: "link",
+        provider: record.provider,
+        actor_user_id: user.id,
+        target_type: "Identity",
+        target_id: record.id
+      )
       user
     end
 

@@ -138,6 +138,7 @@ jobs:
         run: |
           bin/rails db:prepare
           bin/authentication-security
+          bin/tenancy-security
           bin/rails test test/security/malicious_http_fixture_test.rb test/adapters/contracts
 
   system_test:

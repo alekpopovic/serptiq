@@ -715,7 +715,11 @@ Append-only domain event envelope with aggregate, event type/version, payload, o
 
 ### `audit_events`
 
-Append-only actor, organization, action, subject, result, redacted metadata, request/job correlation, source IP policy field, timestamp.
+Append-only actor, organization, action, target, result, redacted metadata, request/job correlation,
+optional keyed source-IP/user-agent digests and timestamp. Membership actors use a same-organization
+composite foreign key; account-security events use a user actor and may be organization-neutral. Normal
+application writes cannot update or delete an event. The operator consistency report checks generic known
+targets for orphaned and cross-tenant references.
 
 ## 11. Critical database constraints
 

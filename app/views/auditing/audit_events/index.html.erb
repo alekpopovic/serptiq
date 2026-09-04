@@ -1,0 +1,93 @@
+<% content_for :title, "Organization audit log" %>
+
+<div class="mx-auto max-w-6xl">
+  <%= render "shared/breadcrumbs", items: [
+    { label: "Dashboard", path: organization_dashboard_path(Current.organization.slug) },
+    { label: Current.organization.name, path: organization_dashboard_path(Current.organization.slug) },
+    { label: "Audit log", path: nil }
+  ] %>
+
+  <div class="mt-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div>
+      <p class="so-eyebrow">Organization security</p>
+      <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950">Audit log</h1>
+      <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Immutable records of organization and access-management changes. Sensitive request data is never included.</p>
+    </div>
+    <div class="text-right">
+      <span class="so-button so-button-secondary cursor-not-allowed opacity-60" aria-disabled="true">Export CSV</span>
+      <p class="mt-1 text-xs text-slate-500">Available only after the audit export entitlement ships.</p>
+    </div>
+  </div>
+
+  <%= form_with url: organization_audit_events_path(Current.organization.slug), method: :get,
+    scope: :filter, class: "so-card mt-8 grid gap-4 p-5 md:grid-cols-4" do |form| %>
+    <div>
+      <%= form.label :action, class: "so-label" %>
+      <%= form.text_field :action, value: @filters["action"], maxlength: 96,
+        placeholder: "membership.suspended", class: "so-input" %>
+    </div>
+    <div>
+      <%= form.label :target_type, "Target type", class: "so-label" %>
+      <%= form.select :target_type,
+        options_for_select([ "", "Organization", "Membership", "Invitation", "Team", "RoleAssignment" ], @filters["target_type"]),
+        {}, class: "so-select" %>
+    </div>
+    <div>
+      <%= form.label :result, class: "so-label" %>
+      <%= form.select :result,
+        options_for_select([ "", "succeeded", "denied", "failed", "ignored" ], @filters["result"]),
+        {}, class: "so-select" %>
+    </div>
+    <div class="flex items-end gap-2">
+      <%= form.submit "Filter", class: "so-button so-button-primary" %>
+      <%= link_to "Clear", organization_audit_events_path(Current.organization.slug), class: "so-button so-button-secondary" %>
+    </div>
+  <% end %>
+
+  <div class="so-card mt-6 overflow-hidden">
+    <% if @audit_page.records.any? %>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+          <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th class="px-5 py-3">Time</th>
+              <th class="px-5 py-3">Action</th>
+              <th class="px-5 py-3">Actor</th>
+              <th class="px-5 py-3">Target</th>
+              <th class="px-5 py-3">Result</th>
+              <th class="px-5 py-3">Correlation</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 bg-white">
+            <% @audit_page.records.each do |event| %>
+              <tr>
+                <td class="whitespace-nowrap px-5 py-4 text-slate-600"><%= event.occurred_at.to_fs(:short) %></td>
+                <td class="px-5 py-4 font-medium text-slate-950"><%= event.action %></td>
+                <td class="px-5 py-4 font-mono text-xs text-slate-600"><%= event.actor_membership_id&.first(12) || event.actor_type %></td>
+                <td class="px-5 py-4 text-slate-600"><%= event.target_type %><% if event.target_id %> · <span class="font-mono text-xs"><%= event.target_id.first(12) %></span><% end %></td>
+                <td class="px-5 py-4"><span class="so-badge so-badge-neutral"><%= event.result %></span></td>
+                <td class="px-5 py-4 font-mono text-xs text-slate-500"><%= event.request_id || event.job_id || "—" %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    <% else %>
+      <p class="p-8 text-center text-sm text-slate-600">No audit events match these filters.</p>
+    <% end %>
+  </div>
+
+  <nav class="mt-5 flex items-center justify-between" aria-label="Audit pagination">
+    <% if @audit_page.previous_page %>
+      <%= link_to "Previous", organization_audit_events_path(Current.organization.slug,
+        request.query_parameters.merge(page: @audit_page.previous_page)), class: "so-button so-button-secondary" %>
+    <% else %>
+      <span></span>
+    <% end %>
+    <span class="text-sm text-slate-600">Page <%= @audit_page.number %> · <%= @audit_page.total_count %> records</span>
+    <% if @audit_page.next_page %>
+      <%= link_to "Next", organization_audit_events_path(Current.organization.slug,
+        request.query_parameters.merge(page: @audit_page.next_page)), class: "so-button so-button-secondary" %>
+    <% end %>
+  </nav>
+</div>

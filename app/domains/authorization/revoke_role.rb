@@ -30,9 +30,9 @@ module Authorization
         unless record.revoked_at
           record.update!(revoked_at: @clock.call, revoked_by_membership_id: actor.id)
         end
+        emit(record, actor.id, outcome: "succeeded", operation: "revoke")
         record
       end
-      emit(assignment, actor_id, outcome: "succeeded", operation: "revoke")
       assignment
     rescue StandardError => error
       if defined?(record) && record
@@ -78,7 +78,8 @@ module Authorization
         scope_id: assignment.scope_id,
         outcome: outcome,
         operation: operation,
-        reason_code: reason_code
+        reason_code: reason_code,
+        target_id: assignment.id
       )
     end
   end

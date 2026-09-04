@@ -25,9 +25,23 @@ module Identity
           current_session: session,
           metadata: metadata
         )
-        IdentityUnlink.new(provider: identity.provider, issued_session: issued)
+        result = IdentityUnlink.new(
+          provider: identity.provider,
+          issued_session: issued,
+          identity_id: identity.id,
+          user_id: session.user_id
+        )
+        Audit.emit(
+          "auth.identity_unlinked",
+          outcome: "succeeded",
+          provider: result.provider,
+          operation: "unlink",
+          actor_user_id: result.user_id,
+          target_type: "Identity",
+          target_id: result.identity_id
+        )
+        result
       end
-      Audit.emit("auth.identity_unlinked", outcome: "succeeded", provider: result.provider, operation: "unlink")
       result
     rescue StandardError => error
       Audit.emit(

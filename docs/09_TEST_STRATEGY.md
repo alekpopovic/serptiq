@@ -119,6 +119,10 @@ For every tenant-owned route or domain operation, test:
 
 Generated object-storage URLs are tested only after authorization and must be short-lived.
 
+`bin/tenancy-security` is the required consolidated gate for every identity, organization, membership,
+invitation, team, role-assignment and audit entity implemented through Phase 03. It mixes real identifiers
+across two tenants, then runs ownership and audit relationship consistency reports against PostgreSQL.
+
 ## 6. Authorization, entitlement and quota matrix
 
 The access decision suite independently varies:

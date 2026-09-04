@@ -3,7 +3,7 @@
 module Tenancy
   class UpdateOrganization
     def call(actor_membership:, name:, slug:, default_locale: nil, time_zone: nil, authorization: nil)
-      organization, old_slug = Organization.transaction do
+      Organization.transaction do
         OrganizationSlugPolicy.with_namespace_lock do
           locked = lock_organization(actor_membership, authorization)
           previous_slug = locked.slug
@@ -12,17 +12,25 @@ module Tenancy
           attributes[:time_zone] = time_zone unless time_zone.nil?
           locked.update!(attributes)
           preserve_slug_alias!(locked, previous_slug) if locked.slug != previous_slug
-          [ locked, previous_slug ]
+          operation = previous_slug == locked.slug ? "rename" : "rename_and_change_slug"
+          Audit.emit(
+            "organization.renamed",
+            organization_id: locked.id,
+            actor_membership_id: actor_membership.id,
+            outcome: "succeeded",
+            operation: operation,
+            metadata: { changed_fields: locked.previous_changes.keys & %w[name slug default_locale time_zone] }
+          )
+          locked
         end
       end
-      operation = old_slug == organization.slug ? "rename" : "rename_and_change_slug"
-      Audit.emit("organization.renamed", outcome: "succeeded", operation: operation)
-      organization
     rescue StandardError => error
       Audit.emit(
         "organization.rename_rejected",
         outcome: "denied",
         operation: "rename",
+        organization_id: actor_membership&.organization_id,
+        actor_membership_id: actor_membership&.id,
         reason_code: error.respond_to?(:reason_code) ? error.reason_code : nil
       )
       raise

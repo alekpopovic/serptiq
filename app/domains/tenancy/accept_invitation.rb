@@ -38,6 +38,16 @@ module Tenancy
           accepted_at: now,
           accepted_by_membership_id: membership.id
         )
+        Audit.emit(
+          "invitation.accepted",
+          outcome: "succeeded",
+          operation: "accept",
+          organization_id: membership.organization_id,
+          actor_membership_id: membership.id,
+          target_type: "Invitation",
+          target_id: invitation.id,
+          metadata: { status: invitation.status }
+        )
         [ :accepted, membership, invitation ]
       end
       deny! unless outcome.first == :accepted
@@ -52,12 +62,6 @@ module Tenancy
         invited_by_membership_id: invitation.invited_by_membership_id
       )
       yield accepted if block_given?
-      Audit.emit(
-        "invitation.accepted",
-        outcome: "succeeded",
-        operation: "accept",
-        subject_membership_id: membership.id
-      )
       accepted
     rescue StandardError => error
       Audit.emit(

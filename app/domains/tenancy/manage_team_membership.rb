@@ -7,13 +7,13 @@ module Tenancy
     end
 
     def add(actor_membership:, team_id:, membership_id:, authorization: nil)
-      result = TeamMembership.transaction do
+      TeamMembership.transaction do
         actor, team = lock_context(actor_membership, team_id, authorization)
         target = Membership.lock.find_by!(id: membership_id, organization_id: team.organization_id)
         raise OrganizationAccessDenied.new(reason_code: "membership_inactive") unless target.active?
 
         existing = TeamMembership.find_by(team_id: team.id, membership_id: target.id, removed_at: nil)
-        if existing
+        result = if existing
           TeamChangeResult.new(record: existing, changed: false)
         else
           record = TeamMembership.create!(
@@ -25,9 +25,9 @@ module Tenancy
           )
           TeamChangeResult.new(record: record, changed: true)
         end
+        emit("team.member_added", result.changed? ? "add" : "add_ignored", actor, target.id)
+        result
       end
-      emit("team.member_added", result.changed? ? "add" : "add_ignored", actor_membership, membership_id)
-      result
     rescue ActiveRecord::RecordNotUnique
       retry_result(actor_membership, team_id, membership_id)
     rescue StandardError => error
@@ -39,19 +39,19 @@ module Tenancy
     end
 
     def remove(actor_membership:, team_id:, membership_id:, authorization: nil)
-      result = TeamMembership.transaction do
-        _, team = lock_context(actor_membership, team_id, authorization)
-        Membership.find_by!(id: membership_id, organization_id: team.organization_id)
+      TeamMembership.transaction do
+        actor, team = lock_context(actor_membership, team_id, authorization)
+        target = Membership.find_by!(id: membership_id, organization_id: team.organization_id)
         record = TeamMembership.lock.find_by(team_id: team.id, membership_id: membership_id, removed_at: nil)
-        if record
+        result = if record
           record.update!(removed_at: @clock.call)
           TeamChangeResult.new(record: record, changed: true)
         else
           TeamChangeResult.new(record: nil, changed: false)
         end
+        emit("team.member_removed", result.changed? ? "remove" : "remove_ignored", actor, target.id)
+        result
       end
-      emit("team.member_removed", result.changed? ? "remove" : "remove_ignored", actor_membership, membership_id)
-      result
     rescue StandardError => error
       public_error = error.is_a?(ActiveRecord::RecordNotFound) ? OrganizationAccessDenied.new : error
       reject("remove", actor_membership, membership_id, public_error)
@@ -90,13 +90,15 @@ module Tenancy
 
     def emit(event, operation, actor, subject)
       Audit.emit(event, outcome: "succeeded", operation: operation,
-        actor_membership_id: actor.id, subject_membership_id: subject)
+        organization_id: actor.organization_id, actor_membership_id: actor.id,
+        target_type: "Membership", target_id: subject)
     end
 
     def reject(operation, actor, subject, error)
       Audit.emit("team.membership_rejected", outcome: "denied", operation: operation,
         reason_code: error.respond_to?(:reason_code) ? error.reason_code : nil,
-        actor_membership_id: actor&.id, subject_membership_id: subject)
+        organization_id: actor&.organization_id, actor_membership_id: actor&.id,
+        target_type: "Membership", target_id: subject)
     end
   end
 end

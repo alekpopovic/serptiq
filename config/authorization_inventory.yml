@@ -1,6 +1,11 @@
 version: 1
 
 controllers:
+  Auditing::AuditEventsController:
+    source: app/controllers/auditing/audit_events_controller.rb
+    actions:
+      index: { kind: permission, permission: audit_log.read }
+      export: { kind: permission, permission: audit_log.export }
   DashboardController:
     source: app/controllers/dashboard_controller.rb
     actions:
@@ -85,6 +90,10 @@ jobs:
     name: global_invitation_maintenance
 
 domain_operations:
+  Auditing::Public.audit_page: { kind: permission, permission: audit_log.read }
+  Auditing::Public.export!: { kind: permission, permission: audit_log.export }
+  Auditing::Public.consistency_issues: { kind: system, reason: operator_diagnostic }
+  Auditing::Public.record!: { kind: context, reason: append_only_internal_audit_sink }
   Tenancy::Public.create_organization: { kind: exempt, reason: creates_first_tenant_context }
   Tenancy::Public.resolve_organization_context: { kind: context, reason: validates_active_membership }
   Tenancy::Public.organization_switcher: { kind: context, reason: returns_only_active_memberships }

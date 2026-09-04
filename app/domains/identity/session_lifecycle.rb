@@ -10,21 +10,29 @@ module Identity
       now = @clock.call
       raise InactiveUser unless user.active?
 
-      token = TokenDigest.generate
-      session = Session.create!(
-        user: user,
-        token_digest: TokenDigest.call(token),
-        ip_address_digest: metadata.ip_address_digest,
-        user_agent_digest: metadata.user_agent_digest,
-        client_name: metadata.client_name,
-        device_type: metadata.device_type,
-        authenticated_at: now,
-        last_seen_at: now,
-        expires_at: now + SessionPolicy::ABSOLUTE_LIFETIME,
-        rotated_from: rotated_from
-      )
-      Audit.emit("session.issued", outcome: "succeeded")
-      IssuedSession.new(session: session, token: token)
+      Session.transaction do
+        token = TokenDigest.generate
+        session = Session.create!(
+          user: user,
+          token_digest: TokenDigest.call(token),
+          ip_address_digest: metadata.ip_address_digest,
+          user_agent_digest: metadata.user_agent_digest,
+          client_name: metadata.client_name,
+          device_type: metadata.device_type,
+          authenticated_at: now,
+          last_seen_at: now,
+          expires_at: now + SessionPolicy::ABSOLUTE_LIFETIME,
+          rotated_from: rotated_from
+        )
+        Audit.emit(
+          "session.issued",
+          outcome: "succeeded",
+          actor_user_id: user.id,
+          target_type: "Session",
+          target_id: session.id
+        )
+        IssuedSession.new(session: session, token: token)
+      end
     end
 
     def authenticate!(token:, metadata: SessionMetadata.empty)
@@ -40,31 +48,45 @@ module Identity
     end
 
     def rotate!(session:, metadata: SessionMetadata.empty, reason: "rotated")
-      issued = Session.transaction do
+      Session.transaction do
         session.lock!
         status = session.status_at(@clock.call)
         raise_for_status!(status) unless status == :active
 
         revoke_record(session, reason)
-        issue(user: session.user, metadata: metadata, rotated_from: session)
+        issued = issue(user: session.user, metadata: metadata, rotated_from: session)
+        Audit.emit(
+          "session.rotated",
+          outcome: "succeeded",
+          reason_code: reason,
+          actor_user_id: issued.session.user_id,
+          target_type: "Session",
+          target_id: issued.session.id
+        )
+        issued
       end
-      Audit.emit("session.rotated", outcome: "succeeded", reason_code: reason)
-      issued
     rescue Error => error
       Audit.emit("session.rejected", outcome: "denied", reason_code: error.reason_code)
       raise
     end
 
     def revoke(session:, reason: "logout")
-      changed = Session.transaction do
+      Session.transaction do
         session.lock!
-        next false if session.revoked_at?
+        changed = !session.revoked_at?
 
-        revoke_record(session, reason)
-        true
+        revoke_record(session, reason) if changed
+        Audit.emit(
+          "session.revoked",
+          outcome: changed ? "succeeded" : "ignored",
+          reason_code: reason,
+          actor_user_id: session.user_id,
+          target_type: "Session",
+          target_id: session.id,
+          metadata: { revoke_reason: reason }
+        )
+        changed
       end
-      Audit.emit("session.revoked", outcome: changed ? "succeeded" : "ignored", reason_code: reason)
-      changed
     end
 
     private

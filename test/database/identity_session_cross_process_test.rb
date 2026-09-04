@@ -6,11 +6,13 @@ class IdentitySessionCrossProcessTest < ActiveSupport::TestCase
   self.use_transactional_tests = false
 
   setup do
+    Auditing::AuditEvent.delete_all
     Identity::Session.delete_all
     Identity::User.delete_all
   end
 
   teardown do
+    Auditing::AuditEvent.delete_all
     Identity::Session.delete_all
     Identity::User.delete_all
   end
