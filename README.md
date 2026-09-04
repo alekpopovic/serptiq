@@ -42,6 +42,10 @@ PostgreSQL connection names, pool budgeting, clean setup, key policy and the
 strict readiness query are documented in
 [`docs/implementation/DATABASES.md`](./docs/implementation/DATABASES.md).
 
+Queue routing, isolated worker roles, retries, recurring ownership and the
+disposable Solid Cache/Cable contract are documented in
+[`docs/implementation/SOLID_STACK.md`](./docs/implementation/SOLID_STACK.md).
+
 The initial Rails scaffold was generated outside the repository and merged without overwriting the blueprint:
 
 ```bash

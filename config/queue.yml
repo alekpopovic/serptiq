@@ -1,17 +1,32 @@
+<%
+role = ENV.fetch("SEARCHOPS_PROCESS_ROLE", "worker_default")
+worker = Shared::JobTopology.worker(role)
+execution = Shared::JobTopology.execution_options(role)
+%>
+
 default: &default
-  dispatchers:
+  dispatchers:<% if worker.dispatcher %>
     - polling_interval: 1
       batch_size: 500
-  workers:
-    - queues: "*"
-      threads: 3
-      processes: <%= ENV.fetch("JOB_CONCURRENCY", 1) %>
-      polling_interval: 1
+      concurrency_maintenance_interval: 300
+      concurrency_maintenance: true
+      batch_maintenance: true<% else %> []<% end %>
+  workers:<% if worker.queues.any? %>
+    - queues: <%= worker.queues.to_json %>
+      threads: <%= execution.fetch(:threads) %>
+      processes: <%= execution.fetch(:processes) %>
+      polling_interval: 0.2<% else %> []<% end %>
+  scheduler:
+    dynamic_tasks_enabled: false
+    polling_interval: 5
 
 development:
   <<: *default
 
 test:
+  <<: *default
+
+staging:
   <<: *default
 
 production:

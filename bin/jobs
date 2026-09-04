@@ -1,5 +1,26 @@
 #!/usr/bin/env ruby
 
+environment = ENV.fetch("RAILS_ENV", ENV.fetch("RACK_ENV", "development"))
+role = ENV["SEARCHOPS_PROCESS_ROLE"]
+
+if role.to_s.empty?
+  abort "SEARCHOPS_PROCESS_ROLE is required for job processes in #{environment}" if %w[staging production].include?(environment)
+
+  role = "worker_default"
+  ENV["SEARCHOPS_PROCESS_ROLE"] = role
+end
+
+worker_roles = %w[scheduler worker_default worker_crawl worker_render worker_analysis worker_report]
+abort "SEARCHOPS_PROCESS_ROLE must be one of: #{worker_roles.join(', ')}" unless worker_roles.include?(role)
+
+if role == "scheduler"
+  ENV["SOLID_QUEUE_ONLY_RECURRING"] = "true"
+  ENV.delete("SOLID_QUEUE_SKIP_RECURRING")
+else
+  ENV["SOLID_QUEUE_SKIP_RECURRING"] = "true"
+  ENV.delete("SOLID_QUEUE_ONLY_RECURRING")
+end
+
 require_relative "../config/environment"
 require "solid_queue/cli"
 

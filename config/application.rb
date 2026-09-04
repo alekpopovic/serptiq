@@ -22,6 +22,21 @@ module Searchops
       generators.orm :active_record, primary_key_type: :uuid
     end
 
+    # PostgreSQL-backed Rails runtime services are configured consistently in
+    # every environment. Tests may replace individual adapters explicitly.
+    config.active_job.queue_adapter = :solid_queue
+    config.solid_queue.connects_to = { database: { writing: :queue } }
+    config.solid_queue.use_skip_locked = true
+    config.solid_queue.process_heartbeat_interval = 30.seconds
+    config.solid_queue.process_alive_threshold = 3.minutes
+    config.solid_queue.fork_boot_timeout = 2.minutes
+    config.solid_queue.shutdown_timeout = 30.seconds
+    config.solid_queue.preserve_finished_jobs = true
+    config.solid_queue.clear_finished_jobs_after = 24.hours
+    config.solid_queue.default_concurrency_control_period = 5.minutes
+    config.cache_store = :solid_cache_store
+    config.action_mailer.deliver_later_queue_name = :mail
+
     # Configuration for the application, engines, and railties goes here.
     #
     # These settings can be overridden in specific environments using the files

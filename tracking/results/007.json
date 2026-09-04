@@ -1,0 +1,137 @@
+{
+  "prompt_id": "007",
+  "title": "Configure Solid Queue, Solid Cache and Solid Cable topology",
+  "status": "completed",
+  "started_at": "2026-09-04T01:42:06Z",
+  "finished_at": "2026-09-04T01:56:12Z",
+  "summary": "Activated Solid Queue and Solid Cache across Rails runtimes and Solid Cable in development/staging/production; added a single-source queue/priority registry, exact isolated worker role allowlists, scheduler ownership enforcement, bounded retry/discard behavior, safe recurring cleanup, disposable cache/cable limits, a real PostgreSQL smoke job and operational runbook.",
+  "tests": [
+    {
+      "command": "RAILS_ENV=test ... bundle exec rails test",
+      "outcome": "passed",
+      "notes": "39 runs, 279 assertions, 0 failures, 0 errors, 0 skips against four PostgreSQL databases"
+    },
+    {
+      "command": "RAILS_ENV=test ... bundle exec rails test test/jobs/solid_stack_topology_test.rb test/database/postgresql_configuration_test.rb test/configuration/configuration_test.rb",
+      "outcome": "passed",
+      "notes": "27 runs, 229 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "SEARCHOPS_PROCESS_ROLE=<each role> RAILS_ENV=test ... bin/jobs check",
+      "outcome": "passed",
+      "notes": "worker_default, worker_crawl, worker_render, worker_analysis, worker_report and scheduler all reported valid Solid Queue configuration"
+    },
+    {
+      "command": "RAILS_ENV=test SEARCHOPS_PROCESS_ROLE=web bin/jobs check",
+      "outcome": "passed",
+      "notes": "negative test exited 1 with exact allowed job-role list"
+    },
+    {
+      "command": "RAILS_ENV=production without SEARCHOPS_PROCESS_ROLE bin/jobs check",
+      "outcome": "passed",
+      "notes": "negative test exited 1 before boot with clear required-role error"
+    },
+    {
+      "command": "RAILS_ENV=development ... bundle exec rails db:create db:prepare",
+      "outcome": "passed",
+      "notes": "created four previously absent searchops_007_boot databases and loaded primary/queue/cache/cable schemas"
+    },
+    {
+      "command": "RAILS_ENV=development ... bundle exec rails runner <solid stack smoke>",
+      "outcome": "passed",
+      "notes": "Solid Cache write/read, Solid Cable broadcast and Solid Queue enqueue succeeded from empty prepared databases"
+    },
+    {
+      "command": "RAILS_ENV=test ... bundle exec rails test:system",
+      "outcome": "passed",
+      "notes": "0 runs, 0 failures; system scenarios remain assigned to Prompt 010"
+    },
+    {
+      "command": "RUBOCOP_CACHE_ROOT=tmp/rubocop mise exec ruby@3.4.10 -- bundle exec rubocop",
+      "outcome": "passed",
+      "notes": "50 files inspected, no offenses"
+    },
+    {
+      "command": "mise exec ruby@3.4.10 -- bundle exec brakeman --no-pager",
+      "outcome": "passed",
+      "notes": "79 checks, 0 security warnings and 0 scanner errors"
+    },
+    {
+      "command": "mise exec ruby@3.4.10 -- bundle exec bundler-audit check",
+      "outcome": "passed",
+      "notes": "no vulnerabilities found"
+    },
+    {
+      "command": "mise exec ruby@3.4.10 -- bin/importmap audit",
+      "outcome": "passed",
+      "notes": "no vulnerable packages found"
+    },
+    {
+      "command": "RAILS_ENV=test SEARCHOPS_PROCESS_ROLE=worker_default mise exec ruby@3.4.10 -- bundle exec rails zeitwerk:check",
+      "outcome": "passed",
+      "notes": "all is good"
+    },
+    {
+      "command": "ruby script/check_architecture",
+      "outcome": "passed",
+      "notes": "architecture boundaries passed"
+    },
+    {
+      "command": "ruby script/check_adr_index",
+      "outcome": "passed",
+      "notes": "ADR index passed"
+    },
+    {
+      "command": "ruby tracking/scripts/test_prompt_tracker.rb",
+      "outcome": "passed",
+      "notes": "12 runs, 122 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "ruby tracking/scripts/validate_blueprint.rb",
+      "outcome": "passed",
+      "notes": "blueprint valid with 120 prompts and 10 ADRs"
+    },
+    {
+      "command": "ruby tracking/scripts/prompt_tracker.rb validate",
+      "outcome": "passed",
+      "notes": "120 prompts; catalog and state consistent before completion"
+    }
+  ],
+  "files_changed": [
+    ".env.example",
+    "Procfile",
+    "README.md",
+    "app/domains/shared/job_errors.rb",
+    "app/domains/shared/job_topology.rb",
+    "app/jobs/application_job.rb",
+    "app/jobs/shared/solid_queue_smoke_job.rb",
+    "bin/jobs",
+    "config/application.rb",
+    "config/cable.yml",
+    "config/cache.yml",
+    "config/environments/development.rb",
+    "config/environments/production.rb",
+    "config/puma.rb",
+    "config/queue.yml",
+    "config/recurring.yml",
+    "docs/adr/0002_postgresql_and_solid_stack.md",
+    "docs/adr/README.md",
+    "docs/implementation/README.md",
+    "docs/implementation/SOLID_STACK.md",
+    "test/jobs/solid_stack_topology_test.rb",
+    "tracking/state.json",
+    "tracking/EXECUTION_LOG.md",
+    "tracking/execution_log.jsonl"
+  ],
+  "migrations": [],
+  "decisions": [
+    "Use exact queue allowlists with no wildcard polling; isolate render to one thread per worker_render process; retain finished jobs for 24 hours to support recurring de-duplication; allow only the scheduler role to own recurring scheduling; treat cache and cable as disposable non-authoritative data"
+  ],
+  "risks": [
+    "Queue pool capacity still requires operators to count supervisor and forked actors when setting deployment-wide database budgets. Test keeps the Action Cable test adapter for deterministic assertions while development/staging/production use Solid Cable. Brakeman emitted non-fatal Ruby 3.4 parser/native-extension diagnostics but reported zero scanner errors and zero warnings. An initial RuboCop attempt could not write the user-level cache; the repeat with workspace RUBOCOP_CACHE_ROOT passed."
+  ],
+  "next_steps": [
+    "Prompt 008"
+  ],
+  "commit": null
+}

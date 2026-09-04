@@ -25,5 +25,7 @@ Do not pre-populate these reports with fictional implementation or test results.
   redaction and key rotation.
 - [`DATABASES.md`](./DATABASES.md) defines PostgreSQL topology, capacity,
   identifiers, setup and readiness behavior.
+- [`SOLID_STACK.md`](./SOLID_STACK.md) defines queue isolation, retries,
+  recurring ownership, disposable cache/cable bounds and worker operations.
 - [`../../tracking/README.md`](../../tracking/README.md) defines prompt evidence,
   recovery and state integrity.

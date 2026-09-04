@@ -45,7 +45,7 @@ replacement.
 | ADR | Status | Owners | Last review | Implementation |
 |---|---|---|---|---|
 | [0001 — Modular Rails monolith](./0001_modular_rails_monolith.md) | Accepted | Architecture | 2026-09-04 / Prompt 005 | Boundary checker active |
-| [0002 — PostgreSQL and Solid stack](./0002_postgresql_and_solid_stack.md) | Accepted | Platform | 2026-09-04 / Prompt 006 | Four connections active; adapter topology pending 007 |
+| [0002 — PostgreSQL and Solid stack](./0002_postgresql_and_solid_stack.md) | Accepted | Platform | 2026-09-04 / Prompt 007 | Four Solid-backed connections and isolated worker roles active |
 | [0003 — Native social authentication](./0003_native_social_authentication.md) | Accepted | Identity, Security | 2026-09-04 / Prompt 005 | Planned 014–023 |
 | [0004 — Separate RBAC, entitlements and quotas](./0004_separate_rbac_entitlements_and_quotas.md) | Accepted | Authorization, Entitlements, Usage | 2026-09-04 / Prompt 005 | Planned 029–042 |
 | [0005 — Object storage for large artifacts](./0005_object_storage_for_large_artifacts.md) | Accepted | Platform, Crawling | 2026-09-04 / Prompt 005 | Typed settings active; adapter pending 070 |
