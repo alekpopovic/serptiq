@@ -143,6 +143,7 @@ class SolidStackTopologyTest < ActiveSupport::TestCase
       clear_solid_queue_finished_batches
       clear_solid_queue_finished_jobs
       maintain_organization_invitations
+      maintain_usage_quota_reservations
     ], tasks.keys.sort
     assert tasks.values.all? { |task| task.fetch("queue") == "maintenance" }
     assert tasks.values.all? { |task| task.fetch("priority") == 50 }
@@ -152,6 +153,8 @@ class SolidStackTopologyTest < ActiveSupport::TestCase
       tasks.fetch("cleanup_expired_authentication_rate_limits").fetch("command")
     assert_equal "Tenancy::InvitationMaintenanceJob.perform_later",
       tasks.fetch("maintain_organization_invitations").fetch("command")
+    assert_equal "Usage::QuotaReservationMaintenanceJob.perform_later",
+      tasks.fetch("maintain_usage_quota_reservations").fetch("command")
     assert tasks.slice("clear_solid_queue_finished_batches", "clear_solid_queue_finished_jobs").values.all? do |task|
       task.fetch("command").start_with?("SolidQueue::")
     end

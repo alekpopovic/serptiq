@@ -65,5 +65,7 @@ Do not pre-populate these reports with fictional implementation or test results.
   subscription/override precedence, request caching and tenant-safe diagnostics.
 - [`USAGE_LEDGER.md`](./USAGE_LEDGER.md) defines immutable weighted usage events, explicit metering
   windows, corrections, read models, retention and partitioning policy.
+- [`USAGE_QUOTAS.md`](./USAGE_QUOTAS.md) defines atomic quota admission, immutable limit snapshots,
+  idempotent reservation finalization/release and stale-hold recovery.
 - [`../../tracking/README.md`](../../tracking/README.md) defines prompt evidence,
   recovery and state integrity.

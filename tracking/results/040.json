@@ -1,0 +1,89 @@
+{
+  "prompt_id": "040",
+  "title": "Implement atomic quota reservations and finalization",
+  "status": "completed",
+  "started_at": "2026-09-04T13:40:32Z",
+  "finished_at": "2026-09-04T14:15:38Z",
+  "summary": "Implemented atomic tenant-scoped quota reservations with PostgreSQL pool locks shared by usage writes, explicit capped/unlimited entitlement snapshots, idempotent reserve/extend/finalize/release/expiry operations, durable usage summaries, bounded maintenance reconciliation, structured safe denials, database guards, documentation, and concurrency/security regression coverage.",
+  "tests": [
+    {
+      "command": "docker compose run --rm test ./bin/rails test",
+      "outcome": "passed",
+      "notes": "485 runs; 3884 assertions; 0 failures; 0 errors; 0 skips"
+    },
+    {
+      "command": "bin/rails test:system",
+      "outcome": "passed",
+      "notes": "21 runs; 105 assertions; 0 failures; host Chrome against Docker PostgreSQL test databases"
+    },
+    {
+      "command": "env -u DEBUG bin/quality",
+      "outcome": "passed",
+      "notes": "13 checks; authorization and architecture contracts passed; Brakeman 0 warnings; advisory audits found no vulnerabilities"
+    },
+    {
+      "command": "docker compose run --rm test /bin/bash -lc './bin/rails db:rollback:primary STEP=1 && ./bin/rails db:migrate:primary'",
+      "outcome": "passed",
+      "notes": "migration 20260904092000 rolled back and reapplied successfully on PostgreSQL"
+    },
+    {
+      "command": "ruby tracking/scripts/prompt_tracker.rb validate",
+      "outcome": "passed",
+      "notes": "120 prompts; catalog and state consistent before completion"
+    },
+    {
+      "command": "git diff --check",
+      "outcome": "passed",
+      "notes": "no whitespace errors"
+    }
+  ],
+  "files_changed": [
+    "app/domains/shared/public.rb",
+    "app/domains/usage",
+    "app/jobs/usage/quota_reservation_maintenance_job.rb",
+    "config/authorization_inventory.yml",
+    "config/recurring.yml",
+    "db/migrate/20260904092000_create_usage_quota_reservations.rb",
+    "db/structure.sql",
+    "docs/03_ERD.md",
+    "docs/05_PLAN_ENTITLEMENT_MATRIX.md",
+    "docs/10_DEPLOYMENT_AND_OPERATIONS.md",
+    "docs/adr/0004_separate_rbac_entitlements_and_quotas.md",
+    "docs/adr/README.md",
+    "docs/implementation/MODULE_BOUNDARIES.md",
+    "docs/implementation/README.md",
+    "docs/implementation/SOLID_STACK.md",
+    "docs/implementation/USAGE_LEDGER.md",
+    "docs/implementation/USAGE_QUOTAS.md",
+    "test/database/quota_reservation_concurrency_test.rb",
+    "test/domain/usage",
+    "test/jobs/solid_stack_topology_test.rb",
+    "test/jobs/usage/quota_reservation_maintenance_job_test.rb",
+    "tracking"
+  ],
+  "migrations": [
+    "20260904092000_create_usage_quota_reservations.rb creates tenant-scoped reservations and append-only operation logs with composite foreign keys",
+    "checks",
+    "indexes",
+    "lifecycle triggers",
+    "a transaction advisory-lock function",
+    "and a shared usage-event pool lock without rewriting the usage-event table"
+  ],
+  "decisions": [
+    "Reservation quantities are billed units at the immutable admitted meter rate",
+    "Unlimited capacity is represented explicitly and custom or malformed quota values fail closed",
+    "Usage events and every reservation mutation share one PostgreSQL transaction advisory lock per tenant pool and exact period",
+    "Existing holds retain their admission snapshot across plan changes while new holds use current entitlement context",
+    "Elapsed holds stop consuming capacity immediately and hourly maintenance persists terminal expiry",
+    "Raw idempotency keys are stored only as SHA-256 digests with canonical request checksums"
+  ],
+  "risks": [
+    "Finalized-event reconciliation inspects at most 10000 rows per hourly run; composite foreign keys and immutable database triggers are the primary consistency enforcement",
+    "Replacing the usage-event integrity function can wait briefly behind an in-flight usage write during deployment"
+  ],
+  "next_steps": [
+    "Prompt 041: Build pricing",
+    "plan comparison and usage UI"
+  ],
+  "commit": null
+}

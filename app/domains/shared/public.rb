@@ -7,6 +7,7 @@ module Shared
     ConflictError = Errors::ConflictError
     EntitlementError = Errors::EntitlementError
     ExternalProviderError = Errors::ExternalProviderError
+    QuotaError = Errors::QuotaError
     RateLimitError = Errors::RateLimitError
     ValidationError = Errors::ValidationError
     FILTERED_VALUE = Redaction::FILTERED

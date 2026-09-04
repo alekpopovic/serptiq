@@ -100,6 +100,9 @@ jobs:
   Tenancy::InvitationMaintenanceJob:
     kind: system
     name: global_invitation_maintenance
+  Usage::QuotaReservationMaintenanceJob:
+    kind: system
+    name: quota_reservation_maintenance
 
 domain_operations:
   Auditing::Public.audit_page: { kind: permission, permission: audit_log.read }
@@ -163,3 +166,15 @@ domain_operations:
   Plans::Public.register_snapshot_reference: { kind: context, reason: immutable_invoice_or_report_snapshot_link }
   Plans::Public.publish_version: { kind: context, reason: requires_platform_catalog_decision }
   Plans::Public.retire_version: { kind: context, reason: requires_platform_catalog_decision }
+  Usage::Public.validate_catalog: { kind: system, reason: governed_usage_catalog_validation }
+  Usage::Public.sync_catalog: { kind: system, reason: operator_usage_catalog_synchronization }
+  Usage::Public.resolve_window: { kind: context, reason: explicit_tenant_meter_period_resolution }
+  Usage::Public.record: { kind: context, reason: append_only_usage_observation }
+  Usage::Public.correct: { kind: context, reason: append_only_same_tenant_compensation }
+  Usage::Public.record_manual_adjustment: { kind: context, reason: platform_authorized_usage_adjustment }
+  Usage::Public.summary: { kind: context, reason: explicit_tenant_usage_projection }
+  Usage::Public.reserve: { kind: context, reason: atomic_tenant_quota_admission }
+  Usage::Public.extend_reservation: { kind: context, reason: tenant_bound_quota_hold_extension }
+  Usage::Public.finalize_reservation: { kind: context, reason: tenant_bound_usage_finalization }
+  Usage::Public.release_reservation: { kind: context, reason: tenant_bound_quota_hold_release }
+  Usage::Public.maintain_reservations: { kind: system, reason: bounded_quota_recovery_and_reconciliation }

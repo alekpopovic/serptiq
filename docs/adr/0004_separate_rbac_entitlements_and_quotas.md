@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-09-04
 - Owners: Authorization, Entitlements, Usage
-- Last reviewed: 2026-09-04 (Prompt 039)
+- Last reviewed: 2026-09-04 (Prompt 040)
 
 ## Context
 
@@ -34,5 +34,7 @@ Use stable keys and immutable plan versions. Record usage in an append-only ledg
 Prompt 038 implements the strict typed definition/value catalog, tenant-consistent active-subscription
 projection, audited organization overrides and fail-closed resolver with provenance. Prompt 039 implements
 immutable weighted meter/rate history, deterministic UTC/provider windows, append-only usage/correction
-events and snapshot-based read models. Atomic quota reservations and the unified orchestration decision remain
-Prompt 040–042 work; neither implemented module collapses these independent controls.
+events and snapshot-based read models. Prompt 040 implements explicit capped/unlimited admission snapshots,
+transaction-scoped PostgreSQL pool locks, durable idempotent reservation operations, ledger finalization and
+stale recovery. Unified orchestration remains Prompt 042 scope; none of these modules collapses the independent
+permission, entitlement, quota and resource-state controls.

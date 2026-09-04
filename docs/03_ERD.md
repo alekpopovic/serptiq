@@ -551,15 +551,27 @@ occurred/recorded instants. Corrections reference an original in the same tenant
 rate/source, have the opposite sign and cannot cumulatively overcompensate it. Unique
 `(organization_id, idempotency_key_digest)`.
 
-### `quota_reservations`
+### `usage_quota_reservations` / `usage_quota_reservation_operations`
 
-Tracks estimated amount, finalized amount, state, expiry, and idempotency key. Reservation and consumption operations lock the relevant usage window.
+Tenant-owned UUID reservations retain the window and exact meter rate, SHA-256 idempotency/request digests,
+source aggregate, requested/held/consumed/released billing quantities, expiry, terminal timestamps and the
+final usage event. Admission snapshots use explicit `capped` or `unlimited` state and retain the numeric
+limit, entitlement provenance/checksum/override plus subscription, immutable plan version and revision when
+present. `custom` is not unlimited. Reservations cannot be deleted; only a held row can be extended or move
+once to finalized, released or expired. Append-only bigint operation rows make extend, finalize, release and
+expiry retries deterministic.
+
+Every reservation mutation and usage-event insert acquires the same transaction-scoped PostgreSQL advisory
+lock derived from organization, pool, billing unit and exact half-open period. Tenant/window/meter/rate and
+finalization-event relationships have composite foreign keys; checks enforce quantity, snapshot and terminal
+state shapes.
 
 ### `usage_windows`
 
 Immutable non-overlapping half-open periods by organization and meter. Windows store UTC-calendar or explicit
 provider-period policy, timezone name, provider-reference digest and optional subscription/plan/revision
-snapshot. The current used value is derived from events; reservation counters arrive in Prompt 040.
+snapshot. Used values are derived from events and reserved values from unexpired held reservations in all
+compatible meter windows in the same pool and exact period.
 
 ## 6. Projects and properties
 

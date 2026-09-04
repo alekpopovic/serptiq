@@ -1,8 +1,8 @@
 # Immutable usage ledger and metering windows
 
-`Usage` records variable-cost observations without mutating history. It does not authorize a product action
-or reserve capacity: prompt 040 adds the reservation lifecycle, and the later access-decision composition must
-still require permission, entitlement, quota and valid resource state independently.
+`Usage` records variable-cost observations without mutating history and owns the atomic reservation
+lifecycle described in `USAGE_QUOTAS.md`. It does not authorize a product action: the later access-decision
+composition must still require permission, entitlement, quota and valid resource state independently.
 
 ## Governed meter catalog
 
@@ -47,11 +47,10 @@ opposite sign and cannot cumulatively pass zero. Manual adjustments require a pl
 who is also an active member of the target organization; the mutation and `usage.manual_adjusted` audit event
 commit atomically.
 
-`Usage::Public.summary` exposes `used`, `reserved`, `limit`, `remaining` and `unlimited`; `used` includes every
-compatible meter window in the same pool and exact period/subscription snapshot. In this prompt,
-`reserved` is an explicit non-negative read input and normally zero; prompt 040 replaces that seam with the
-durable reservation aggregate. A report meter with no quota entitlement is explicitly unlimited. A malformed
-or missing numeric plan snapshot limit resolves to zero, never unlimited.
+`Usage::Public.summary` exposes `used`, durable `reserved`, `limit`, `remaining` and `unlimited`; `used` and
+`reserved` include every compatible meter window in the same pool and exact period. Only unexpired held rows
+contribute to `reserved`. A report meter with no quota entitlement is explicitly unlimited. A malformed or
+missing numeric plan snapshot limit resolves to zero, never unlimited.
 
 ## Scale, retention and operations
 

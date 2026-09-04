@@ -70,12 +70,11 @@ are established.
 
 ## Recurring work
 
-`config/recurring.yml` contains only executable Solid Queue finished-job and
-finished-batch cleanup operations. Later prompts add real idempotent tasks when
-their job classes exist; placeholder class names are forbidden. Finished jobs
-are retained for 24 hours, which preserves recurring de-duplication during
-that window. The scheduler owns schedule creation and the default worker owns
-the `maintenance` executions.
+`config/recurring.yml` contains only executable cleanup and maintenance operations; placeholder class names
+are forbidden. Usage quota maintenance runs hourly at minute 57, expires at most 10,000 abandoned holds and
+checks finalized reservations against their immutable ledger events. Finished jobs are retained for 24 hours,
+which preserves recurring de-duplication during that window. The scheduler owns schedule creation and the
+default worker owns the `maintenance` executions.
 
 ## Cache and cable bounds
 

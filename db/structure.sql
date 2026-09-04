@@ -171,6 +171,7 @@ BEGIN
   END IF;
 
   SELECT * INTO event_window FROM usage_windows WHERE id = NEW.usage_window_id;
+  PERFORM lock_usage_quota_pool(NEW.usage_window_id);
   IF NEW.event_kind = 'usage' AND
     (NEW.occurred_at < event_window.starts_at OR NEW.occurred_at >= event_window.ends_at) THEN
     RAISE EXCEPTION 'usage event occurred outside its window' USING ERRCODE = '23514';
@@ -192,6 +193,82 @@ BEGIN
       (original.quantity < 0 AND (NEW.quantity <= 0 OR corrected > 0)) THEN
       RAISE EXCEPTION 'usage correction overcompensates its target' USING ERRCODE = '23514';
     END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: enforce_usage_quota_reservation_lifecycle(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.enforce_usage_quota_reservation_lifecycle() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'usage quota reservations cannot be deleted' USING ERRCODE = '23514';
+  END IF;
+
+  PERFORM lock_usage_quota_pool(CASE WHEN TG_OP = 'INSERT' THEN NEW.usage_window_id ELSE OLD.usage_window_id END);
+  IF TG_OP = 'INSERT' THEN
+    RETURN NEW;
+  END IF;
+
+  IF OLD.organization_id IS DISTINCT FROM NEW.organization_id OR
+    OLD.source_organization_id IS DISTINCT FROM NEW.source_organization_id OR
+    OLD.usage_window_id IS DISTINCT FROM NEW.usage_window_id OR
+    OLD.usage_meter_definition_id IS DISTINCT FROM NEW.usage_meter_definition_id OR
+    OLD.usage_meter_rate_id IS DISTINCT FROM NEW.usage_meter_rate_id OR
+    OLD.idempotency_key_digest IS DISTINCT FROM NEW.idempotency_key_digest OR
+    OLD.request_checksum IS DISTINCT FROM NEW.request_checksum OR
+    OLD.source_type IS DISTINCT FROM NEW.source_type OR OLD.source_id IS DISTINCT FROM NEW.source_id OR
+    OLD.limit_kind IS DISTINCT FROM NEW.limit_kind OR OLD.limit_quantity IS DISTINCT FROM NEW.limit_quantity OR
+    OLD.entitlement_key IS DISTINCT FROM NEW.entitlement_key OR
+    OLD.entitlement_state IS DISTINCT FROM NEW.entitlement_state OR
+    OLD.entitlement_provenance IS DISTINCT FROM NEW.entitlement_provenance OR
+    OLD.entitlement_definition_checksum IS DISTINCT FROM NEW.entitlement_definition_checksum OR
+    OLD.entitlement_override_id IS DISTINCT FROM NEW.entitlement_override_id OR
+    OLD.subscription_id IS DISTINCT FROM NEW.subscription_id OR
+    OLD.plan_version_id IS DISTINCT FROM NEW.plan_version_id OR
+    OLD.subscription_revision IS DISTINCT FROM NEW.subscription_revision OR
+    OLD.admitted_at IS DISTINCT FROM NEW.admitted_at OR OLD.created_at IS DISTINCT FROM NEW.created_at THEN
+    RAISE EXCEPTION 'usage quota reservation admission snapshot is immutable' USING ERRCODE = '23514';
+  END IF;
+
+  IF OLD.state <> 'held' OR NEW.state NOT IN ('held', 'finalized', 'released', 'expired') OR
+    NEW.requested_quantity < OLD.requested_quantity OR NEW.held_quantity < OLD.held_quantity OR
+    NEW.expires_at < OLD.expires_at THEN
+    RAISE EXCEPTION 'usage quota reservation transition is invalid' USING ERRCODE = '23514';
+  END IF;
+  IF NEW.state = 'finalized' AND NEW.consumed_quantity > 0 AND NOT EXISTS (
+    SELECT 1 FROM usage_events event
+    WHERE event.id = NEW.finalized_usage_event_id
+      AND event.organization_id = NEW.organization_id
+      AND event.usage_window_id = NEW.usage_window_id
+      AND event.usage_meter_definition_id = NEW.usage_meter_definition_id
+      AND event.usage_meter_rate_id = NEW.usage_meter_rate_id
+      AND event.source_type = NEW.source_type AND event.source_id = NEW.source_id
+      AND event.billed_quantity = NEW.consumed_quantity
+  ) THEN
+    RAISE EXCEPTION 'usage quota finalization event is inconsistent' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: enforce_usage_quota_reservation_operation_immutability(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.enforce_usage_quota_reservation_operation_immutability() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF TG_OP <> 'INSERT' THEN
+    RAISE EXCEPTION 'usage quota reservation operations are append-only' USING ERRCODE = '23514';
   END IF;
   RETURN NEW;
 END;
@@ -222,6 +299,33 @@ BEGIN
     RAISE EXCEPTION 'usage windows cannot overlap' USING ERRCODE = '23514';
   END IF;
   RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: lock_usage_quota_pool(uuid); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.lock_usage_quota_pool(reservation_window uuid) RETURNS void
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  lock_identity text;
+BEGIN
+  SELECT concat_ws(':', usage_window.organization_id::text, meter_definition.pool_key,
+    meter_definition.billing_unit, COALESCE(meter_definition.quota_entitlement_key, 'unlimited'),
+    usage_window.window_policy, usage_window.starts_at::text, usage_window.ends_at::text)
+  INTO lock_identity
+  FROM usage_windows usage_window
+  JOIN usage_meter_definitions meter_definition
+    ON meter_definition.id = usage_window.usage_meter_definition_id
+  WHERE usage_window.id = reservation_window;
+
+  IF lock_identity IS NULL THEN
+    RAISE EXCEPTION 'usage quota window is invalid' USING ERRCODE = '23514';
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended(lock_identity, 0));
 END;
 $$;
 
@@ -1069,6 +1173,97 @@ CREATE TABLE public.usage_meter_rates (
 
 
 --
+-- Name: usage_quota_reservation_operations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.usage_quota_reservation_operations (
+    id bigint NOT NULL,
+    organization_id uuid NOT NULL,
+    usage_quota_reservation_id uuid NOT NULL,
+    operation_kind character varying(16) NOT NULL,
+    idempotency_key_digest character varying(64) NOT NULL,
+    request_checksum character varying(64) NOT NULL,
+    quantity numeric(30,6) DEFAULT 0.0 NOT NULL,
+    requested_expires_at timestamp(6) with time zone,
+    created_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT usage_quota_operations_digest_format CHECK ((((idempotency_key_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((request_checksum)::text ~ '^[0-9a-f]{64}$'::text))),
+    CONSTRAINT usage_quota_operations_kind_allowlist CHECK (((operation_kind)::text = ANY ((ARRAY['extend'::character varying, 'finalize'::character varying, 'release'::character varying, 'expire'::character varying])::text[]))),
+    CONSTRAINT usage_quota_operations_quantity_nonnegative CHECK ((quantity >= (0)::numeric))
+);
+
+
+--
+-- Name: usage_quota_reservation_operations_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.usage_quota_reservation_operations_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: usage_quota_reservation_operations_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.usage_quota_reservation_operations_id_seq OWNED BY public.usage_quota_reservation_operations.id;
+
+
+--
+-- Name: usage_quota_reservations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.usage_quota_reservations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    source_organization_id uuid NOT NULL,
+    usage_window_id uuid NOT NULL,
+    usage_meter_definition_id uuid NOT NULL,
+    usage_meter_rate_id uuid NOT NULL,
+    idempotency_key_digest character varying(64) NOT NULL,
+    request_checksum character varying(64) NOT NULL,
+    state character varying(16) NOT NULL,
+    requested_quantity numeric(30,6) NOT NULL,
+    held_quantity numeric(30,6) NOT NULL,
+    consumed_quantity numeric(30,6) DEFAULT 0.0 NOT NULL,
+    released_quantity numeric(30,6) DEFAULT 0.0 NOT NULL,
+    source_type character varying(48) NOT NULL,
+    source_id uuid NOT NULL,
+    limit_kind character varying(16) NOT NULL,
+    limit_quantity numeric(30,6),
+    entitlement_key character varying(96),
+    entitlement_state character varying(24) NOT NULL,
+    entitlement_provenance character varying(32) NOT NULL,
+    entitlement_definition_checksum character varying(64),
+    entitlement_override_id uuid,
+    subscription_id uuid,
+    plan_version_id uuid,
+    subscription_revision bigint,
+    finalized_usage_event_id bigint,
+    admitted_at timestamp(6) with time zone NOT NULL,
+    expires_at timestamp(6) with time zone NOT NULL,
+    finalized_at timestamp(6) with time zone,
+    released_at timestamp(6) with time zone,
+    expired_at timestamp(6) with time zone,
+    lock_version integer DEFAULT 0 NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT usage_quota_reservations_digest_format CHECK ((((idempotency_key_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((request_checksum)::text ~ '^[0-9a-f]{64}$'::text))),
+    CONSTRAINT usage_quota_reservations_entitlement_provenance_format CHECK (((entitlement_provenance)::text ~ '^[a-z][a-z0-9_]{1,31}$'::text)),
+    CONSTRAINT usage_quota_reservations_expiry_order CHECK ((expires_at > admitted_at)),
+    CONSTRAINT usage_quota_reservations_lifecycle_shape CHECK (((((state)::text = 'held'::text) AND (consumed_quantity = (0)::numeric) AND (released_quantity = (0)::numeric) AND (finalized_usage_event_id IS NULL) AND (finalized_at IS NULL) AND (released_at IS NULL) AND (expired_at IS NULL)) OR (((state)::text = 'finalized'::text) AND ((consumed_quantity + released_quantity) = held_quantity) AND (((consumed_quantity = (0)::numeric) AND (finalized_usage_event_id IS NULL)) OR ((consumed_quantity > (0)::numeric) AND (finalized_usage_event_id IS NOT NULL))) AND (finalized_at IS NOT NULL) AND (released_at IS NULL) AND (expired_at IS NULL)) OR (((state)::text = 'released'::text) AND (consumed_quantity = (0)::numeric) AND (released_quantity = held_quantity) AND (finalized_usage_event_id IS NULL) AND (finalized_at IS NULL) AND (released_at IS NOT NULL) AND (expired_at IS NULL)) OR (((state)::text = 'expired'::text) AND (consumed_quantity = (0)::numeric) AND (released_quantity = held_quantity) AND (finalized_usage_event_id IS NULL) AND (finalized_at IS NULL) AND (released_at IS NULL) AND (expired_at IS NOT NULL)))),
+    CONSTRAINT usage_quota_reservations_limit_snapshot_shape CHECK (((((limit_kind)::text = 'unlimited'::text) AND (limit_quantity IS NULL) AND (entitlement_key IS NULL) AND ((entitlement_state)::text = 'unlimited'::text) AND (entitlement_definition_checksum IS NULL)) OR (((limit_kind)::text = 'capped'::text) AND (limit_quantity >= (0)::numeric) AND ((entitlement_key)::text ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$'::text) AND ((entitlement_state)::text = ANY ((ARRAY['enabled'::character varying, 'disabled'::character varying])::text[])) AND ((entitlement_definition_checksum)::text ~ '^[0-9a-f]{64}$'::text)))),
+    CONSTRAINT usage_quota_reservations_quantities_nonnegative CHECK (((requested_quantity > (0)::numeric) AND (held_quantity > (0)::numeric) AND (requested_quantity = held_quantity) AND (consumed_quantity >= (0)::numeric) AND (released_quantity >= (0)::numeric))),
+    CONSTRAINT usage_quota_reservations_source_tenant_match CHECK ((organization_id = source_organization_id)),
+    CONSTRAINT usage_quota_reservations_source_type_format CHECK (((source_type)::text ~ '^[A-Z][A-Za-z0-9]{0,47}$'::text)),
+    CONSTRAINT usage_quota_reservations_state_allowlist CHECK (((state)::text = ANY ((ARRAY['held'::character varying, 'finalized'::character varying, 'released'::character varying, 'expired'::character varying])::text[]))),
+    CONSTRAINT usage_quota_reservations_subscription_snapshot_shape CHECK ((((subscription_id IS NULL) AND (subscription_revision IS NULL)) OR ((subscription_id IS NOT NULL) AND (plan_version_id IS NOT NULL) AND (subscription_revision >= 0))))
+);
+
+
+--
 -- Name: usage_windows; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1127,6 +1322,13 @@ ALTER TABLE ONLY public.authentication_rate_limit_buckets ALTER COLUMN id SET DE
 --
 
 ALTER TABLE ONLY public.usage_events ALTER COLUMN id SET DEFAULT nextval('public.usage_events_id_seq'::regclass);
+
+
+--
+-- Name: usage_quota_reservation_operations id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_quota_reservation_operations ALTER COLUMN id SET DEFAULT nextval('public.usage_quota_reservation_operations_id_seq'::regclass);
 
 
 --
@@ -1391,6 +1593,22 @@ ALTER TABLE ONLY public.usage_meter_definitions
 
 ALTER TABLE ONLY public.usage_meter_rates
     ADD CONSTRAINT usage_meter_rates_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: usage_quota_reservation_operations usage_quota_reservation_operations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_quota_reservation_operations
+    ADD CONSTRAINT usage_quota_reservation_operations_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: usage_quota_reservations usage_quota_reservations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_quota_reservations
+    ADD CONSTRAINT usage_quota_reservations_pkey PRIMARY KEY (id);
 
 
 --
@@ -2103,6 +2321,62 @@ CREATE UNIQUE INDEX index_usage_meter_rates_on_definition_and_version ON public.
 
 
 --
+-- Name: index_usage_quota_operations_on_reservation; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_usage_quota_operations_on_reservation ON public.usage_quota_reservation_operations USING btree (organization_id, usage_quota_reservation_id, created_at, id);
+
+
+--
+-- Name: index_usage_quota_operations_on_tenant_idempotency; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_usage_quota_operations_on_tenant_idempotency ON public.usage_quota_reservation_operations USING btree (organization_id, idempotency_key_digest);
+
+
+--
+-- Name: index_usage_quota_reservations_on_active_pool; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_usage_quota_reservations_on_active_pool ON public.usage_quota_reservations USING btree (organization_id, usage_window_id, state, expires_at);
+
+
+--
+-- Name: index_usage_quota_reservations_on_finalized_event; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_usage_quota_reservations_on_finalized_event ON public.usage_quota_reservations USING btree (finalized_usage_event_id) WHERE (finalized_usage_event_id IS NOT NULL);
+
+
+--
+-- Name: index_usage_quota_reservations_on_stale_holds; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_usage_quota_reservations_on_stale_holds ON public.usage_quota_reservations USING btree (state, expires_at) WHERE ((state)::text = 'held'::text);
+
+
+--
+-- Name: index_usage_quota_reservations_on_tenant_idempotency; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_usage_quota_reservations_on_tenant_idempotency ON public.usage_quota_reservations USING btree (organization_id, idempotency_key_digest);
+
+
+--
+-- Name: index_usage_quota_reservations_on_tenant_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_usage_quota_reservations_on_tenant_identity ON public.usage_quota_reservations USING btree (organization_id, id);
+
+
+--
+-- Name: index_usage_quota_reservations_on_tenant_source; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_usage_quota_reservations_on_tenant_source ON public.usage_quota_reservations USING btree (organization_id, source_type, source_id, created_at);
+
+
+--
 -- Name: index_usage_windows_on_provider_period; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2198,6 +2472,20 @@ CREATE TRIGGER usage_meter_definitions_immutable BEFORE DELETE OR UPDATE ON publ
 --
 
 CREATE TRIGGER usage_meter_rates_immutable BEFORE DELETE OR UPDATE ON public.usage_meter_rates FOR EACH ROW EXECUTE FUNCTION public.enforce_usage_catalog_immutability();
+
+
+--
+-- Name: usage_quota_reservation_operations usage_quota_reservation_operations_immutable; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER usage_quota_reservation_operations_immutable BEFORE DELETE OR UPDATE ON public.usage_quota_reservation_operations FOR EACH ROW EXECUTE FUNCTION public.enforce_usage_quota_reservation_operation_immutability();
+
+
+--
+-- Name: usage_quota_reservations usage_quota_reservations_lifecycle; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER usage_quota_reservations_lifecycle BEFORE INSERT OR DELETE OR UPDATE ON public.usage_quota_reservations FOR EACH ROW EXECUTE FUNCTION public.enforce_usage_quota_reservation_lifecycle();
 
 
 --
@@ -2480,6 +2768,22 @@ ALTER TABLE ONLY public.plan_entitlements
 
 
 --
+-- Name: usage_quota_reservation_operations fk_rails_b94ce8e8be; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_quota_reservation_operations
+    ADD CONSTRAINT fk_rails_b94ce8e8be FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: usage_quota_reservations fk_rails_bdb6f3383a; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_quota_reservations
+    ADD CONSTRAINT fk_rails_bdb6f3383a FOREIGN KEY (plan_version_id) REFERENCES public.plan_versions(id) ON DELETE RESTRICT;
+
+
+--
 -- Name: audit_events fk_rails_be0ed9e37f; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2509,6 +2813,14 @@ ALTER TABLE ONLY public.oauth_transactions
 
 ALTER TABLE ONLY public.usage_meter_rates
     ADD CONSTRAINT fk_rails_d068f75899 FOREIGN KEY (usage_meter_definition_id) REFERENCES public.usage_meter_definitions(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: usage_quota_reservations fk_rails_d5b5f582c2; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_quota_reservations
+    ADD CONSTRAINT fk_rails_d5b5f582c2 FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE RESTRICT;
 
 
 --
@@ -2688,6 +3000,62 @@ ALTER TABLE ONLY public.usage_events
 
 
 --
+-- Name: usage_quota_reservation_operations fk_usage_quota_operations_tenant_reservation; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_quota_reservation_operations
+    ADD CONSTRAINT fk_usage_quota_operations_tenant_reservation FOREIGN KEY (organization_id, usage_quota_reservation_id) REFERENCES public.usage_quota_reservations(organization_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: usage_quota_reservations fk_usage_quota_reservations_entitlement_override; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_quota_reservations
+    ADD CONSTRAINT fk_usage_quota_reservations_entitlement_override FOREIGN KEY (entitlement_override_id) REFERENCES public.organization_entitlement_overrides(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: usage_quota_reservations fk_usage_quota_reservations_finalized_event; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_quota_reservations
+    ADD CONSTRAINT fk_usage_quota_reservations_finalized_event FOREIGN KEY (organization_id, finalized_usage_event_id, usage_window_id, usage_meter_definition_id) REFERENCES public.usage_events(organization_id, id, usage_window_id, usage_meter_definition_id) ON DELETE RESTRICT;
+
+
+--
+-- Name: usage_quota_reservations fk_usage_quota_reservations_meter_rate; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_quota_reservations
+    ADD CONSTRAINT fk_usage_quota_reservations_meter_rate FOREIGN KEY (usage_meter_definition_id, usage_meter_rate_id) REFERENCES public.usage_meter_rates(usage_meter_definition_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: usage_quota_reservations fk_usage_quota_reservations_source_organization; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_quota_reservations
+    ADD CONSTRAINT fk_usage_quota_reservations_source_organization FOREIGN KEY (source_organization_id) REFERENCES public.organizations(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: usage_quota_reservations fk_usage_quota_reservations_subscription_snapshot; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_quota_reservations
+    ADD CONSTRAINT fk_usage_quota_reservations_subscription_snapshot FOREIGN KEY (organization_id, subscription_id, plan_version_id) REFERENCES public.subscriptions(organization_id, id, plan_version_id) ON DELETE RESTRICT;
+
+
+--
+-- Name: usage_quota_reservations fk_usage_quota_reservations_tenant_window_meter; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_quota_reservations
+    ADD CONSTRAINT fk_usage_quota_reservations_tenant_window_meter FOREIGN KEY (organization_id, usage_window_id, usage_meter_definition_id) REFERENCES public.usage_windows(organization_id, id, usage_meter_definition_id) ON DELETE RESTRICT;
+
+
+--
 -- Name: usage_windows fk_usage_windows_subscription_snapshot; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2702,6 +3070,7 @@ ALTER TABLE ONLY public.usage_windows
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904092000'),
 ('20260904091000'),
 ('20260904090000'),
 ('20260904088000'),

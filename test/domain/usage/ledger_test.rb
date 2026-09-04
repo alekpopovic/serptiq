@@ -56,14 +56,13 @@ class UsageLedgerTest < ActiveSupport::TestCase
     )
     summary = Usage::Public.summary(
       organization_id: @owner.organization.id,
-      window_id: @window.id,
-      reserved: BigDecimal("5")
+      window_id: @window.id
     )
 
     assert_equal BigDecimal("20"), summary.used
-    assert_equal BigDecimal("5"), summary.reserved
+    assert_equal BigDecimal("0"), summary.reserved
     assert_equal BigDecimal("25000"), summary.limit
-    assert_equal BigDecimal("24975"), summary.remaining
+    assert_equal BigDecimal("24980"), summary.remaining
     refute_predicate summary, :unlimited?
     assert_equal "credits", summary.unit
   end

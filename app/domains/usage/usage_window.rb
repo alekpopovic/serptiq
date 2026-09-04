@@ -8,6 +8,8 @@ module Usage
       foreign_key: :usage_meter_definition_id
     has_many :events, class_name: "Usage::UsageEvent", foreign_key: :usage_window_id,
       dependent: :restrict_with_exception
+    has_many :quota_reservations, class_name: "Usage::QuotaReservation",
+      foreign_key: :usage_window_id, dependent: :restrict_with_exception
 
     validates :organization_id, :usage_meter_definition_id, :starts_at, :ends_at,
       :window_policy, :time_zone_name, :created_at, presence: true

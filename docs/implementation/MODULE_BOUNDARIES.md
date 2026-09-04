@@ -115,10 +115,13 @@ operations accept only an already-approved global plan-catalog publication decis
 organization member; ordinary or custom organization roles are insufficient.
 
 Usage owns logical meter/rate definitions, immutable period windows, append-only events, compensating
-corrections and aggregate read models. It consumes plan credit weights through `Plans::Public`, immutable
-subscription/plan snapshots through `Entitlements::Public`, and writes catalog/manual-adjustment evidence
-through `Auditing::Public`. Manual adjustments reuse the platform publication authority contract and require
-same-organization active membership; tenant domains never receive a public counter-mutation API.
+corrections, atomic quota reservations and aggregate read models. It consumes plan credit weights through
+`Plans::Public`, current admission context and immutable subscription/plan snapshots through
+`Entitlements::Public`, and writes catalog/manual-adjustment evidence through `Auditing::Public`. Manual
+adjustments reuse the platform publication authority contract and require same-organization active
+membership; tenant domains never receive a public counter-mutation API. Quota callers use only
+`Usage::Public` reserve/extend/finalize/release operations and pass a source already resolved within the same
+tenant.
 
 ## Shared primitives
 

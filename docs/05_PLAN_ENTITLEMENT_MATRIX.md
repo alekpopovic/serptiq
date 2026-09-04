@@ -149,8 +149,16 @@ Provider status and application `access_state` are separate fields.
 Prompt 039 materializes the six weighted credit operations plus report generation as stable usage meters.
 Weights have immutable effective versions, and each event retains its raw quantity, applied weight and billed
 quantity. UTC-month meters always roll at UTC midnight; subscription meters require explicit provider period
-instants. Usage history is corrected only with same-context compensating events. Durable atomic reservations
-and pooled admission remain Prompt 040 scope.
+instants. Usage history is corrected only with same-context compensating events. Prompt 040 materializes
+durable pooled reservations. Admission stores requested and held values in billing units after the immutable
+meter weight is applied; finalization appends actual usage and releases the difference. `capped` and
+`unlimited` are distinct stored states with a nullable limit only for unlimited, while `custom` continues to
+fail closed until an audited concrete override exists.
+
+A successful reservation freezes the entitlement limit/provenance, override, subscription revision, plan
+version and meter rate for that operation. Later upgrades or downgrades govern new reservations; an existing
+hold may be extended and finalized only against its admission snapshot. Reservations never cross a usage
+window, so a provider-period or UTC-month rollover starts with an independent balance.
 
 ## 9. Plan-version migration and grandfathering policy
 

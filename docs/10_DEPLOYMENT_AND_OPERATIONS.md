@@ -369,6 +369,12 @@ stored keyed digests cannot be used to recover raw addresses, sessions or
 accounts. The rate-limit migration creates only a new internal table and does
 not rewrite existing identity data.
 
+Quota reservation maintenance runs hourly at minute 57 on the maintenance queue. Each run atomically expires
+at most 10,000 stale held reservations in batches of 500 and checks up to 10,000 finalized reservations
+against their linked usage events. Admission ignores already elapsed holds even before maintenance runs, so a
+delayed scheduler cannot permanently deny work. Alert on `usage.quota_reconciliation_failed`; investigate the
+primary database and immutable ledger rather than rewriting counters or reservations.
+
 The scoped-role migration creates two new empty authorization tables, adds one small unique index to the
 role catalog, and adds validated foreign keys/checks. It does not rewrite organization, membership, team,
 role, or permission rows. On a catalog large enough for index construction to threaten the deployment

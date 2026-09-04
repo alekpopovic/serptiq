@@ -24,6 +24,11 @@ default: &default
     queue: maintenance
     priority: 50
     schedule: every hour at minute 52
+  maintain_usage_quota_reservations:
+    command: "Usage::QuotaReservationMaintenanceJob.perform_later"
+    queue: maintenance
+    priority: 50
+    schedule: every hour at minute 57
 
 development:
   <<: *default
