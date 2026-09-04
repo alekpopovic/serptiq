@@ -28,6 +28,9 @@ module Plans
       @entitlement_definitions = Entitlements::Public.catalog_entries
       @checkout_availability = checkout_availability(@offers)
       @selected_offer = selected_offer(@offers)
+      @selected_interval = selected_interval(@selected_offer)
+      @active_checkout = Billing::Public.active_checkout?(organization_id: Current.organization.id)
+      @portal_available = portal_available?
     end
 
     private
@@ -49,6 +52,19 @@ module Plans
       return if key.blank?
 
       offers.find { |offer| offer.offered? && offer.plan_key == key }
+    end
+
+    def selected_interval(offer)
+      interval = params[:billing_interval].to_s
+      interval if offer && offer.billing_intervals.include?(interval)
+    end
+
+    def portal_available?
+      provider = Rails.application.config.x.searchops.fetch(:billing_provider)
+      provider != "disabled" && Billing::Public.portal_available?(
+        organization_id: Current.organization.id,
+        provider: provider
+      )
     end
 
     def redirect_alias_to_canonical_slug

@@ -12,6 +12,7 @@ Adapters accept and return immutable Billing values:
 | Value | Purpose |
 |---|---|
 | `Customer` | Provider customer reference correlated to exactly one organization and environment |
+| `CustomerRequest` | Redacted provider-customer creation input bound to one local organization |
 | `CheckoutRequest` / `CheckoutResult` | Exact internal plan target, opaque mapped variant and hosted checkout handoff |
 | `SubscriptionSnapshot` | Canonical status/access state plus provider timing and bounded provider facts |
 | `InvoiceTransactionLink` | Short-lived invoice or transaction document handoff |
@@ -37,6 +38,7 @@ a provider that cannot support the requested transition; capability checks remai
 
 | Operation | Method | Open/read timeout | Response cap | Safe retries | Idempotency |
 |---|---|---:|---:|---:|---|
+| create customer | POST | 2s / 5s | 512 KiB | 0 | required local key |
 | create checkout | POST | 2s / 5s | 512 KiB | 1 | required provider key |
 | customer portal | POST | 2s / 5s | 512 KiB | 0 | required request key |
 | fetch subscription | GET | 2s / 5s | 512 KiB | 2 | naturally safe |
@@ -64,6 +66,19 @@ subscription to reference a customer with the exact same organization, provider 
 catalog mapping. Lemon Squeezy rows additionally require numeric store, product and variant coordinates.
 Missing, inactive, wrong-store, wrong-product, wrong-environment or wrong-interval mappings fail closed; all
 provider coordinates are redacted from projections.
+
+Hosted checkout orchestration creates or reuses the exact tenant customer mapping without searching provider
+customers by email. A local `billing_checkout_sessions` row reserves one active handoff per organization before
+any provider mutation. It stores only a one-way request digest and opaque checkout reference—never the hosted
+URL. Ready and uncertain sessions block duplicates until expiry. Checkout custom data contains the
+organization, exact plan version, local session ID and an HMAC correlation value for later verified webhook
+processing; the browser return page cannot mutate the subscription projection.
+
+`20260904095000_create_billing_checkout_sessions.rb` creates a new empty table, so it does not rewrite
+existing rows. Its foreign keys, checks and indexes are created and validated in the same migration; this
+briefly takes catalog locks on the new table and referenced identity/catalog tables. No long-lived checkout
+write traffic exists before this table is deployed, so a phased constraint or concurrent-index rollout is
+not required for this migration.
 
 Canonical subscription statuses are `pending`, `trialing`, `active`, `past_due`, `paused`, `canceled` and
 `expired`. Access states are independently constrained:

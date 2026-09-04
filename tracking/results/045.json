@@ -1,0 +1,88 @@
+{
+  "prompt_id": "045",
+  "title": "Implement hosted checkout and customer portal flows",
+  "status": "completed",
+  "started_at": "2026-09-04T15:56:10Z",
+  "finished_at": "2026-09-04T16:34:26Z",
+  "summary": "Implemented authorized hosted checkout and customer portal flows tied to exact published plan versions with tenant-safe customer mapping, signed correlation metadata, local checkout reservation/idempotency state, safe hosted redirects, informational returns, redacted auditing, UI states and production adapter support.",
+  "tests": [
+    {
+      "command": "docker compose --profile test run --rm test bin/rails test test/domain/billing/hosted_flows_test.rb test/requests/billing_hosted_flows_test.rb test/database/billing_checkout_concurrency_test.rb test/adapters/contracts/billing_provider_contract_test.rb test/adapters/billing/lemon_squeezy_provider_test.rb test/adapters/billing/lemon_squeezy_client_test.rb",
+      "outcome": "passed",
+      "notes": "31 runs; 284 assertions; 0 failures; 0 errors; 0 skips"
+    },
+    {
+      "command": "docker compose --profile test run --rm test bin/rails test",
+      "outcome": "passed",
+      "notes": "554 runs; 4461 assertions; 0 failures; 0 errors; 0 skips"
+    },
+    {
+      "command": "docker compose --profile test run --rm test bin/rails test:system",
+      "outcome": "passed",
+      "notes": "24 runs; 119 assertions; 0 failures; 0 errors; 0 skips"
+    },
+    {
+      "command": "docker compose --profile test run --rm test bin/rails db:rollback:primary STEP=1",
+      "outcome": "passed",
+      "notes": "Prompt 045 migration reversed successfully"
+    },
+    {
+      "command": "docker compose --profile test run --rm test bin/rails db:migrate:primary",
+      "outcome": "passed",
+      "notes": "Prompt 045 migration applied successfully in 0.0308 seconds"
+    },
+    {
+      "command": "bash -o pipefail -c 'bin/quality 2>&1 | tail -90'",
+      "outcome": "passed",
+      "notes": "14 checks; architecture and authorization boundaries passed; Brakeman 0 warnings; advisory audits clean"
+    },
+    {
+      "command": "ruby tracking/scripts/prompt_tracker.rb validate",
+      "outcome": "passed",
+      "notes": "120 prompts valid before completion"
+    },
+    {
+      "command": "git diff --check",
+      "outcome": "passed",
+      "notes": "no whitespace errors"
+    }
+  ],
+  "files_changed": [
+    "Dockerfile.dev",
+    "app/adapters/billing",
+    "app/controllers/billing",
+    "app/controllers/concerns/billing",
+    "app/controllers/plans/comparisons_controller.rb",
+    "app/domains/auditing/metadata_sanitizer.rb",
+    "app/domains/billing",
+    "app/domains/plans",
+    "app/views/billing",
+    "app/views/plans/comparisons/show.html.erb",
+    "config/authorization_inventory.yml",
+    "config/routes.rb",
+    "db/migrate/20260904095000_create_billing_checkout_sessions.rb",
+    "db/structure.sql",
+    "docs/implementation",
+    "test/adapters/billing",
+    "test/adapters/contracts/billing_provider_contract_test.rb",
+    "test/application_system_test_case.rb",
+    "test/database/billing_checkout_concurrency_test.rb",
+    "test/domain/billing/hosted_flows_test.rb",
+    "test/requests/billing_hosted_flows_test.rb",
+    "test/system/billing_checkout_flows_test.rb",
+    "tracking"
+  ],
+  "migrations": [
+    "20260904095000_create_billing_checkout_sessions.rb: creates the empty tenant-owned checkout reservation table with exact plan and actor links plus composite customer linkage lifecycle checks and uniqueness indexes; rollback and forward migration passed"
+  ],
+  "decisions": [
+    "Billing commands consume and revalidate immutable organization-scoped authorization evidence; Lemon Squeezy mutations are never automatically retried because provider idempotency is undocumented; browser returns never mutate subscription or entitlement state"
+  ],
+  "risks": [
+    "Provider mutation timeouts remain uncertain and intentionally block another checkout until expiry or later reconciliation; creating validated foreign keys and indexes takes brief catalog locks on the new empty table and referenced tables"
+  ],
+  "next_steps": [
+    "Prompt 046: implement webhook ingestion with exact raw-body signature verification and durable idempotency"
+  ],
+  "commit": null
+}

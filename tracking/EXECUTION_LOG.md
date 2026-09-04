@@ -92,3 +92,5 @@
 | 2026-09-04T15:26:38Z | 043 | completed | Defined the provider-neutral billing contract with immutable normalized values, deterministic fake adapter, canonical lifecycle/access states, tenant-safe customer and plan mappings, bounded redacted metadata, and fixed operation policies. |
 | 2026-09-04T15:29:23Z | 044 | started | Implement the Lemon Squeezy billing client |
 | 2026-09-04T15:53:08Z | 044 | completed | Implemented the production Lemon Squeezy JSON:API adapter with exact store/product/variant and environment validation, TLS and bounded transport, safe-GET-only retries, local correlation digests, lifecycle/webhook normalization, redacted metrics, and sanitized contract fixtures. |
+| 2026-09-04T15:56:10Z | 045 | started | Implement hosted checkout and customer portal flows |
+| 2026-09-04T16:34:26Z | 045 | completed | Implemented authorized hosted checkout and customer portal flows tied to exact published plan versions with tenant-safe customer mapping, signed correlation metadata, local checkout reservation/idempotency state, safe hosted redirects, informational returns, redacted auditing, UI states and production adapter support. |

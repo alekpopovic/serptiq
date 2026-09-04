@@ -43,6 +43,17 @@ module Billing
         )
       end
 
+      def create_customer(payload:, correlation_key:)
+        request_json(
+          method: :post,
+          path: "/v1/customers",
+          operation: "create_customer",
+          payload: payload,
+          correlation_key: correlation_key,
+          safe_retries: 0
+        )
+      end
+
       def retrieve_customer(reference:, correlation_key: nil)
         request_json(
           method: :get,

@@ -81,6 +81,28 @@ module Billing
       PROVIDER_KEY
     end
 
+    def create_customer(request:)
+      require_type!(request, CustomerRequest, "create_customer")
+      payload = {
+        "data" => {
+          "type" => "customers",
+          "attributes" => {
+            "name" => request.name,
+            "email" => request.email
+          },
+          "relationships" => {
+            "store" => { "data" => { "type" => "stores", "id" => @store_reference } }
+          }
+        }
+      }
+      normalize("create_customer") do
+        @normalizer.customer(
+          @client.create_customer(payload: payload, correlation_key: request.idempotency_key),
+          organization_id: request.organization_id
+        )
+      end
+    end
+
     def create_checkout(request:)
       require_type!(request, CheckoutRequest, "create_checkout")
       variant = numeric_reference(request.variant_reference, "variant reference")
@@ -269,11 +291,11 @@ module Billing
     end
 
     def checkout_custom_data(request)
-      {
+      request.metadata.merge(
         "organization_id" => request.organization_id,
         "plan_version_id" => request.plan_version_id,
         "operation_id" => Digest::SHA256.hexdigest(request.idempotency_key).first(32)
-      }
+      )
     end
 
     def normalize(operation)
@@ -362,7 +384,7 @@ module Billing
       }
       custom = meta["custom_data"]
       if custom.is_a?(Hash)
-        %w[organization_id plan_version_id operation_id].each do |key|
+        %w[organization_id plan_version_id checkout_session_id operation_id correlation].each do |key|
           value = custom[key]
           metadata[key] = value if safe_custom_value?(key, value)
         end
@@ -371,7 +393,9 @@ module Billing
     end
 
     def safe_custom_value?(key, value)
-      return Shared::Public.application_uuid?(value) if %w[organization_id plan_version_id].include?(key)
+      return Shared::Public.application_uuid?(value) if
+        %w[organization_id plan_version_id checkout_session_id].include?(key)
+      return value.to_s.match?(/\A[0-9a-f]{64}\z/) if key == "correlation"
 
       value.to_s.match?(/\A[0-9a-f]{32}\z/)
     end

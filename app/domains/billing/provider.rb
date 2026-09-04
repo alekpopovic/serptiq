@@ -3,10 +3,11 @@
 module Billing
   class Provider
     OPERATIONS = %w[
-      create_checkout customer_portal fetch_subscription change_subscription
+      create_customer create_checkout customer_portal fetch_subscription change_subscription
       cancel_subscription resume_subscription reconciliation_page verify_webhook parse_event
     ].freeze
     RAW_POLICIES = {
+      "create_customer" => [ "POST", 0, "required" ],
       "create_checkout" => [ "POST", 1, "required" ],
       "customer_portal" => [ "POST", 0, "required" ],
       "fetch_subscription" => [ "GET", 2, "none" ],

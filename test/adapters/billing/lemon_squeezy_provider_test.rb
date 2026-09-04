@@ -67,6 +67,7 @@ class LemonSqueezyProviderTest < ActiveSupport::TestCase
 
   test "implements the shared provider operations against sanitized fixtures" do
     transport = ScriptedTransport.new(
+      "customer_success.json",
       "checkout_success.json",
       "customer_success.json",
       "subscription_active.json",
@@ -77,6 +78,7 @@ class LemonSqueezyProviderTest < ActiveSupport::TestCase
     )
     provider = build_provider(transport)
 
+    created_customer = provider.create_customer(request: customer_request)
     checkout = provider.create_checkout(request: checkout_request)
     portal = provider.customer_portal(customer: customer, idempotency_key: "portal-command")
     subscription = provider.fetch_subscription(reference: "4001")
@@ -95,6 +97,8 @@ class LemonSqueezyProviderTest < ActiveSupport::TestCase
     )
     page = provider.reconciliation_page(page_number: 1, page_size: 1)
 
+    assert_instance_of Billing::Customer, created_customer
+    assert_equal @organization_id, created_customer.organization_id
     assert_instance_of Billing::CheckoutResult, checkout
     assert_instance_of Billing::PortalLink, portal
     assert_equal "active", subscription.status
@@ -106,17 +110,23 @@ class LemonSqueezyProviderTest < ActiveSupport::TestCase
     assert_instance_of Billing::SubscriptionPage, page
     assert_equal 2, page.next_page
     assert_equal 2, page.total
-    assert_equal 7, transport.calls.length
+    assert_equal 8, transport.calls.length
     assert Billing::Provider::OPERATIONS.all? { |operation| provider.supports?(operation) }
 
-    checkout_call = transport.calls.first
+    customer_call = transport.calls.first
+    customer_payload = JSON.parse(customer_call.fetch(:body))
+    assert_equal "Sanitized Organization", customer_payload.dig("data", "attributes", "name")
+    assert_equal "billing@example.test", customer_payload.dig("data", "attributes", "email")
+    assert_equal "1001", customer_payload.dig("data", "relationships", "store", "data", "id")
+
+    checkout_call = transport.calls.second
     checkout_payload = JSON.parse(checkout_call.fetch(:body))
     assert_equal "1001", checkout_payload.dig("data", "relationships", "store", "data", "id")
     assert_equal "3001", checkout_payload.dig("data", "relationships", "variant", "data", "id")
     assert_equal @organization_id,
       checkout_payload.dig("data", "attributes", "checkout_data", "custom", "organization_id")
     refute_includes checkout_call.dig(:headers, "X-Request-ID"), checkout_request.idempotency_key
-    assert_equal %i[post get get patch delete patch get], transport.calls.map { |call| call.fetch(:method) }
+    assert_equal %i[post post get get patch delete patch get], transport.calls.map { |call| call.fetch(:method) }
   end
 
   test "normalizes provider lifecycle and fails closed on environment and mapping mismatch" do
@@ -225,6 +235,15 @@ class LemonSqueezyProviderTest < ActiveSupport::TestCase
       success_url: "https://searchops.example/billing/success",
       cancel_url: "https://searchops.example/billing/cancel",
       idempotency_key: "checkout-local-command"
+    )
+  end
+
+  def customer_request
+    Billing::CustomerRequest.new(
+      organization_id: @organization_id,
+      name: "Sanitized Organization",
+      email: "billing@example.test",
+      idempotency_key: "customer-local-command"
     )
   end
 

@@ -492,6 +492,42 @@ CREATE TABLE public.authorization_scope_references (
 
 
 --
+-- Name: billing_checkout_sessions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.billing_checkout_sessions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    plan_version_id uuid NOT NULL,
+    actor_membership_id uuid NOT NULL,
+    billing_customer_id uuid,
+    provider character varying(32) NOT NULL,
+    environment character varying(16) NOT NULL,
+    currency character varying(3) NOT NULL,
+    billing_interval character varying(16) NOT NULL,
+    state character varying(16) DEFAULT 'preparing'::character varying NOT NULL,
+    idempotency_digest character varying(64) NOT NULL,
+    provider_checkout_id character varying(191),
+    failure_category character varying(64),
+    expires_at timestamp(6) with time zone NOT NULL,
+    ready_at timestamp(6) with time zone,
+    failed_at timestamp(6) with time zone,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT billing_checkouts_currency_format CHECK (((currency)::text ~ '^[A-Z]{3}$'::text)),
+    CONSTRAINT billing_checkouts_environment_allowlist CHECK (((environment)::text = ANY ((ARRAY['development'::character varying, 'test'::character varying, 'staging'::character varying, 'production'::character varying])::text[]))),
+    CONSTRAINT billing_checkouts_expiration_order CHECK ((expires_at > created_at)),
+    CONSTRAINT billing_checkouts_failure_category_format CHECK (((failure_category IS NULL) OR ((failure_category)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text))),
+    CONSTRAINT billing_checkouts_idempotency_digest_format CHECK (((idempotency_digest)::text ~ '^[0-9a-f]{64}$'::text)),
+    CONSTRAINT billing_checkouts_interval_allowlist CHECK (((billing_interval)::text = ANY ((ARRAY['monthly'::character varying, 'annual'::character varying])::text[]))),
+    CONSTRAINT billing_checkouts_lifecycle_shape CHECK (((((state)::text = 'preparing'::text) AND (provider_checkout_id IS NULL) AND (ready_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'ready'::text) AND (billing_customer_id IS NOT NULL) AND (provider_checkout_id IS NOT NULL) AND (ready_at IS NOT NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'uncertain'::text) AND (provider_checkout_id IS NULL) AND (ready_at IS NULL) AND (failed_at IS NOT NULL) AND (failure_category IS NOT NULL)) OR (((state)::text = 'failed'::text) AND (provider_checkout_id IS NULL) AND (ready_at IS NULL) AND (failed_at IS NOT NULL) AND (failure_category IS NOT NULL)) OR ((state)::text = 'expired'::text))),
+    CONSTRAINT billing_checkouts_provider_format CHECK (((provider)::text ~ '^[a-z][a-z0-9_]{1,31}$'::text)),
+    CONSTRAINT billing_checkouts_provider_id_format CHECK (((provider_checkout_id IS NULL) OR ((provider_checkout_id)::text ~ '^[A-Za-z0-9][A-Za-z0-9_.:-]{0,190}$'::text))),
+    CONSTRAINT billing_checkouts_state_allowlist CHECK (((state)::text = ANY ((ARRAY['preparing'::character varying, 'ready'::character varying, 'uncertain'::character varying, 'failed'::character varying, 'expired'::character varying])::text[])))
+);
+
+
+--
 -- Name: billing_customers; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -503,7 +539,7 @@ CREATE TABLE public.billing_customers (
     provider_customer_id character varying(191) NOT NULL,
     created_at timestamp(6) with time zone NOT NULL,
     updated_at timestamp(6) with time zone NOT NULL,
-    CONSTRAINT billing_customers_environment_allowlist CHECK (((environment)::text = ANY ((ARRAY['development'::character varying, 'test'::character varying, 'staging'::character varying, 'production'::character varying])::text[]))),
+    CONSTRAINT billing_customers_environment_allowlist CHECK (((environment)::text = ANY (ARRAY[('development'::character varying)::text, ('test'::character varying)::text, ('staging'::character varying)::text, ('production'::character varying)::text]))),
     CONSTRAINT billing_customers_provider_format CHECK (((provider)::text ~ '^[a-z][a-z0-9_]{1,31}$'::text)),
     CONSTRAINT billing_customers_provider_id_format CHECK (((provider_customer_id)::text ~ '^[A-Za-z0-9][A-Za-z0-9_.:-]{0,190}$'::text))
 );
@@ -528,8 +564,8 @@ CREATE TABLE public.billing_plan_provider_mappings (
     provider_product_id character varying(128),
     CONSTRAINT billing_plan_mappings_catalog_coordinates_shape CHECK ((((provider_store_id IS NULL) AND (provider_product_id IS NULL)) OR ((provider_store_id IS NOT NULL) AND (provider_product_id IS NOT NULL)))),
     CONSTRAINT billing_plan_mappings_currency_format CHECK (((currency)::text ~ '^[A-Z]{3}$'::text)),
-    CONSTRAINT billing_plan_mappings_environment_allowlist CHECK (((environment)::text = ANY ((ARRAY['development'::character varying, 'test'::character varying, 'staging'::character varying, 'production'::character varying])::text[]))),
-    CONSTRAINT billing_plan_mappings_interval_allowlist CHECK (((billing_interval)::text = ANY ((ARRAY['monthly'::character varying, 'annual'::character varying])::text[]))),
+    CONSTRAINT billing_plan_mappings_environment_allowlist CHECK (((environment)::text = ANY (ARRAY[('development'::character varying)::text, ('test'::character varying)::text, ('staging'::character varying)::text, ('production'::character varying)::text]))),
+    CONSTRAINT billing_plan_mappings_interval_allowlist CHECK (((billing_interval)::text = ANY (ARRAY[('monthly'::character varying)::text, ('annual'::character varying)::text]))),
     CONSTRAINT billing_plan_mappings_lemon_squeezy_coordinates CHECK ((((provider)::text <> 'lemon_squeezy'::text) OR ((provider_store_id IS NOT NULL) AND (provider_product_id IS NOT NULL) AND ((provider_store_id)::text ~ '^[1-9][0-9]{0,18}$'::text) AND ((provider_product_id)::text ~ '^[1-9][0-9]{0,18}$'::text) AND ((provider_variant_id)::text ~ '^[1-9][0-9]{0,18}$'::text)))),
     CONSTRAINT billing_plan_mappings_provider_format CHECK (((provider)::text ~ '^[a-z][a-z0-9_]{1,31}$'::text)),
     CONSTRAINT billing_plan_mappings_variant_format CHECK (((provider_variant_id)::text ~ '^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$'::text))
@@ -560,14 +596,14 @@ CREATE TABLE public.entitlement_definitions (
     CONSTRAINT entitlement_definitions_allowed_values_shape CHECK (((jsonb_typeof(allowed_values) = 'array'::text) AND (pg_column_size(allowed_values) <= 4096))),
     CONSTRAINT entitlement_definitions_bounds_order CHECK (((minimum_value IS NULL) OR (maximum_value IS NULL) OR (minimum_value <= maximum_value))),
     CONSTRAINT entitlement_definitions_checksum_format CHECK (((catalog_checksum)::text ~ '^[0-9a-f]{64}$'::text)),
-    CONSTRAINT entitlement_definitions_default_type CHECK (((((value_type)::text = 'boolean'::text) AND (jsonb_typeof(system_default) = 'boolean'::text)) OR (((value_type)::text = 'integer'::text) AND (jsonb_typeof(system_default) = 'number'::text) AND ((system_default #>> '{}'::text[]) ~ '^-?(0|[1-9][0-9]*)$'::text)) OR (((value_type)::text = 'decimal'::text) AND (jsonb_typeof(system_default) = 'string'::text) AND ((system_default #>> '{}'::text[]) ~ '^-?(0|[1-9][0-9]*)(\.[0-9]+)?$'::text)) OR (((value_type)::text = ANY ((ARRAY['enum'::character varying, 'string'::character varying])::text[])) AND (jsonb_typeof(system_default) = 'string'::text)))),
-    CONSTRAINT entitlement_definitions_description_format CHECK ((((char_length((customer_description)::text) >= 3) AND (char_length((customer_description)::text) <= 240)) AND ((customer_description)::text = btrim((customer_description)::text)))),
+    CONSTRAINT entitlement_definitions_default_type CHECK (((((value_type)::text = 'boolean'::text) AND (jsonb_typeof(system_default) = 'boolean'::text)) OR (((value_type)::text = 'integer'::text) AND (jsonb_typeof(system_default) = 'number'::text) AND ((system_default #>> '{}'::text[]) ~ '^-?(0|[1-9][0-9]*)$'::text)) OR (((value_type)::text = 'decimal'::text) AND (jsonb_typeof(system_default) = 'string'::text) AND ((system_default #>> '{}'::text[]) ~ '^-?(0|[1-9][0-9]*)(\.[0-9]+)?$'::text)) OR (((value_type)::text = ANY (ARRAY[('enum'::character varying)::text, ('string'::character varying)::text])) AND (jsonb_typeof(system_default) = 'string'::text)))),
+    CONSTRAINT entitlement_definitions_description_format CHECK (((char_length((customer_description)::text) >= 3) AND (char_length((customer_description)::text) <= 240) AND ((customer_description)::text = btrim((customer_description)::text)))),
     CONSTRAINT entitlement_definitions_key_format CHECK (((key)::text ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$'::text)),
     CONSTRAINT entitlement_definitions_max_length_range CHECK (((max_length IS NULL) OR ((max_length >= 1) AND (max_length <= 4096)))),
-    CONSTRAINT entitlement_definitions_security_default CHECK (((security_sensitive = false) OR (((value_type)::text = 'boolean'::text) AND (system_default = 'false'::jsonb)) OR (((value_type)::text = 'integer'::text) AND (system_default = '0'::jsonb)) OR (((value_type)::text = 'decimal'::text) AND ((system_default #>> '{}'::text[]) = '0'::text)) OR (((value_type)::text = ANY ((ARRAY['enum'::character varying, 'string'::character varying])::text[])) AND ((system_default #>> '{}'::text[]) = ANY (ARRAY['none'::text, 'disabled'::text]))))),
+    CONSTRAINT entitlement_definitions_security_default CHECK (((security_sensitive = false) OR (((value_type)::text = 'boolean'::text) AND (system_default = 'false'::jsonb)) OR (((value_type)::text = 'integer'::text) AND (system_default = '0'::jsonb)) OR (((value_type)::text = 'decimal'::text) AND ((system_default #>> '{}'::text[]) = '0'::text)) OR (((value_type)::text = ANY (ARRAY[('enum'::character varying)::text, ('string'::character varying)::text])) AND ((system_default #>> '{}'::text[]) = ANY (ARRAY['none'::text, 'disabled'::text]))))),
     CONSTRAINT entitlement_definitions_taxonomy_format CHECK ((((unit)::text ~ '^[a-z][a-z0-9_]{1,31}$'::text) AND ((category)::text ~ '^[a-z][a-z0-9_]{1,31}$'::text))),
-    CONSTRAINT entitlement_definitions_type_allowlist CHECK (((value_type)::text = ANY ((ARRAY['boolean'::character varying, 'integer'::character varying, 'decimal'::character varying, 'enum'::character varying, 'string'::character varying])::text[]))),
-    CONSTRAINT entitlement_definitions_validation_shape CHECK (((((value_type)::text = 'boolean'::text) AND (minimum_value IS NULL) AND (maximum_value IS NULL) AND (allowed_values = '[]'::jsonb) AND (max_length IS NULL) AND (allow_custom = false)) OR (((value_type)::text = ANY ((ARRAY['integer'::character varying, 'decimal'::character varying])::text[])) AND (minimum_value IS NOT NULL) AND (maximum_value IS NOT NULL) AND (minimum_value <= maximum_value) AND (allowed_values = '[]'::jsonb) AND (max_length IS NULL)) OR (((value_type)::text = 'enum'::text) AND (minimum_value IS NULL) AND (maximum_value IS NULL) AND (jsonb_array_length(allowed_values) > 0) AND (max_length IS NULL)) OR (((value_type)::text = 'string'::text) AND (minimum_value IS NULL) AND (maximum_value IS NULL) AND (allowed_values = '[]'::jsonb) AND ((max_length >= 1) AND (max_length <= 4096)))))
+    CONSTRAINT entitlement_definitions_type_allowlist CHECK (((value_type)::text = ANY (ARRAY[('boolean'::character varying)::text, ('integer'::character varying)::text, ('decimal'::character varying)::text, ('enum'::character varying)::text, ('string'::character varying)::text]))),
+    CONSTRAINT entitlement_definitions_validation_shape CHECK (((((value_type)::text = 'boolean'::text) AND (minimum_value IS NULL) AND (maximum_value IS NULL) AND (allowed_values = '[]'::jsonb) AND (max_length IS NULL) AND (allow_custom = false)) OR (((value_type)::text = ANY (ARRAY[('integer'::character varying)::text, ('decimal'::character varying)::text])) AND (minimum_value IS NOT NULL) AND (maximum_value IS NOT NULL) AND (minimum_value <= maximum_value) AND (allowed_values = '[]'::jsonb) AND (max_length IS NULL)) OR (((value_type)::text = 'enum'::text) AND (minimum_value IS NULL) AND (maximum_value IS NULL) AND (jsonb_array_length(allowed_values) > 0) AND (max_length IS NULL)) OR (((value_type)::text = 'string'::text) AND (minimum_value IS NULL) AND (maximum_value IS NULL) AND (allowed_values = '[]'::jsonb) AND ((max_length >= 1) AND (max_length <= 4096)))))
 );
 
 
@@ -744,10 +780,10 @@ CREATE TABLE public.organization_entitlement_overrides (
     lock_version integer DEFAULT 0 NOT NULL,
     created_at timestamp(6) with time zone NOT NULL,
     updated_at timestamp(6) with time zone NOT NULL,
-    CONSTRAINT entitlement_overrides_reason_format CHECK ((((char_length((reason)::text) >= 3) AND (char_length((reason)::text) <= 500)) AND ((reason)::text = btrim((reason)::text)))),
+    CONSTRAINT entitlement_overrides_reason_format CHECK (((char_length((reason)::text) >= 3) AND (char_length((reason)::text) <= 500) AND ((reason)::text = btrim((reason)::text)))),
     CONSTRAINT entitlement_overrides_revocation_shape CHECK ((((revoked_at IS NULL) AND (revoked_by_membership_id IS NULL)) OR ((revoked_at IS NOT NULL) AND (revoked_by_membership_id IS NOT NULL) AND (revoked_at >= created_at)))),
-    CONSTRAINT entitlement_overrides_source_allowlist CHECK (((source)::text = ANY ((ARRAY['contract'::character varying, 'support'::character varying, 'emergency'::character varying])::text[]))),
-    CONSTRAINT entitlement_overrides_typed_value_shape CHECK (((((value_type)::text = 'boolean'::text) AND (jsonb_typeof(value) = 'boolean'::text)) OR (((value_type)::text = 'integer'::text) AND (jsonb_typeof(value) = 'number'::text) AND ((value #>> '{}'::text[]) ~ '^-?(0|[1-9][0-9]*)$'::text)) OR (((value_type)::text = 'decimal'::text) AND (jsonb_typeof(value) = 'string'::text) AND ((value #>> '{}'::text[]) ~ '^-?(0|[1-9][0-9]*)(\.[0-9]+)?$'::text)) OR (((value_type)::text = ANY ((ARRAY['enum'::character varying, 'string'::character varying])::text[])) AND (jsonb_typeof(value) = 'string'::text)))),
+    CONSTRAINT entitlement_overrides_source_allowlist CHECK (((source)::text = ANY (ARRAY[('contract'::character varying)::text, ('support'::character varying)::text, ('emergency'::character varying)::text]))),
+    CONSTRAINT entitlement_overrides_typed_value_shape CHECK (((((value_type)::text = 'boolean'::text) AND (jsonb_typeof(value) = 'boolean'::text)) OR (((value_type)::text = 'integer'::text) AND (jsonb_typeof(value) = 'number'::text) AND ((value #>> '{}'::text[]) ~ '^-?(0|[1-9][0-9]*)$'::text)) OR (((value_type)::text = 'decimal'::text) AND (jsonb_typeof(value) = 'string'::text) AND ((value #>> '{}'::text[]) ~ '^-?(0|[1-9][0-9]*)(\.[0-9]+)?$'::text)) OR (((value_type)::text = ANY (ARRAY[('enum'::character varying)::text, ('string'::character varying)::text])) AND (jsonb_typeof(value) = 'string'::text)))),
     CONSTRAINT entitlement_overrides_validity_order CHECK (((ends_at IS NULL) OR (ends_at > starts_at)))
 );
 
@@ -853,7 +889,7 @@ CREATE TABLE public.plan_catalog_access_grants (
     revoked_at timestamp(6) with time zone,
     created_at timestamp(6) with time zone NOT NULL,
     updated_at timestamp(6) with time zone NOT NULL,
-    CONSTRAINT plan_catalog_grants_permission_allowlist CHECK (((permission)::text = ANY ((ARRAY['plan_catalog.read'::character varying, 'plan_catalog.publish'::character varying])::text[]))),
+    CONSTRAINT plan_catalog_grants_permission_allowlist CHECK (((permission)::text = ANY (ARRAY[('plan_catalog.read'::character varying)::text, ('plan_catalog.publish'::character varying)::text]))),
     CONSTRAINT plan_catalog_grants_revocation_order CHECK (((revoked_at IS NULL) OR (revoked_at >= granted_at)))
 );
 
@@ -873,7 +909,7 @@ CREATE TABLE public.plan_entitlements (
     created_at timestamp(6) with time zone NOT NULL,
     updated_at timestamp(6) with time zone NOT NULL,
     CONSTRAINT plan_entitlements_checksum_format CHECK (((catalog_checksum)::text ~ '^[0-9a-f]{64}$'::text)),
-    CONSTRAINT plan_entitlements_typed_value_shape CHECK (((((value_state)::text = 'custom'::text) AND (value IS NULL)) OR (((value_state)::text = 'configured'::text) AND ((((value_type)::text = 'boolean'::text) AND (jsonb_typeof(value) = 'boolean'::text)) OR (((value_type)::text = 'integer'::text) AND (jsonb_typeof(value) = 'number'::text) AND ((value #>> '{}'::text[]) ~ '^-?(0|[1-9][0-9]*)$'::text)) OR (((value_type)::text = 'decimal'::text) AND (jsonb_typeof(value) = 'string'::text) AND ((value #>> '{}'::text[]) ~ '^-?(0|[1-9][0-9]*)(\.[0-9]+)?$'::text)) OR (((value_type)::text = ANY ((ARRAY['enum'::character varying, 'string'::character varying])::text[])) AND (jsonb_typeof(value) = 'string'::text))))))
+    CONSTRAINT plan_entitlements_typed_value_shape CHECK (((((value_state)::text = 'custom'::text) AND (value IS NULL)) OR (((value_state)::text = 'configured'::text) AND ((((value_type)::text = 'boolean'::text) AND (jsonb_typeof(value) = 'boolean'::text)) OR (((value_type)::text = 'integer'::text) AND (jsonb_typeof(value) = 'number'::text) AND ((value #>> '{}'::text[]) ~ '^-?(0|[1-9][0-9]*)$'::text)) OR (((value_type)::text = 'decimal'::text) AND (jsonb_typeof(value) = 'string'::text) AND ((value #>> '{}'::text[]) ~ '^-?(0|[1-9][0-9]*)(\.[0-9]+)?$'::text)) OR (((value_type)::text = ANY (ARRAY[('enum'::character varying)::text, ('string'::character varying)::text])) AND (jsonb_typeof(value) = 'string'::text))))))
 );
 
 
@@ -887,7 +923,7 @@ CREATE TABLE public.plan_version_snapshot_references (
     reference_type character varying(32) NOT NULL,
     reference_id uuid NOT NULL,
     created_at timestamp(6) with time zone NOT NULL,
-    CONSTRAINT plan_version_snapshot_references_type_allowlist CHECK (((reference_type)::text = ANY ((ARRAY['InvoiceSnapshot'::character varying, 'ReportSnapshot'::character varying])::text[])))
+    CONSTRAINT plan_version_snapshot_references_type_allowlist CHECK (((reference_type)::text = ANY (ARRAY[('InvoiceSnapshot'::character varying)::text, ('ReportSnapshot'::character varying)::text])))
 );
 
 
@@ -916,10 +952,10 @@ CREATE TABLE public.plan_versions (
     updated_at timestamp(6) with time zone NOT NULL,
     CONSTRAINT plan_versions_checksum_format CHECK (((catalog_checksum)::text ~ '^[0-9a-f]{64}$'::text)),
     CONSTRAINT plan_versions_entitlements_snapshot_bounded CHECK (((jsonb_typeof(entitlements_snapshot) = 'object'::text) AND (pg_column_size(entitlements_snapshot) <= 32768))),
-    CONSTRAINT plan_versions_lifecycle_shape CHECK (((((status)::text = 'draft'::text) AND (effective_at IS NULL) AND (published_at IS NULL) AND (retired_at IS NULL)) OR (((status)::text = 'published'::text) AND (effective_at IS NOT NULL) AND (published_at IS NOT NULL) AND (retired_at IS NULL)) OR (((status)::text = ANY ((ARRAY['retired'::character varying, 'grandfathered'::character varying])::text[])) AND (effective_at IS NOT NULL) AND (published_at IS NOT NULL) AND (retired_at IS NOT NULL)))),
+    CONSTRAINT plan_versions_lifecycle_shape CHECK (((((status)::text = 'draft'::text) AND (effective_at IS NULL) AND (published_at IS NULL) AND (retired_at IS NULL)) OR (((status)::text = 'published'::text) AND (effective_at IS NOT NULL) AND (published_at IS NOT NULL) AND (retired_at IS NULL)) OR (((status)::text = ANY (ARRAY[('retired'::character varying)::text, ('grandfathered'::character varying)::text])) AND (effective_at IS NOT NULL) AND (published_at IS NOT NULL) AND (retired_at IS NOT NULL)))),
     CONSTRAINT plan_versions_positive_version CHECK ((version > 0)),
     CONSTRAINT plan_versions_pricing_shape CHECK (((((pricing_kind)::text = 'fixed'::text) AND (monthly_price_cents IS NOT NULL) AND (monthly_price_cents >= 0) AND (annual_price_cents IS NOT NULL) AND (annual_price_cents >= 0)) OR (((pricing_kind)::text = 'custom'::text) AND (monthly_price_cents IS NULL) AND (annual_price_cents IS NULL)))),
-    CONSTRAINT plan_versions_status_allowlist CHECK (((status)::text = ANY ((ARRAY['draft'::character varying, 'published'::character varying, 'retired'::character varying, 'grandfathered'::character varying])::text[])))
+    CONSTRAINT plan_versions_status_allowlist CHECK (((status)::text = ANY (ARRAY[('draft'::character varying)::text, ('published'::character varying)::text, ('retired'::character varying)::text, ('grandfathered'::character varying)::text])))
 );
 
 
@@ -934,7 +970,7 @@ CREATE TABLE public.plans (
     created_at timestamp(6) with time zone NOT NULL,
     updated_at timestamp(6) with time zone NOT NULL,
     CONSTRAINT plans_display_order_range CHECK (((display_order >= 1) AND (display_order <= 5))),
-    CONSTRAINT plans_key_allowlist CHECK (((key)::text = ANY ((ARRAY['free'::character varying, 'starter'::character varying, 'growth'::character varying, 'agency'::character varying, 'enterprise'::character varying])::text[])))
+    CONSTRAINT plans_key_allowlist CHECK (((key)::text = ANY (ARRAY[('free'::character varying)::text, ('starter'::character varying)::text, ('growth'::character varying)::text, ('agency'::character varying)::text, ('enterprise'::character varying)::text])))
 );
 
 
@@ -1082,17 +1118,17 @@ CREATE TABLE public.subscriptions (
     canceled_at timestamp(6) with time zone,
     provider_updated_at timestamp(6) with time zone,
     last_synced_at timestamp(6) with time zone,
-    CONSTRAINT subscriptions_access_state_allowlist CHECK (((access_state)::text = ANY ((ARRAY['pending'::character varying, 'full'::character varying, 'grace'::character varying, 'read_only'::character varying, 'suspended'::character varying])::text[]))),
-    CONSTRAINT subscriptions_cancellation_shape CHECK ((((cancel_at_period_end OR ((status)::text = 'canceled'::text)) AND (canceled_at IS NOT NULL)) OR (((status)::text = 'expired'::text) AND (NOT cancel_at_period_end)) OR ((NOT cancel_at_period_end) AND ((status)::text <> ALL ((ARRAY['canceled'::character varying, 'expired'::character varying])::text[])) AND (canceled_at IS NULL)))),
-    CONSTRAINT subscriptions_interval_allowlist CHECK (((billing_interval)::text = ANY ((ARRAY['monthly'::character varying, 'annual'::character varying, 'custom'::character varying])::text[]))),
+    CONSTRAINT subscriptions_access_state_allowlist CHECK (((access_state)::text = ANY (ARRAY[('pending'::character varying)::text, ('full'::character varying)::text, ('grace'::character varying)::text, ('read_only'::character varying)::text, ('suspended'::character varying)::text]))),
+    CONSTRAINT subscriptions_cancellation_shape CHECK ((((cancel_at_period_end OR ((status)::text = 'canceled'::text)) AND (canceled_at IS NOT NULL)) OR (((status)::text = 'expired'::text) AND (NOT cancel_at_period_end)) OR ((NOT cancel_at_period_end) AND ((status)::text <> ALL (ARRAY[('canceled'::character varying)::text, ('expired'::character varying)::text])) AND (canceled_at IS NULL)))),
+    CONSTRAINT subscriptions_interval_allowlist CHECK (((billing_interval)::text = ANY (ARRAY[('monthly'::character varying)::text, ('annual'::character varying)::text, ('custom'::character varying)::text]))),
     CONSTRAINT subscriptions_lifecycle_shape CHECK (((((status)::text = 'expired'::text) AND (ended_at IS NOT NULL)) OR (((status)::text <> 'expired'::text) AND (ended_at IS NULL)))),
     CONSTRAINT subscriptions_period_shape CHECK ((((current_period_starts_at IS NULL) AND (current_period_ends_at IS NULL)) OR ((current_period_starts_at IS NOT NULL) AND (current_period_ends_at IS NOT NULL) AND (current_period_ends_at > current_period_starts_at)))),
     CONSTRAINT subscriptions_provider_metadata_bounded CHECK (((jsonb_typeof(provider_metadata) = 'object'::text) AND (pg_column_size(provider_metadata) <= 4096))),
     CONSTRAINT subscriptions_provider_shape CHECK ((((billing_customer_id IS NULL) AND (provider IS NULL) AND (provider_environment IS NULL) AND (provider_subscription_id IS NULL) AND (provider_updated_at IS NULL) AND (last_synced_at IS NULL) AND (provider_metadata = '{}'::jsonb)) OR ((billing_customer_id IS NOT NULL) AND (provider IS NOT NULL) AND (provider_environment IS NOT NULL) AND (provider_subscription_id IS NOT NULL) AND (provider_updated_at IS NOT NULL) AND (last_synced_at IS NOT NULL) AND (provider_metadata ? 'raw_status'::text)))),
-    CONSTRAINT subscriptions_provider_sync_order CHECK ((((last_synced_at IS NULL) OR (provider_updated_at IS NULL)) OR (last_synced_at >= provider_updated_at))),
-    CONSTRAINT subscriptions_snapshot_price_shape CHECK (((((pricing_kind_snapshot)::text = 'fixed'::text) AND ((billing_interval)::text = ANY ((ARRAY['monthly'::character varying, 'annual'::character varying])::text[])) AND (price_cents_snapshot IS NOT NULL) AND (price_cents_snapshot >= 0)) OR (((pricing_kind_snapshot)::text = 'custom'::text) AND ((billing_interval)::text = 'custom'::text) AND (price_cents_snapshot IS NULL)))),
-    CONSTRAINT subscriptions_status_access_shape CHECK (((((status)::text = 'pending'::text) AND ((access_state)::text = 'pending'::text)) OR (((status)::text = ANY ((ARRAY['trialing'::character varying, 'active'::character varying])::text[])) AND ((access_state)::text = 'full'::text)) OR (((status)::text = 'past_due'::text) AND ((access_state)::text = ANY ((ARRAY['grace'::character varying, 'read_only'::character varying])::text[]))) OR (((status)::text = 'paused'::text) AND ((access_state)::text = ANY ((ARRAY['read_only'::character varying, 'suspended'::character varying])::text[]))) OR (((status)::text = 'canceled'::text) AND ((access_state)::text = ANY ((ARRAY['full'::character varying, 'read_only'::character varying])::text[]))) OR (((status)::text = 'expired'::text) AND ((access_state)::text = 'read_only'::text)))),
-    CONSTRAINT subscriptions_status_allowlist CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'trialing'::character varying, 'active'::character varying, 'past_due'::character varying, 'paused'::character varying, 'canceled'::character varying, 'expired'::character varying])::text[]))),
+    CONSTRAINT subscriptions_provider_sync_order CHECK (((last_synced_at IS NULL) OR (provider_updated_at IS NULL) OR (last_synced_at >= provider_updated_at))),
+    CONSTRAINT subscriptions_snapshot_price_shape CHECK (((((pricing_kind_snapshot)::text = 'fixed'::text) AND ((billing_interval)::text = ANY (ARRAY[('monthly'::character varying)::text, ('annual'::character varying)::text])) AND (price_cents_snapshot IS NOT NULL) AND (price_cents_snapshot >= 0)) OR (((pricing_kind_snapshot)::text = 'custom'::text) AND ((billing_interval)::text = 'custom'::text) AND (price_cents_snapshot IS NULL)))),
+    CONSTRAINT subscriptions_status_access_shape CHECK (((((status)::text = 'pending'::text) AND ((access_state)::text = 'pending'::text)) OR (((status)::text = ANY (ARRAY[('trialing'::character varying)::text, ('active'::character varying)::text])) AND ((access_state)::text = 'full'::text)) OR (((status)::text = 'past_due'::text) AND ((access_state)::text = ANY (ARRAY[('grace'::character varying)::text, ('read_only'::character varying)::text]))) OR (((status)::text = 'paused'::text) AND ((access_state)::text = ANY (ARRAY[('read_only'::character varying)::text, ('suspended'::character varying)::text]))) OR (((status)::text = 'canceled'::text) AND ((access_state)::text = ANY (ARRAY[('full'::character varying)::text, ('read_only'::character varying)::text]))) OR (((status)::text = 'expired'::text) AND ((access_state)::text = 'read_only'::text)))),
+    CONSTRAINT subscriptions_status_allowlist CHECK (((status)::text = ANY (ARRAY[('pending'::character varying)::text, ('trialing'::character varying)::text, ('active'::character varying)::text, ('past_due'::character varying)::text, ('paused'::character varying)::text, ('canceled'::character varying)::text, ('expired'::character varying)::text]))),
     CONSTRAINT subscriptions_trial_end_order CHECK (((trial_ends_at IS NULL) OR (trial_ends_at >= started_at)))
 );
 
@@ -1160,7 +1196,7 @@ CREATE TABLE public.usage_events (
     occurred_at timestamp(6) with time zone NOT NULL,
     recorded_at timestamp(6) with time zone NOT NULL,
     CONSTRAINT usage_events_digest_format CHECK ((((idempotency_key_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((request_checksum)::text ~ '^[0-9a-f]{64}$'::text))),
-    CONSTRAINT usage_events_kind_allowlist CHECK (((event_kind)::text = ANY ((ARRAY['usage'::character varying, 'correction'::character varying, 'manual_adjustment'::character varying])::text[]))),
+    CONSTRAINT usage_events_kind_allowlist CHECK (((event_kind)::text = ANY (ARRAY[('usage'::character varying)::text, ('correction'::character varying)::text, ('manual_adjustment'::character varying)::text]))),
     CONSTRAINT usage_events_kind_shape CHECK (((((event_kind)::text = 'usage'::text) AND (quantity > (0)::numeric) AND (correction_of_event_id IS NULL) AND (actor_membership_id IS NULL) AND (reason_code IS NULL)) OR (((event_kind)::text = 'correction'::text) AND (quantity <> (0)::numeric) AND (correction_of_event_id IS NOT NULL) AND (reason_code IS NOT NULL)) OR (((event_kind)::text = 'manual_adjustment'::text) AND (quantity <> (0)::numeric) AND (correction_of_event_id IS NULL) AND (actor_membership_id IS NOT NULL) AND (reason_code IS NOT NULL)))),
     CONSTRAINT usage_events_metadata_bounded CHECK (((jsonb_typeof(metadata) = 'object'::text) AND (pg_column_size(metadata) <= 4096))),
     CONSTRAINT usage_events_reason_code_format CHECK (((reason_code IS NULL) OR ((reason_code)::text ~ '^[a-z][a-z0-9_]{1,63}$'::text))),
@@ -1210,9 +1246,9 @@ CREATE TABLE public.usage_meter_definitions (
     CONSTRAINT usage_meter_definitions_checksum_format CHECK (((catalog_checksum)::text ~ '^[0-9a-f]{64}$'::text)),
     CONSTRAINT usage_meter_definitions_entitlement_format CHECK (((quota_entitlement_key IS NULL) OR ((quota_entitlement_key)::text ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$'::text))),
     CONSTRAINT usage_meter_definitions_key_format CHECK ((((key)::text ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$'::text) AND ((pool_key)::text ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$'::text))),
-    CONSTRAINT usage_meter_definitions_text_format CHECK ((((char_length((name)::text) >= 3) AND (char_length((name)::text) <= 100)) AND ((name)::text = btrim((name)::text)) AND ((char_length((description)::text) >= 3) AND (char_length((description)::text) <= 240)) AND ((description)::text = btrim((description)::text)))),
+    CONSTRAINT usage_meter_definitions_text_format CHECK (((char_length((name)::text) >= 3) AND (char_length((name)::text) <= 100) AND ((name)::text = btrim((name)::text)) AND ((char_length((description)::text) >= 3) AND (char_length((description)::text) <= 240)) AND ((description)::text = btrim((description)::text)))),
     CONSTRAINT usage_meter_definitions_unit_format CHECK ((((unit)::text ~ '^[a-z][a-z0-9_]{1,31}$'::text) AND ((billing_unit)::text ~ '^[a-z][a-z0-9_]{1,31}$'::text))),
-    CONSTRAINT usage_meter_definitions_window_policy_allowlist CHECK (((window_policy)::text = ANY ((ARRAY['utc_calendar_month'::character varying, 'provider_billing_period'::character varying])::text[])))
+    CONSTRAINT usage_meter_definitions_window_policy_allowlist CHECK (((window_policy)::text = ANY (ARRAY[('utc_calendar_month'::character varying)::text, ('provider_billing_period'::character varying)::text])))
 );
 
 
@@ -1250,7 +1286,7 @@ CREATE TABLE public.usage_quota_reservation_operations (
     requested_expires_at timestamp(6) with time zone,
     created_at timestamp(6) with time zone NOT NULL,
     CONSTRAINT usage_quota_operations_digest_format CHECK ((((idempotency_key_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((request_checksum)::text ~ '^[0-9a-f]{64}$'::text))),
-    CONSTRAINT usage_quota_operations_kind_allowlist CHECK (((operation_kind)::text = ANY ((ARRAY['extend'::character varying, 'finalize'::character varying, 'release'::character varying, 'expire'::character varying])::text[]))),
+    CONSTRAINT usage_quota_operations_kind_allowlist CHECK (((operation_kind)::text = ANY (ARRAY[('extend'::character varying)::text, ('finalize'::character varying)::text, ('release'::character varying)::text, ('expire'::character varying)::text]))),
     CONSTRAINT usage_quota_operations_quantity_nonnegative CHECK ((quantity >= (0)::numeric))
 );
 
@@ -1317,11 +1353,11 @@ CREATE TABLE public.usage_quota_reservations (
     CONSTRAINT usage_quota_reservations_entitlement_provenance_format CHECK (((entitlement_provenance)::text ~ '^[a-z][a-z0-9_]{1,31}$'::text)),
     CONSTRAINT usage_quota_reservations_expiry_order CHECK ((expires_at > admitted_at)),
     CONSTRAINT usage_quota_reservations_lifecycle_shape CHECK (((((state)::text = 'held'::text) AND (consumed_quantity = (0)::numeric) AND (released_quantity = (0)::numeric) AND (finalized_usage_event_id IS NULL) AND (finalized_at IS NULL) AND (released_at IS NULL) AND (expired_at IS NULL)) OR (((state)::text = 'finalized'::text) AND ((consumed_quantity + released_quantity) = held_quantity) AND (((consumed_quantity = (0)::numeric) AND (finalized_usage_event_id IS NULL)) OR ((consumed_quantity > (0)::numeric) AND (finalized_usage_event_id IS NOT NULL))) AND (finalized_at IS NOT NULL) AND (released_at IS NULL) AND (expired_at IS NULL)) OR (((state)::text = 'released'::text) AND (consumed_quantity = (0)::numeric) AND (released_quantity = held_quantity) AND (finalized_usage_event_id IS NULL) AND (finalized_at IS NULL) AND (released_at IS NOT NULL) AND (expired_at IS NULL)) OR (((state)::text = 'expired'::text) AND (consumed_quantity = (0)::numeric) AND (released_quantity = held_quantity) AND (finalized_usage_event_id IS NULL) AND (finalized_at IS NULL) AND (released_at IS NULL) AND (expired_at IS NOT NULL)))),
-    CONSTRAINT usage_quota_reservations_limit_snapshot_shape CHECK (((((limit_kind)::text = 'unlimited'::text) AND (limit_quantity IS NULL) AND (entitlement_key IS NULL) AND ((entitlement_state)::text = 'unlimited'::text) AND (entitlement_definition_checksum IS NULL)) OR (((limit_kind)::text = 'capped'::text) AND (limit_quantity >= (0)::numeric) AND ((entitlement_key)::text ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$'::text) AND ((entitlement_state)::text = ANY ((ARRAY['enabled'::character varying, 'disabled'::character varying])::text[])) AND ((entitlement_definition_checksum)::text ~ '^[0-9a-f]{64}$'::text)))),
+    CONSTRAINT usage_quota_reservations_limit_snapshot_shape CHECK (((((limit_kind)::text = 'unlimited'::text) AND (limit_quantity IS NULL) AND (entitlement_key IS NULL) AND ((entitlement_state)::text = 'unlimited'::text) AND (entitlement_definition_checksum IS NULL)) OR (((limit_kind)::text = 'capped'::text) AND (limit_quantity >= (0)::numeric) AND ((entitlement_key)::text ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$'::text) AND ((entitlement_state)::text = ANY (ARRAY[('enabled'::character varying)::text, ('disabled'::character varying)::text])) AND ((entitlement_definition_checksum)::text ~ '^[0-9a-f]{64}$'::text)))),
     CONSTRAINT usage_quota_reservations_quantities_nonnegative CHECK (((requested_quantity > (0)::numeric) AND (held_quantity > (0)::numeric) AND (requested_quantity = held_quantity) AND (consumed_quantity >= (0)::numeric) AND (released_quantity >= (0)::numeric))),
     CONSTRAINT usage_quota_reservations_source_tenant_match CHECK ((organization_id = source_organization_id)),
     CONSTRAINT usage_quota_reservations_source_type_format CHECK (((source_type)::text ~ '^[A-Z][A-Za-z0-9]{0,47}$'::text)),
-    CONSTRAINT usage_quota_reservations_state_allowlist CHECK (((state)::text = ANY ((ARRAY['held'::character varying, 'finalized'::character varying, 'released'::character varying, 'expired'::character varying])::text[]))),
+    CONSTRAINT usage_quota_reservations_state_allowlist CHECK (((state)::text = ANY (ARRAY[('held'::character varying)::text, ('finalized'::character varying)::text, ('released'::character varying)::text, ('expired'::character varying)::text]))),
     CONSTRAINT usage_quota_reservations_subscription_snapshot_shape CHECK ((((subscription_id IS NULL) AND (subscription_revision IS NULL)) OR ((subscription_id IS NOT NULL) AND (plan_version_id IS NOT NULL) AND (subscription_revision >= 0))))
 );
 
@@ -1344,10 +1380,10 @@ CREATE TABLE public.usage_windows (
     subscription_revision bigint,
     created_at timestamp(6) with time zone NOT NULL,
     CONSTRAINT usage_windows_period_reference_shape CHECK (((((window_policy)::text = 'utc_calendar_month'::text) AND ((time_zone_name)::text = 'UTC'::text) AND (period_reference_digest IS NULL)) OR (((window_policy)::text = 'provider_billing_period'::text) AND ((period_reference_digest)::text ~ '^[0-9a-f]{64}$'::text)))),
-    CONSTRAINT usage_windows_policy_allowlist CHECK (((window_policy)::text = ANY ((ARRAY['utc_calendar_month'::character varying, 'provider_billing_period'::character varying])::text[]))),
+    CONSTRAINT usage_windows_policy_allowlist CHECK (((window_policy)::text = ANY (ARRAY[('utc_calendar_month'::character varying)::text, ('provider_billing_period'::character varying)::text]))),
     CONSTRAINT usage_windows_positive_period CHECK ((ends_at > starts_at)),
     CONSTRAINT usage_windows_subscription_context_shape CHECK ((((subscription_id IS NULL) AND (plan_version_id IS NULL) AND (subscription_revision IS NULL)) OR ((subscription_id IS NOT NULL) AND (plan_version_id IS NOT NULL) AND (subscription_revision >= 0)))),
-    CONSTRAINT usage_windows_time_zone_format CHECK ((((char_length((time_zone_name)::text) >= 1) AND (char_length((time_zone_name)::text) <= 64)) AND ((time_zone_name)::text = btrim((time_zone_name)::text))))
+    CONSTRAINT usage_windows_time_zone_format CHECK (((char_length((time_zone_name)::text) >= 1) AND (char_length((time_zone_name)::text) <= 64) AND ((time_zone_name)::text = btrim((time_zone_name)::text))))
 );
 
 
@@ -1432,6 +1468,14 @@ ALTER TABLE ONLY public.authorization_catalog_revisions
 
 ALTER TABLE ONLY public.authorization_scope_references
     ADD CONSTRAINT authorization_scope_references_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: billing_checkout_sessions billing_checkout_sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_checkout_sessions
+    ADD CONSTRAINT billing_checkout_sessions_pkey PRIMARY KEY (id);
 
 
 --
@@ -1773,6 +1817,34 @@ CREATE INDEX index_authorization_scopes_on_org_and_project ON public.authorizati
 --
 
 CREATE UNIQUE INDEX index_authorization_scopes_on_org_id_and_type ON public.authorization_scope_references USING btree (organization_id, id, scope_type);
+
+
+--
+-- Name: index_billing_checkouts_on_active_tenant; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_billing_checkouts_on_active_tenant ON public.billing_checkout_sessions USING btree (organization_id) WHERE ((state)::text = ANY ((ARRAY['preparing'::character varying, 'ready'::character varying, 'uncertain'::character varying])::text[]));
+
+
+--
+-- Name: index_billing_checkouts_on_provider_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_billing_checkouts_on_provider_identity ON public.billing_checkout_sessions USING btree (provider, environment, provider_checkout_id) WHERE (provider_checkout_id IS NOT NULL);
+
+
+--
+-- Name: index_billing_checkouts_on_tenant_idempotency; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_billing_checkouts_on_tenant_idempotency ON public.billing_checkout_sessions USING btree (organization_id, idempotency_digest);
+
+
+--
+-- Name: index_billing_checkouts_on_tenant_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_billing_checkouts_on_tenant_identity ON public.billing_checkout_sessions USING btree (organization_id, id);
 
 
 --
@@ -2625,6 +2697,22 @@ ALTER TABLE ONLY public.authorization_scope_references
 
 
 --
+-- Name: billing_checkout_sessions fk_billing_checkouts_tenant_customer; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_checkout_sessions
+    ADD CONSTRAINT fk_billing_checkouts_tenant_customer FOREIGN KEY (billing_customer_id, organization_id, provider, environment) REFERENCES public.billing_customers(id, organization_id, provider, environment) ON DELETE RESTRICT;
+
+
+--
+-- Name: billing_checkout_sessions fk_billing_checkouts_tenant_membership; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_checkout_sessions
+    ADD CONSTRAINT fk_billing_checkouts_tenant_membership FOREIGN KEY (organization_id, actor_membership_id) REFERENCES public.memberships(organization_id, id) ON DELETE RESTRICT;
+
+
+--
 -- Name: organization_ownerships fk_current_ownership_active_membership; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2638,14 +2726,6 @@ ALTER TABLE ONLY public.organization_ownerships
 
 ALTER TABLE ONLY public.entitlement_subscription_contexts
     ADD CONSTRAINT fk_entitlement_contexts_subscription_identity FOREIGN KEY (organization_id, subscription_id, plan_version_id) REFERENCES public.subscriptions(organization_id, id, plan_version_id) ON DELETE RESTRICT;
-
-
---
--- Name: subscriptions fk_subscriptions_tenant_provider_customer; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.subscriptions
-    ADD CONSTRAINT fk_subscriptions_tenant_provider_customer FOREIGN KEY (billing_customer_id, organization_id, provider, provider_environment) REFERENCES public.billing_customers(id, organization_id, provider, environment) ON DELETE RESTRICT;
 
 
 --
@@ -2718,14 +2798,6 @@ ALTER TABLE ONLY public.plan_entitlements
 
 ALTER TABLE ONLY public.billing_plan_provider_mappings
     ADD CONSTRAINT fk_rails_0b34a5e891 FOREIGN KEY (plan_version_id) REFERENCES public.plan_versions(id) ON DELETE RESTRICT;
-
-
---
--- Name: billing_customers fk_rails_6d4927c1b8; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.billing_customers
-    ADD CONSTRAINT fk_rails_6d4927c1b8 FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE RESTRICT;
 
 
 --
@@ -2841,6 +2913,14 @@ ALTER TABLE ONLY public.memberships
 
 
 --
+-- Name: billing_customers fk_rails_6d4927c1b8; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_customers
+    ADD CONSTRAINT fk_rails_6d4927c1b8 FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE RESTRICT;
+
+
+--
 -- Name: sessions fk_rails_758836b4f0; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2878,6 +2958,14 @@ ALTER TABLE ONLY public.memberships
 
 ALTER TABLE ONLY public.plan_version_snapshot_references
     ADD CONSTRAINT fk_rails_9d09607450 FOREIGN KEY (plan_version_id) REFERENCES public.plan_versions(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: billing_checkout_sessions fk_rails_9f7df1dbb1; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_checkout_sessions
+    ADD CONSTRAINT fk_rails_9f7df1dbb1 FOREIGN KEY (plan_version_id) REFERENCES public.plan_versions(id) ON DELETE RESTRICT;
 
 
 --
@@ -2985,6 +3073,14 @@ ALTER TABLE ONLY public.teams
 
 
 --
+-- Name: billing_checkout_sessions fk_rails_f3d794e9d6; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_checkout_sessions
+    ADD CONSTRAINT fk_rails_f3d794e9d6 FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE RESTRICT;
+
+
+--
 -- Name: organizations fk_rails_f4c6fce826; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3062,6 +3158,14 @@ ALTER TABLE ONLY public.role_assignments
 
 ALTER TABLE ONLY public.role_assignments
     ADD CONSTRAINT fk_role_assignments_same_org_team FOREIGN KEY (organization_id, team_grantee_id) REFERENCES public.teams(organization_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: subscriptions fk_subscriptions_tenant_provider_customer; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.subscriptions
+    ADD CONSTRAINT fk_subscriptions_tenant_provider_customer FOREIGN KEY (billing_customer_id, organization_id, provider, provider_environment) REFERENCES public.billing_customers(id, organization_id, provider, environment) ON DELETE RESTRICT;
 
 
 --
@@ -3199,6 +3303,7 @@ ALTER TABLE ONLY public.usage_windows
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904095000'),
 ('20260904094000'),
 ('20260904093000'),
 ('20260904092000'),

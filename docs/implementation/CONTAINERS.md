@@ -37,7 +37,10 @@ docker compose --profile test run --rm test ruby --version
 
 The test entrypoint applies all PostgreSQL schemas before executing the supplied
 command. It never calls an external provider; default tests use fakes and
-sanitized fixtures.
+sanitized fixtures. The development image includes distribution-matched Chromium
+and ChromeDriver packages, and the shared system-test driver uses container-safe
+headless sandbox/shared-memory flags so browser tests are reproducible in this
+profile.
 
 ## Stop and reset
 

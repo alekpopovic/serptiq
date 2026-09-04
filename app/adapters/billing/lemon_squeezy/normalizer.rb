@@ -43,14 +43,14 @@ module Billing
         )
       end
 
-      def customer(payload, expected_reference:)
+      def customer(payload, organization_id:, expected_reference: nil)
         data = resource(payload, type: "customers", expected_reference: expected_reference)
         attributes = attributes(data)
         validate_store_and_mode!(attributes)
         Customer.new(
           provider: "lemon_squeezy",
           reference: provider_reference(data.fetch("id"), "customer reference"),
-          organization_id: custom_organization_id(payload),
+          organization_id: ValueNormalization.uuid!(organization_id, name: "organization"),
           email: required_string(attributes, "email"),
           created_at: timestamp(attributes, "created_at"),
           metadata: { "test_mode" => @expected_test_mode }
@@ -180,12 +180,6 @@ module Billing
         unless attributes["test_mode"] == @expected_test_mode
           raise ArgumentError, "provider environment is invalid"
         end
-      end
-
-      def custom_organization_id(payload)
-        custom = payload.dig("meta", "custom_data")
-        value = custom.is_a?(Hash) ? custom["organization_id"] : nil
-        ValueNormalization.uuid!(value, name: "organization")
       end
 
       def required_hash(value, key)

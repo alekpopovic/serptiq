@@ -12,6 +12,12 @@ order. Billing controls require `billing.manage` and are actionable only when th
 active mapping for the exact plan version, environment, currency and interval. Variant identifiers never
 leave the Billing boundary.
 
+Prompt 045 turns an eligible selected interval into a CSRF-protected POST that reserves one tenant checkout,
+creates or reuses the tenant's provider customer and redirects only to the adapter's normalized HTTPS link. The
+redirect response is `no-store` with a `no-referrer` policy. A provider-backed current subscription exposes a
+separate short-lived portal action. The checkout return page reports the existing local projection and never
+treats browser query parameters or the return itself as payment evidence.
+
 The organization-wide usage page requires organization-scoped `billing.read` and obtains a tenant-bound
 authorization proof before reading the ledger; project-scoped `usage.read` remains for later project views.
 The page groups compatible meters into their logical pool, shows immutable used usage,

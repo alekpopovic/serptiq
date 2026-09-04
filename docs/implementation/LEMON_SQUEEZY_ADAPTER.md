@@ -9,6 +9,7 @@ only from the application secrets contract and adapter diagnostics always redact
 
 | Application operation | Provider request | Automatic retries |
 |---|---|---:|
+| create customer | `POST /v1/customers` | 0 |
 | create checkout | `POST /v1/checkouts` | 0 |
 | customer portal | `GET /v1/customers/:id` and `attributes.urls.customer_portal` | 0 |
 | fetch subscription | `GET /v1/subscriptions/:id` | at most 2 |
@@ -16,6 +17,10 @@ only from the application secrets contract and adapter diagnostics always redact
 | cancel at period end | `DELETE /v1/subscriptions/:id` | 0 |
 | resume during grace period | `PATCH /v1/subscriptions/:id` with `cancelled: false` | 0 |
 | reconciliation page | filtered `GET /v1/subscriptions` | at most 2 |
+
+The customer is created from the authorized organization's name and the acting user's billing email only when
+no immutable organization/provider/environment mapping exists. SearchOps never looks up or reuses a customer
+by email because the same email can legitimately administer multiple organizations.
 
 The API documentation does not declare a mutation idempotency header. SearchOps therefore never retries a
 Lemon Squeezy mutation automatically. The required local idempotency key becomes a one-way `X-Request-ID`

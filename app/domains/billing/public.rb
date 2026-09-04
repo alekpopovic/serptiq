@@ -28,6 +28,26 @@ module Billing
       CheckoutAvailability.new.call(**attributes)
     end
 
+    def portal_available?(organization_id:, provider:, environment: Rails.env.to_s)
+      CustomerMapping.exists?(
+        organization_id: organization_id,
+        provider: provider.to_s,
+        environment: environment.to_s
+      ) && Subscription.current.exists?(organization_id: organization_id, provider: provider.to_s)
+    end
+
+    def active_checkout?(organization_id:, at: Time.current)
+      CheckoutSession.active.where(organization_id: organization_id).where("expires_at > ?", at).exists?
+    end
+
+    def create_hosted_checkout(command:, **attributes)
+      command.call(**attributes)
+    end
+
+    def create_customer_portal(command:, **attributes)
+      command.call(**attributes)
+    end
+
     def provider(provider_key:, registry: ProviderRegistry.new)
       registry.fetch(provider_key)
     end

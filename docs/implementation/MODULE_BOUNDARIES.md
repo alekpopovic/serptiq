@@ -110,6 +110,10 @@ Billing also owns normalized provider values, adapter contracts, environment-sco
 and canonical subscription/access lifecycle. Provider adapters may retain required bounded provider facts, but
 raw payloads and hosted bearer links never leave Billing values unredacted. Entitlements consumes only its
 local subscription projection; Authorization and access decisions never import provider classes or IDs.
+Privileged Billing commands receive an immutable organization-scoped authorization decision from the delivery
+layer and revalidate its permission, actor, tenant, scope and active records before mutation. The delivery layer
+also injects the append-only audit recorder, preserving Billing's dependency direction while keeping audit
+emission mandatory in production entry points.
 
 Entitlements owns typed definitions, materialized plan values, organization overrides and the request-scoped
 resolver. Billing calls `Entitlements::Public.bind_subscription` in the subscription transaction; a composite

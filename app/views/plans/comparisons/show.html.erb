@@ -14,12 +14,45 @@
       Published local catalog data is shown here. A selected price is not a charge and no plan changes until
       hosted checkout and a verified provider event confirm it.
     </p>
+    <% if @portal_available && allowed_to?("billing.manage") %>
+      <div class="mt-4">
+        <%= button_to "Manage billing with provider",
+          organization_billing_portal_path(Current.organization.slug),
+          method: :post,
+          class: "so-button so-button-secondary" %>
+        <p class="mt-2 text-xs text-slate-500">The provider creates a short-lived customer portal link.</p>
+      </div>
+    <% end %>
   </div>
+
+  <% if @active_checkout %>
+    <div class="so-card mt-6 border-amber-200 bg-amber-50 p-5" role="status">
+      <h2 class="font-bold text-amber-950">A hosted checkout is already in progress</h2>
+      <p class="mt-1 text-sm text-amber-900">Finish or let that short-lived checkout expire before starting another one.</p>
+    </div>
+  <% end %>
 
   <% if @selected_offer %>
     <div class="so-card mt-6 border-teal-200 bg-teal-50 p-5" role="status">
       <h2 class="font-bold text-teal-950"><%= @selected_offer.display_name %> selected for review</h2>
-      <p class="mt-1 text-sm text-teal-900">No checkout was started and the current plan is unchanged.</p>
+      <p class="mt-1 text-sm text-teal-900">
+        No checkout has started and the current plan is unchanged. The hosted provider page displays the
+        authoritative total, taxes and payment terms before purchase.
+      </p>
+      <% if @selected_interval && allowed_to?("billing.manage") && !@active_checkout &&
+          @checkout_availability.fetch(@selected_offer.id).fetch(@selected_interval) %>
+        <%= button_to "Continue to secure #{@selected_interval} checkout",
+          organization_billing_checkout_path(Current.organization.slug),
+          method: :post,
+          params: {
+            checkout: {
+              plan_version_id: @selected_offer.id,
+              currency: @selected_offer.currency,
+              billing_interval: @selected_interval
+            }
+          },
+          class: "so-button so-button-primary mt-4" %>
+      <% end %>
     </div>
   <% end %>
 
@@ -59,6 +92,8 @@
               <span class="so-button so-button-secondary w-full" aria-disabled="true">Current plan</span>
             <% elsif !allowed_to?("billing.manage") %>
               <p class="text-sm text-slate-600">Ask a billing administrator to change plans.</p>
+            <% elsif @active_checkout %>
+              <span class="so-button so-button-secondary w-full opacity-60" aria-disabled="true">Checkout in progress</span>
             <% elsif offer.custom_pricing? %>
               <%= link_to "Review contract requirements", organization_entitlements_path(Current.organization.slug), class: "so-button so-button-secondary w-full" %>
             <% else %>

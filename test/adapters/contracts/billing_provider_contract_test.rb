@@ -25,11 +25,18 @@ class BillingProviderContractTest < ActiveSupport::TestCase
       idempotency_key: "checkout-command-001",
       metadata: { "organization_correlation" => "signed-correlation" }
     )
+    @customer_request = Billing::CustomerRequest.new(
+      organization_id: @organization_id,
+      name: "Billing Contract Organization",
+      email: "billing@example.test",
+      idempotency_key: "customer-command-001"
+    )
   end
 
   test "fake implements every provider operation with normalized deterministic results" do
     adapter = Billing::FakeProvider.new(clock: -> { @now })
 
+    created_customer = adapter.create_customer(request: @customer_request)
     checkout = adapter.create_checkout(request: @checkout)
     portal = adapter.customer_portal(customer: @customer, idempotency_key: "portal-command-001")
     subscription = adapter.fetch_subscription(reference: "subscription-001")
@@ -54,6 +61,8 @@ class BillingProviderContractTest < ActiveSupport::TestCase
     )
     event = adapter.parse_event(webhook: webhook)
 
+    assert_instance_of Billing::Customer, created_customer
+    assert_equal @organization_id, created_customer.organization_id
     assert_instance_of Billing::CheckoutResult, checkout
     assert_instance_of Billing::PortalLink, portal
     assert_instance_of Billing::SubscriptionSnapshot, subscription
@@ -66,7 +75,7 @@ class BillingProviderContractTest < ActiveSupport::TestCase
     assert_instance_of Billing::VerifiedWebhook, webhook
     assert_instance_of Billing::ProviderEvent, event
     assert_equal "payment.succeeded", event.name
-    assert_equal 9, adapter.calls.size
+    assert_equal 10, adapter.calls.size
     assert Billing::Provider::OPERATIONS.all? { |operation| adapter.supports?(operation) }
   end
 
@@ -76,6 +85,7 @@ class BillingProviderContractTest < ActiveSupport::TestCase
     assert_equal Billing::Provider::OPERATIONS.sort, policies.keys.sort
     assert_equal [ "GET", 2, "none" ], policy_tuple(policies.fetch("fetch_subscription"))
     assert_equal [ "GET", 2, "none" ], policy_tuple(policies.fetch("reconciliation_page"))
+    assert_equal [ "POST", 0, "required" ], policy_tuple(policies.fetch("create_customer"))
     %w[create_checkout change_subscription cancel_subscription resume_subscription].each do |operation|
       policy = policies.fetch(operation)
       assert_equal "required", policy.idempotency

@@ -7,7 +7,7 @@ FROM docker.io/library/ruby:$RUBY_VERSION-slim@sha256:42ad5227a4b2758f32563b34b5
 WORKDIR /rails
 
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y build-essential curl git libpq-dev libvips libyaml-dev postgresql-client pkg-config && \
+    apt-get install --no-install-recommends -y build-essential chromium chromium-driver curl git libpq-dev libvips libyaml-dev postgresql-client pkg-config && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
 
 ENV BINDING="0.0.0.0" \

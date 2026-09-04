@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require "json"
+require "digest"
 require "time"
 
 module Billing
@@ -29,6 +30,19 @@ module Billing
 
     def supports?(operation)
       super && !@unsupported.include?(operation.to_s)
+    end
+
+    def create_customer(request:)
+      require_type!(request, CustomerRequest, "create_customer")
+      perform("create_customer", request: request) do
+        Customer.new(
+          provider: provider_key,
+          reference: "customer-#{Digest::SHA256.hexdigest(request.organization_id).first(24)}",
+          organization_id: request.organization_id,
+          email: request.email,
+          created_at: @clock.call
+        )
+      end
     end
 
     def create_checkout(request:)

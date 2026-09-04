@@ -38,6 +38,15 @@ Rails.application.routes.draw do
   get "dashboard/organizations/:organization_slug/plans",
     to: "plans/comparisons#show",
     as: :organization_plan_comparison
+  post "dashboard/organizations/:organization_slug/billing/checkout",
+    to: "billing/checkouts#create",
+    as: :organization_billing_checkout
+  get "dashboard/organizations/:organization_slug/billing/checkout/return",
+    to: "billing/checkout_returns#show",
+    as: :organization_billing_checkout_return
+  post "dashboard/organizations/:organization_slug/billing/portal",
+    to: "billing/portals#create",
+    as: :organization_billing_portal
   get "dashboard/organizations/:organization_slug/usage",
     to: "usage/dashboards#show",
     as: :organization_usage

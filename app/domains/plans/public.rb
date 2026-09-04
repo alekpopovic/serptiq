@@ -44,6 +44,10 @@ module Plans
       CurrentVersionSelector.new.call(**attributes)
     end
 
+    def exact_purchasable_version(**attributes)
+      ExactPurchasableVersion.new.call(**attributes)
+    end
+
     def plan_change_target(**attributes)
       ChangeTargetSelector.new.call(**attributes)
     end
