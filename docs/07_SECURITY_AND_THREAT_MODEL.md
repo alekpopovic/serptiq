@@ -1,0 +1,429 @@
+# Security and Threat Model
+
+## 1. Scope
+
+This threat model covers the Rails application, PostgreSQL workloads, object storage, background jobs, crawler and Chromium workers, OAuth/OIDC login, external integrations, billing webhooks, API keys, reports, and production operations.
+
+The crawler creates an unusually strong outbound trust boundary. SearchOps must assume that a customer-controlled URL, DNS record, redirect, page body, JavaScript program, XML document, JSON-LD block, mobile association file, store metadata record, and webhook payload may be malicious.
+
+## 2. Protected assets
+
+- User identity and active sessions.
+- Organization, project, scan, finding, report, and billing isolation.
+- OAuth access/refresh tokens and provider credentials.
+- Billing webhook secrets and subscription state.
+- API keys and outgoing webhook signing secrets.
+- Customer page artifacts that may contain personal or confidential data.
+- Crawl capacity, browser capacity, provider quotas, and monthly credits.
+- Production network, cloud metadata endpoints, internal services, and databases.
+- Audit integrity and incident evidence.
+- Release-gate integrity.
+- Source code, CI credentials, deployment credentials, and backups.
+
+## 3. Threat actors
+
+- Anonymous internet attacker.
+- Malicious free-trial user.
+- Paying customer attempting to exceed plan limits or scan unauthorized targets.
+- Compromised customer account.
+- Malicious or compromised organization member.
+- Compromised third-party provider or leaked provider token.
+- Malicious page owner serving adversarial HTML/JavaScript/XML.
+- Insider with operational access.
+- Automated bot attempting credential abuse, scraping, or denial of service.
+- Accidental operator or developer error.
+
+## 4. Trust boundaries
+
+```text
+browser ↔ Rails web
+external identity provider ↔ OAuth callback
+billing provider ↔ webhook ingress
+CI/CD system ↔ release webhook/API
+Rails web ↔ PostgreSQL
+Rails web/jobs ↔ object storage
+jobs ↔ external provider APIs
+crawl worker ↔ customer/public internet
+render worker/Chromium ↔ customer/public internet
+application ↔ mail/Slack provider
+operator ↔ production control plane
+```
+
+Each boundary requires authentication, authorization, validation, rate limits, observability, and failure behavior appropriate to its risk.
+
+## 5. Top threats and required controls
+
+### T-01 Cross-tenant data access
+
+Attack examples:
+
+- changing an organization, project, scan, report, or artifact ID;
+- using a valid API key against another project;
+- background job receives mismatched organization/resource IDs;
+- project-scoped role is treated as organization-scoped;
+- signed artifact URL is generated before authorization.
+
+Controls:
+
+- opaque identifiers;
+- explicit tenant-aware query entry points;
+- organization IDs on aggregate roots and high-risk child rows;
+- relationship validation on every write;
+- policy enforcement in controllers and domain operations;
+- short-lived signed artifact URLs generated after authorization;
+- adversarial integration tests mixing real IDs across two organizations;
+- no `default_scope` as the security mechanism;
+- audit denied high-risk attempts.
+
+### T-02 Privilege escalation
+
+Attack examples:
+
+- member grants a role containing permissions they do not possess;
+- last owner removes or demotes themselves;
+- stale session keeps old privileges;
+- team assignment crosses organizations;
+- project role performs billing or organization deletion.
+
+Controls:
+
+- immutable system-role definitions;
+- grant-subset validation for custom roles;
+- scope-compatible permission filter;
+- last-owner database/domain invariant;
+- recent-authentication requirement for critical actions;
+- session rotation/re-evaluation after privilege changes;
+- same-organization checks for teams, memberships, roles, and scopes;
+- authorization negative-path tests.
+
+### T-03 OAuth/OIDC login attacks
+
+Attack examples:
+
+- callback CSRF;
+- authorization-code interception;
+- nonce replay;
+- issuer/audience confusion;
+- algorithm/key confusion in ID tokens;
+- open redirect through `return_to`;
+- account takeover through unverified email collision;
+- identity-linking CSRF.
+
+Controls:
+
+- one-time hashed state;
+- OIDC nonce;
+- PKCE where provider supports it;
+- exact registered redirect URIs;
+- provider metadata allowlist;
+- issuer, audience, authorized-party, signature, key ID, expiry, issued-at, and nonce validation;
+- bounded JWKS caching and key rotation;
+- local-path allowlist for return destinations;
+- do not auto-link identities on unverified email;
+- recent-authenticated explicit account-linking flow;
+- consume transactions exactly once;
+- rotate local session after success.
+
+### T-04 Session theft and replay
+
+Controls:
+
+- random high-entropy opaque session token;
+- store only token digest;
+- `Secure`, `HttpOnly`, appropriate `SameSite`;
+- forced TLS and HSTS;
+- session rotation;
+- idle and absolute expiration;
+- user-visible session list and revocation;
+- server-side revoke on suspension/deletion;
+- CSP and XSS prevention;
+- no sensitive data in cookie payload.
+
+### T-05 Billing forgery, replay, and state corruption
+
+Attack examples:
+
+- fake subscription webhook;
+- duplicated event;
+- reordered old event overwrites newer state;
+- checkout custom data points to another organization;
+- provider call timeout causes duplicate change;
+- privileged access granted before payment confirmation.
+
+Controls:
+
+- exact raw-body HMAC/signature validation with constant-time comparison;
+- payload size and content-type limits;
+- immutable ingress record and idempotency fingerprint;
+- asynchronous projector;
+- row lock/optimistic lock on subscription;
+- compare provider event/update time and canonical state;
+- organization correlation validated through signed metadata and provider customer mapping;
+- provider API idempotency where supported;
+- reconciliation job;
+- access only after trusted local projection;
+- test-mode isolation.
+
+### T-06 Quota bypass and double spending
+
+Attack examples:
+
+- concurrent scans pass a read-then-write limit check;
+- retry consumes twice or gets free repeated work;
+- cancel/retry leaks reservations;
+- one organization charges another.
+
+Controls:
+
+- atomic locked usage window;
+- organization-scoped idempotency key;
+- reservation before enqueue;
+- immutable usage events;
+- finalization state machine;
+- expiring reservation recovery;
+- entitlement snapshot on long-running work;
+- invariant/property tests under concurrency.
+
+### T-07 SSRF and internal network discovery
+
+Attack examples:
+
+- URL points to loopback/private/link-local/metadata address;
+- public DNS changes after validation;
+- redirect leads to internal destination;
+- IPv4-mapped IPv6 bypass;
+- alternative numeric IP notation;
+- userinfo/authority parser confusion;
+- Chromium subresource reaches internal network;
+- non-HTTP protocol is invoked.
+
+Controls:
+
+- one canonical URL parser;
+- allow only HTTP/HTTPS;
+- reject userinfo;
+- normalize host and IDN safely;
+- resolve all A/AAAA records;
+- classify every resolved address;
+- reject loopback, private, link-local, multicast, unspecified, reserved, metadata, and policy-disallowed ranges, including mapped forms;
+- validate allowed ports;
+- bind connection to an approved resolution while verifying TLS hostname;
+- re-run full checks for each redirect;
+- apply identical interception to browser navigation and subresources;
+- egress firewall/network policy denying private/control-plane destinations;
+- cap redirects and DNS answers;
+- record a redacted network decision;
+- dedicated regression corpus for parser and rebinding cases.
+
+### T-08 Denial of service and resource exhaustion
+
+Attack examples:
+
+- infinite URL spaces/calendars/faceted navigation;
+- zip/XML bombs;
+- huge headers or bodies;
+- slow responses;
+- redirect loops;
+- JavaScript infinite loops and memory growth;
+- millions of DOM nodes/links;
+- repeated expensive Lighthouse requests;
+- notification or webhook fan-out.
+
+Controls:
+
+- verified property before expensive work;
+- monthly credits and per-scan hard caps;
+- URL pattern and query-parameter policies;
+- depth and discovery limits;
+- response/header/body/decompression limits;
+- streaming parsers where appropriate;
+- timeouts and cancellation;
+- per-host and per-organization concurrency;
+- isolated Chromium memory/CPU/process limits;
+- bounded queue retry/fan-out;
+- circuit breakers/provider backoff;
+- global emergency disable entitlement;
+- operational alerts.
+
+### T-09 Stored and reflected XSS
+
+Sources include fetched HTML, titles, anchor text, JSON-LD, app metadata, issue comments, webhook errors, and provider profile data.
+
+Controls:
+
+- Rails escaping by default;
+- sanitize only through audited allowlists;
+- display fetched markup as text, never raw HTML;
+- CSP with nonces/hashes and no unnecessary unsafe directives;
+- bounded plain-text evidence excerpts;
+- safe Markdown renderer if introduced;
+- no remote script injection through report branding;
+- system tests with hostile fixtures.
+
+### T-10 SQL/command/template injection
+
+Controls:
+
+- parameterized Active Record queries;
+- strict sort/filter allowlists;
+- no user input in shell command strings;
+- Lighthouse/Chromium invoked with argument arrays and controlled files;
+- templates selected by internal IDs;
+- report content escaped;
+- no customer-defined Ruby, JavaScript, SQL, regex without safety review;
+- regex length/time limits for configurable patterns.
+
+### T-11 Artifact exposure
+
+Controls:
+
+- opaque object keys;
+- private buckets;
+- server-side encryption;
+- short-lived signed downloads after authorization;
+- content disposition and safe MIME;
+- malware/content-type policy for uploads;
+- per-class lifecycle deletion;
+- access audit;
+- no public bucket listing;
+- delete/export reconciliation across database and storage.
+
+### T-12 XML and parser attacks
+
+Controls:
+
+- disable external entities and network access;
+- limit document and element counts/depth;
+- limit sitemap index recursion and total URLs;
+- reject compressed bombs using compressed/uncompressed limits;
+- use maintained parsers;
+- fuzz parser adapters.
+
+### T-13 Webhook and API abuse
+
+Controls:
+
+- API key prefix plus strong secret; store digest only;
+- scopes, project restriction, expiry, revocation, last use;
+- rate limits by key/organization/IP class;
+- request body limits and JSON schema validation;
+- outgoing webhook HTTPS requirement and destination safety policy;
+- signed deliveries with timestamp and event ID;
+- replay controls and idempotency;
+- delivery response truncation/redaction.
+
+### T-14 Sensitive data leakage in logs
+
+Controls:
+
+- structured allowlisted fields;
+- Rails parameter filtering;
+- token/header/query-string redaction;
+- no raw page bodies or webhook secrets;
+- exception message sanitization;
+- access-controlled log platform;
+- retention and incident access audit.
+
+### T-15 Supply-chain and deployment compromise
+
+Controls:
+
+- locked dependencies;
+- Bundler audit, Brakeman, static checks, secret scanning;
+- pinned base image digest policy;
+- SBOM and image vulnerability scan;
+- least-privilege CI/deploy credentials;
+- protected production environment;
+- signed or provenance-aware image workflow where available;
+- database backup before high-risk migrations;
+- rollback and restore drills.
+
+## 6. Domain verification threat model
+
+A domain verification challenge:
+
+- is random and high entropy;
+- is stored as a digest;
+- is bound to organization, property, host, method, and expiry;
+- cannot be reused across hosts or organizations;
+- records exact evidence;
+- is revalidated before expensive scans according to risk/age;
+- is revoked when property host changes;
+- does not treat arbitrary redirects to another host as proof;
+- validates DNS responses against the intended name and record type;
+- limits HTML/meta proof fetch to the exact allowed origin and safe destination policy.
+
+Search Console ownership may be trusted only after the connected account and exact property match are verified.
+
+## 7. Browser isolation profile
+
+Minimum production expectations:
+
+- non-root browser process;
+- read-only base filesystem;
+- ephemeral writable directory;
+- dropped Linux capabilities;
+- seccomp/AppArmor where available;
+- no host networking;
+- egress denied to private/control-plane ranges;
+- process, PID, memory, CPU, file, and open-descriptor limits;
+- no persistent browser profile;
+- downloads disabled;
+- clipboard, camera, microphone, geolocation, notifications, and file access disabled;
+- request interception with byte and count budgets;
+- process termination on timeout;
+- artifact collection bounded and sanitized.
+
+`--no-sandbox` must not be the default production solution. If platform constraints ever require it, the browser must run inside a stronger container/VM sandbox and an ADR must document the risk.
+
+## 8. Security event examples
+
+```text
+auth.oauth_state_rejected
+auth.identity_link_attempt
+session.revoked
+authorization.denied_critical
+membership.owner_invariant_blocked
+billing.webhook_signature_failed
+billing.event_replay_ignored
+quota.reservation_denied
+crawler.destination_rejected
+crawler.redirect_rejected
+crawler.browser_limit_exceeded
+api.rate_limited
+webhook.delivery_disabled
+artifact.access_denied
+data.deletion_requested
+```
+
+Security events contain correlation and stable reason codes, not secrets.
+
+## 9. Security test gates
+
+Required before launch:
+
+- two-tenant ID-mixing suite;
+- role/scope privilege-escalation suite;
+- OAuth state/nonce/issuer/audience/JWKS/expiry/account-linking suite;
+- session rotation and revocation suite;
+- billing signature/idempotency/reordering/reconciliation suite;
+- quota concurrency suite;
+- SSRF corpus including IPv4, IPv6, mapped addresses, redirects, DNS changes, and Chromium subresources;
+- malicious HTML/JSON-LD/XML/XSS fixtures;
+- oversized/slow/decompression-bomb controls;
+- API key scope and rate-limit suite;
+- artifact authorization and expiry suite;
+- deletion/export completeness test;
+- dependency, image, and secret scans.
+
+## 10. Incident response minimum
+
+1. Detect and classify.
+2. Disable affected feature through emergency entitlement/operational switch.
+3. Revoke sessions, API keys, provider credentials, or webhook endpoints as applicable.
+4. Preserve immutable audit and ingress evidence.
+5. Rotate secrets with documented blast radius.
+6. Patch and deploy through reviewed release procedure.
+7. Reconcile billing, usage, jobs, and artifacts.
+8. Notify affected customers/regulators according to applicable obligations.
+9. Produce post-incident actions and add regression tests.

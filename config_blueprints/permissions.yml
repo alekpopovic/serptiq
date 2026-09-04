@@ -1,0 +1,505 @@
+schema_version: 1
+permissions:
+- key: organization.read
+  category: Organization
+  description: View organization profile and settings
+  risk: low
+- key: organization.update
+  category: Organization
+  description: Update non-destructive organization settings
+  risk: medium
+- key: organization.transfer
+  category: Organization
+  description: Transfer organization ownership
+  risk: critical
+- key: organization.delete
+  category: Organization
+  description: Request organization deletion
+  risk: critical
+- key: members.read
+  category: Membership
+  description: View members and invitations
+  risk: low
+- key: members.invite
+  category: Membership
+  description: Invite members
+  risk: high
+- key: members.update
+  category: Membership
+  description: Suspend or update membership settings
+  risk: high
+- key: members.remove
+  category: Membership
+  description: Remove members
+  risk: high
+- key: teams.read
+  category: Authorization
+  description: View teams
+  risk: low
+- key: teams.manage
+  category: Authorization
+  description: Create and manage teams
+  risk: medium
+- key: roles.read
+  category: Authorization
+  description: View roles and permissions
+  risk: low
+- key: roles.manage
+  category: Authorization
+  description: Create or modify custom roles
+  risk: critical
+- key: roles.assign
+  category: Authorization
+  description: Grant or revoke role assignments
+  risk: critical
+- key: billing.read
+  category: Billing
+  description: View subscription, invoices, and billing state
+  risk: medium
+- key: billing.manage
+  category: Billing
+  description: Start checkout, change, cancel, or resume subscription
+  risk: critical
+- key: plans.read
+  category: Billing
+  description: View available plans and effective entitlements
+  risk: low
+- key: usage.read
+  category: Usage
+  description: View quotas, reservations, and usage
+  risk: low
+- key: projects.read
+  category: Projects
+  description: View projects
+  risk: low
+- key: projects.create
+  category: Projects
+  description: Create a project
+  risk: medium
+- key: projects.update
+  category: Projects
+  description: Update project settings
+  risk: medium
+- key: projects.archive
+  category: Projects
+  description: Archive or restore a project
+  risk: high
+- key: projects.delete
+  category: Projects
+  description: Request permanent project deletion
+  risk: critical
+- key: properties.read
+  category: Properties
+  description: View project properties
+  risk: low
+- key: properties.manage
+  category: Properties
+  description: Create and update properties
+  risk: high
+- key: properties.verify
+  category: Properties
+  description: Create and execute ownership verification
+  risk: high
+- key: scans.read
+  category: Scanning
+  description: View scans and scan evidence
+  risk: low
+- key: scans.run
+  category: Scanning
+  description: Run manual or targeted scans
+  risk: medium
+- key: scans.configure
+  category: Scanning
+  description: Change crawl, render, and scheduling policy
+  risk: high
+- key: scans.cancel
+  category: Scanning
+  description: Cancel active scans
+  risk: medium
+- key: findings.read
+  category: Findings
+  description: View findings and evidence
+  risk: low
+- key: findings.triage
+  category: Findings
+  description: Change triage classification
+  risk: medium
+- key: findings.suppress
+  category: Findings
+  description: Suppress or mark false positive/risk accepted
+  risk: high
+- key: issues.read
+  category: Issues
+  description: View issue workflow
+  risk: low
+- key: issues.manage
+  category: Issues
+  description: Create and change issue status/details
+  risk: medium
+- key: issues.assign
+  category: Issues
+  description: Assign members or teams
+  risk: medium
+- key: issues.comment
+  category: Issues
+  description: Add and edit own comments
+  risk: low
+- key: issues.verify
+  category: Issues
+  description: Request or approve verification flows
+  risk: medium
+- key: integrations.read
+  category: Integrations
+  description: View connected providers and health
+  risk: low
+- key: integrations.manage
+  category: Integrations
+  description: Connect, update, or revoke integrations
+  risk: critical
+- key: releases.read
+  category: Releases
+  description: View releases and gate results
+  risk: low
+- key: releases.manage
+  category: Releases
+  description: Register and update releases
+  risk: high
+- key: release_gates.manage
+  category: Releases
+  description: Configure blocking/advisory gate policies
+  risk: critical
+- key: reports.read
+  category: Reporting
+  description: View generated reports
+  risk: low
+- key: reports.generate
+  category: Reporting
+  description: Generate reports
+  risk: medium
+- key: reports.export
+  category: Reporting
+  description: Download or export reports
+  risk: medium
+- key: reports.schedule
+  category: Reporting
+  description: Configure scheduled reports
+  risk: high
+- key: reports.branding
+  category: Reporting
+  description: Configure white-label report branding
+  risk: high
+- key: notifications.read
+  category: Notifications
+  description: View notification policies/endpoints
+  risk: low
+- key: notifications.manage
+  category: Notifications
+  description: Configure notification channels and rules
+  risk: high
+- key: api_keys.read
+  category: Developer
+  description: View API key metadata
+  risk: medium
+- key: api_keys.manage
+  category: Developer
+  description: Create or revoke API keys
+  risk: critical
+- key: webhooks.read
+  category: Developer
+  description: View outgoing webhook configuration/deliveries
+  risk: medium
+- key: webhooks.manage
+  category: Developer
+  description: Create, change, replay, or revoke webhooks
+  risk: critical
+- key: audit_log.read
+  category: Audit
+  description: View audit log
+  risk: high
+- key: audit_log.export
+  category: Audit
+  description: Export audit events
+  risk: critical
+- key: data.export
+  category: Privacy
+  description: Request organization data export
+  risk: critical
+- key: data.delete
+  category: Privacy
+  description: Request project/user/organization data deletion
+  risk: critical
+system_roles:
+- key: owner
+  name: Owner
+  assignable_scopes:
+  - organization
+  permissions:
+  - api_keys.manage
+  - api_keys.read
+  - audit_log.export
+  - audit_log.read
+  - billing.manage
+  - billing.read
+  - data.delete
+  - data.export
+  - findings.read
+  - findings.suppress
+  - findings.triage
+  - integrations.manage
+  - integrations.read
+  - issues.assign
+  - issues.comment
+  - issues.manage
+  - issues.read
+  - issues.verify
+  - members.invite
+  - members.read
+  - members.remove
+  - members.update
+  - notifications.manage
+  - notifications.read
+  - organization.delete
+  - organization.read
+  - organization.transfer
+  - organization.update
+  - plans.read
+  - projects.archive
+  - projects.create
+  - projects.delete
+  - projects.read
+  - projects.update
+  - properties.manage
+  - properties.read
+  - properties.verify
+  - release_gates.manage
+  - releases.manage
+  - releases.read
+  - reports.branding
+  - reports.export
+  - reports.generate
+  - reports.read
+  - reports.schedule
+  - roles.assign
+  - roles.manage
+  - roles.read
+  - scans.cancel
+  - scans.configure
+  - scans.read
+  - scans.run
+  - teams.manage
+  - teams.read
+  - usage.read
+  - webhooks.manage
+  - webhooks.read
+- key: organization_admin
+  name: Organization Admin
+  assignable_scopes:
+  - organization
+  permissions:
+  - api_keys.manage
+  - api_keys.read
+  - audit_log.read
+  - billing.read
+  - data.export
+  - findings.read
+  - findings.suppress
+  - findings.triage
+  - integrations.manage
+  - integrations.read
+  - issues.assign
+  - issues.comment
+  - issues.manage
+  - issues.read
+  - issues.verify
+  - members.invite
+  - members.read
+  - members.remove
+  - members.update
+  - notifications.manage
+  - notifications.read
+  - organization.read
+  - organization.update
+  - plans.read
+  - projects.archive
+  - projects.create
+  - projects.delete
+  - projects.read
+  - projects.update
+  - properties.manage
+  - properties.read
+  - properties.verify
+  - release_gates.manage
+  - releases.manage
+  - releases.read
+  - reports.branding
+  - reports.export
+  - reports.generate
+  - reports.read
+  - reports.schedule
+  - roles.assign
+  - roles.manage
+  - roles.read
+  - scans.cancel
+  - scans.configure
+  - scans.read
+  - scans.run
+  - teams.manage
+  - teams.read
+  - usage.read
+  - webhooks.manage
+  - webhooks.read
+- key: billing_admin
+  name: Billing Admin
+  assignable_scopes:
+  - organization
+  permissions:
+  - billing.manage
+  - billing.read
+  - organization.read
+  - plans.read
+  - projects.read
+  - reports.read
+  - usage.read
+- key: seo_lead
+  name: SEO Lead
+  assignable_scopes:
+  - organization
+  - project
+  permissions:
+  - findings.read
+  - findings.suppress
+  - findings.triage
+  - integrations.manage
+  - integrations.read
+  - issues.assign
+  - issues.comment
+  - issues.manage
+  - issues.read
+  - issues.verify
+  - members.read
+  - notifications.manage
+  - notifications.read
+  - organization.read
+  - plans.read
+  - projects.archive
+  - projects.create
+  - projects.read
+  - projects.update
+  - properties.manage
+  - properties.read
+  - properties.verify
+  - release_gates.manage
+  - releases.manage
+  - releases.read
+  - reports.export
+  - reports.generate
+  - reports.read
+  - reports.schedule
+  - roles.read
+  - scans.cancel
+  - scans.configure
+  - scans.read
+  - scans.run
+  - teams.read
+  - usage.read
+  - webhooks.read
+- key: developer
+  name: Developer
+  assignable_scopes:
+  - organization
+  - project
+  permissions:
+  - api_keys.manage
+  - api_keys.read
+  - findings.read
+  - findings.triage
+  - integrations.read
+  - issues.assign
+  - issues.comment
+  - issues.manage
+  - issues.read
+  - issues.verify
+  - members.read
+  - notifications.read
+  - organization.read
+  - plans.read
+  - projects.read
+  - projects.update
+  - properties.manage
+  - properties.read
+  - properties.verify
+  - release_gates.manage
+  - releases.manage
+  - releases.read
+  - reports.export
+  - reports.generate
+  - reports.read
+  - roles.read
+  - scans.cancel
+  - scans.configure
+  - scans.read
+  - scans.run
+  - teams.read
+  - usage.read
+  - webhooks.manage
+  - webhooks.read
+- key: content_editor
+  name: Content Editor
+  assignable_scopes:
+  - organization
+  - project
+  permissions:
+  - findings.read
+  - findings.triage
+  - issues.assign
+  - issues.comment
+  - issues.manage
+  - issues.read
+  - issues.verify
+  - members.read
+  - notifications.read
+  - organization.read
+  - plans.read
+  - projects.read
+  - properties.read
+  - reports.export
+  - reports.generate
+  - reports.read
+  - scans.read
+  - teams.read
+- key: analyst
+  name: Analyst
+  assignable_scopes:
+  - organization
+  - project
+  permissions:
+  - findings.read
+  - integrations.read
+  - issues.read
+  - members.read
+  - notifications.read
+  - organization.read
+  - plans.read
+  - projects.read
+  - properties.read
+  - releases.read
+  - reports.export
+  - reports.generate
+  - reports.read
+  - scans.read
+  - teams.read
+  - usage.read
+- key: viewer
+  name: Viewer
+  assignable_scopes:
+  - organization
+  - project
+  permissions:
+  - findings.read
+  - issues.read
+  - organization.read
+  - projects.read
+  - properties.read
+  - releases.read
+  - reports.read
+  - scans.read

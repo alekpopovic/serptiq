@@ -1,0 +1,1071 @@
+schema_version: 1
+catalog_version: 2026-09-04.1
+outcomes:
+- pass
+- fail
+- warning
+- not_applicable
+- unknown
+- error
+rules:
+- key: http.unreachable
+  category: http
+  default_severity: critical
+  applies_to:
+  - website
+  required_input: fetch
+  description: The URL could not be fetched after bounded retries.
+  evidence: Fetcher error class, attempts, DNS/network decision.
+  verification: Successful safe fetch.
+  initial_status: planned
+  implementation_order: 1
+- key: http.server_error
+  category: http
+  default_severity: high
+  applies_to:
+  - website
+  required_input: fetch
+  description: Final response is 5xx.
+  evidence: Status, headers allowlist, final URL.
+  verification: Final response is no longer 5xx.
+  initial_status: planned
+  implementation_order: 2
+- key: http.client_error
+  category: http
+  default_severity: medium
+  applies_to:
+  - website
+  required_input: fetch
+  description: Internal target resolves to 4xx.
+  evidence: Status, source links, final URL.
+  verification: Target returns intended success or redirect.
+  initial_status: planned
+  implementation_order: 3
+- key: http.soft_404_suspected
+  category: http
+  default_severity: medium
+  applies_to:
+  - website
+  required_input: snapshot
+  description: A successful response resembles an error/not-found page.
+  evidence: Content signature, title/text heuristic, comparison group.
+  verification: Content no longer matches the configured soft-404 heuristic.
+  initial_status: planned
+  implementation_order: 4
+- key: http.redirect_loop
+  category: redirect
+  default_severity: critical
+  applies_to:
+  - website
+  required_input: fetch
+  description: Redirect chain loops.
+  evidence: Ordered chain and repeated URL.
+  verification: Fetch terminates without loop.
+  initial_status: planned
+  implementation_order: 5
+- key: http.redirect_chain_long
+  category: redirect
+  default_severity: medium
+  applies_to:
+  - website
+  required_input: fetch
+  description: Redirect chain exceeds configured threshold.
+  evidence: Ordered chain and hop count.
+  verification: Hop count is within policy.
+  initial_status: planned
+  implementation_order: 6
+- key: http.redirect_target_error
+  category: redirect
+  default_severity: high
+  applies_to:
+  - website
+  required_input: fetch
+  description: Redirect terminates at an error or rejected destination.
+  evidence: Chain, target status/rejection.
+  verification: Redirect terminates at valid intended target.
+  initial_status: planned
+  implementation_order: 7
+- key: http.mixed_content_reference
+  category: transport
+  default_severity: medium
+  applies_to:
+  - website
+  required_input: snapshot
+  description: HTTPS page references active HTTP resources.
+  evidence: Source URL, resource URL, element/attribute.
+  verification: No active mixed-content reference remains.
+  initial_status: planned
+  implementation_order: 8
+- key: http.invalid_content_type
+  category: http
+  default_severity: medium
+  applies_to:
+  - website
+  required_input: fetch
+  description: Response MIME conflicts with expected indexable HTML content.
+  evidence: Header MIME, sniffed class, URL.
+  verification: MIME and body classification agree.
+  initial_status: planned
+  implementation_order: 9
+- key: robots.txt_unreachable
+  category: robots
+  default_severity: medium
+  applies_to:
+  - website
+  required_input: robots
+  description: robots.txt cannot be evaluated reliably.
+  evidence: Fetch status/error and attempted URL.
+  verification: robots.txt is accessible or absence is intentionally represented.
+  initial_status: planned
+  implementation_order: 10
+- key: robots.syntax_warning
+  category: robots
+  default_severity: low
+  applies_to:
+  - website
+  required_input: robots
+  description: robots.txt contains unsupported or malformed records.
+  evidence: Line numbers and parsed records.
+  verification: Parser no longer reports warning.
+  initial_status: planned
+  implementation_order: 11
+- key: robots.blocks_property
+  category: robots
+  default_severity: critical
+  applies_to:
+  - website
+  required_input: robots
+  description: Configured search crawler is blocked from the entire verified property.
+  evidence: Matched group/rule and representative URLs.
+  verification: Crawler policy permits intended paths.
+  initial_status: planned
+  implementation_order: 12
+- key: robots.blocks_sitemap
+  category: robots
+  default_severity: high
+  applies_to:
+  - website
+  required_input: robots
+  description: Declared sitemap cannot be fetched under selected crawler policy.
+  evidence: Sitemap URL and matched rule.
+  verification: Sitemap is accessible.
+  initial_status: planned
+  implementation_order: 13
+- key: indexability.meta_noindex
+  category: indexability
+  default_severity: high
+  applies_to:
+  - website
+  required_input: snapshot
+  description: An expected-indexable page declares noindex in HTML.
+  evidence: Directive source and expectation policy.
+  verification: Noindex removed or expectation changed.
+  initial_status: planned
+  implementation_order: 14
+- key: indexability.xrobots_noindex
+  category: indexability
+  default_severity: high
+  applies_to:
+  - website
+  required_input: fetch
+  description: An expected-indexable response declares noindex in X-Robots-Tag.
+  evidence: Header values and expectation policy.
+  verification: Header no longer blocks indexing or expectation changed.
+  initial_status: planned
+  implementation_order: 15
+- key: indexability.conflicting_directives
+  category: indexability
+  default_severity: high
+  applies_to:
+  - website
+  required_input: snapshot
+  description: Robots directives conflict across header, source, or rendered DOM.
+  evidence: All directive sources.
+  verification: Sources resolve to a consistent intended policy.
+  initial_status: planned
+  implementation_order: 16
+- key: indexability.blocked_and_noindex
+  category: indexability
+  default_severity: medium
+  applies_to:
+  - website
+  required_input: snapshot
+  description: A URL combines crawl blocking and noindex in a way that may prevent
+    directive observation.
+  evidence: Robots match plus noindex source.
+  verification: Configuration follows an intentional verifiable strategy.
+  initial_status: planned
+  implementation_order: 17
+- key: indexability.accidental_nofollow
+  category: indexability
+  default_severity: medium
+  applies_to:
+  - website
+  required_input: snapshot
+  description: Expected-indexable page applies page-level nofollow.
+  evidence: Directive evidence.
+  verification: Nofollow removed or expectation changed.
+  initial_status: planned
+  implementation_order: 18
+- key: sitemap.unreachable
+  category: sitemap
+  default_severity: high
+  applies_to:
+  - website
+  required_input: sitemap
+  description: Sitemap or sitemap index cannot be fetched.
+  evidence: URL, status/error, discovery source.
+  verification: Sitemap fetch and parse succeeds.
+  initial_status: planned
+  implementation_order: 19
+- key: sitemap.invalid_xml
+  category: sitemap
+  default_severity: high
+  applies_to:
+  - website
+  required_input: sitemap
+  description: Sitemap XML is malformed or violates supported structure.
+  evidence: Parse error and bounded excerpt location.
+  verification: Sitemap parses successfully.
+  initial_status: planned
+  implementation_order: 20
+- key: sitemap.url_outside_property
+  category: sitemap
+  default_severity: medium
+  applies_to:
+  - website
+  required_input: sitemap
+  description: Sitemap includes a URL outside allowed property hosts.
+  evidence: Sitemap and offending URL.
+  verification: All entries comply with property policy.
+  initial_status: planned
+  implementation_order: 21
+- key: sitemap.noncanonical_url
+  category: sitemap
+  default_severity: medium
+  applies_to:
+  - website
+  required_input: snapshot
+  description: Sitemap URL resolves to a different canonical target.
+  evidence: Sitemap URL and canonical evidence.
+  verification: Sitemap contains intended canonical URL.
+  initial_status: planned
+  implementation_order: 22
+- key: sitemap.error_url
+  category: sitemap
+  default_severity: high
+  applies_to:
+  - website
+  required_input: fetch
+  description: Sitemap entry resolves to an error or redirect policy violation.
+  evidence: Entry, status, chain.
+  verification: Entry resolves to intended indexable URL.
+  initial_status: planned
+  implementation_order: 23
+- key: sitemap.lastmod_future
+  category: sitemap
+  default_severity: low
+  applies_to:
+  - website
+  required_input: sitemap
+  description: lastmod is materially in the future.
+  evidence: Entry and timestamp.
+  verification: Timestamp is valid.
+  initial_status: planned
+  implementation_order: 24
+- key: sitemap.indexable_url_missing
+  category: sitemap
+  default_severity: low
+  applies_to:
+  - website
+  required_input: scan
+  description: Important discovered indexable URL is absent from configured sitemaps.
+  evidence: URL, discovery sources, importance signal.
+  verification: URL is included or policy excludes it.
+  initial_status: planned
+  implementation_order: 25
+- key: canonical.missing
+  category: canonical
+  default_severity: medium
+  applies_to:
+  - website
+  required_input: snapshot
+  description: Expected-indexable HTML page has no canonical declaration.
+  evidence: Page URL and source/rendered extraction.
+  verification: Valid intended canonical exists.
+  initial_status: planned
+  implementation_order: 26
+- key: canonical.multiple
+  category: canonical
+  default_severity: high
+  applies_to:
+  - website
+  required_input: snapshot
+  description: Page exposes multiple canonical declarations.
+  evidence: All declarations and source locations.
+  verification: Exactly one intended canonical remains.
+  initial_status: planned
+  implementation_order: 27
+- key: canonical.invalid_url
+  category: canonical
+  default_severity: high
+  applies_to:
+  - website
+  required_input: snapshot
+  description: Canonical value is invalid or unsafe.
+  evidence: Raw value and parse error.
+  verification: Canonical is a valid allowed HTTP(S) URL.
+  initial_status: planned
+  implementation_order: 28
+- key: canonical.target_error
+  category: canonical
+  default_severity: high
+  applies_to:
+  - website
+  required_input: fetch
+  description: Canonical target resolves to error or unsafe destination.
+  evidence: Canonical and target fetch evidence.
+  verification: Target resolves successfully and safely.
+  initial_status: planned
+  implementation_order: 29
+- key: canonical.chain
+  category: canonical
+  default_severity: medium
+  applies_to:
+  - website
+  required_input: snapshot
+  description: Canonical target declares a different canonical.
+  evidence: Ordered canonical chain.
+  verification: Page points directly to final canonical.
+  initial_status: planned
+  implementation_order: 30
+- key: canonical.target_nonindexable
+  category: canonical
+  default_severity: high
+  applies_to:
+  - website
+  required_input: snapshot
+  description: Canonical target is blocked or noindex.
+  evidence: Source and target indexability evidence.
+  verification: Target is intentionally indexable or canonical changed.
+  initial_status: planned
+  implementation_order: 31
+- key: canonical.source_render_mismatch
+  category: canonical
+  default_severity: high
+  applies_to:
+  - website
+  required_input: render
+  description: Source and rendered DOM canonical differ.
+  evidence: Both values and render profile.
+  verification: Values match intended canonical.
+  initial_status: planned
+  implementation_order: 32
+- key: hreflang.invalid_code
+  category: hreflang
+  default_severity: medium
+  applies_to:
+  - website
+  required_input: snapshot
+  description: hreflang value is malformed or unsupported by configured validator.
+  evidence: Raw value and source URL.
+  verification: Value passes supported language/region validation.
+  initial_status: planned
+  implementation_order: 33
+- key: hreflang.missing_return
+  category: hreflang
+  default_severity: medium
+  applies_to:
+  - website
+  required_input: snapshot
+  description: Alternate page does not link back.
+  evidence: Source/target pair and target declarations.
+  verification: Reciprocal relation exists.
+  initial_status: planned
+  implementation_order: 34
+- key: hreflang.noncanonical_target
+  category: hreflang
+  default_severity: medium
+  applies_to:
+  - website
+  required_input: snapshot
+  description: Alternate points to a noncanonical URL.
+  evidence: Alternate and target canonical.
+  verification: Alternate points to canonical URL.
+  initial_status: planned
+  implementation_order: 35
+- key: hreflang.target_error
+  category: hreflang
+  default_severity: high
+  applies_to:
+  - website
+  required_input: fetch
+  description: Alternate target cannot be fetched successfully.
+  evidence: Alternate URL and fetch result.
+  verification: Target succeeds.
+  initial_status: planned
+  implementation_order: 36
+- key: hreflang.duplicate_language
+  category: hreflang
+  default_severity: medium
+  applies_to:
+  - website
+  required_input: snapshot
+  description: Multiple conflicting URLs are declared for the same language/region.
+  evidence: Declarations.
+  verification: One intentional target per code remains.
+  initial_status: planned
+  implementation_order: 37
+- key: metadata.title_missing
+  category: metadata
+  default_severity: high
+  applies_to:
+  - website
+  required_input: snapshot
+  description: HTML page has no non-empty title.
+  evidence: Source/rendered values.
+  verification: Non-empty representative title exists.
+  initial_status: planned
+  implementation_order: 38
+- key: metadata.title_duplicate
+  category: metadata
+  default_severity: medium
+  applies_to:
+  - website
+  required_input: scan
+  description: Multiple indexable pages share the same normalized title.
+  evidence: Affected URLs and title hash.
+  verification: Titles are intentionally unique or accepted.
+  initial_status: planned
+  implementation_order: 39
+- key: metadata.title_preview_risk
+  category: metadata
+  default_severity: low
+  applies_to:
+  - website
+  required_input: snapshot
+  description: Title exceeds configurable preview-risk threshold.
+  evidence: Title and character/pixel estimate.
+  verification: Title fits configured policy or exception.
+  initial_status: planned
+  implementation_order: 40
+- key: metadata.description_missing
+  category: metadata
+  default_severity: medium
+  applies_to:
+  - website
+  required_input: snapshot
+  description: Expected landing page has no meta description.
+  evidence: Source/rendered extraction.
+  verification: Description exists or page is excluded.
+  initial_status: planned
+  implementation_order: 41
+- key: metadata.description_duplicate
+  category: metadata
+  default_severity: low
+  applies_to:
+  - website
+  required_input: scan
+  description: Multiple indexable pages share the same description.
+  evidence: Affected URLs and normalized value.
+  verification: Descriptions are unique or accepted.
+  initial_status: planned
+  implementation_order: 42
+- key: content.h1_missing
+  category: content
+  default_severity: medium
+  applies_to:
+  - website
+  required_input: snapshot
+  description: Page has no meaningful H1 under project policy.
+  evidence: Heading outline.
+  verification: Meaningful H1 exists or template exception.
+  initial_status: planned
+  implementation_order: 43
+- key: content.h1_multiple
+  category: content
+  default_severity: low
+  applies_to:
+  - website
+  required_input: snapshot
+  description: Page exceeds configured H1 policy.
+  evidence: Heading outline and locations.
+  verification: Heading structure meets policy.
+  initial_status: planned
+  implementation_order: 44
+- key: content.main_text_empty
+  category: content
+  default_severity: high
+  applies_to:
+  - website
+  required_input: snapshot
+  description: Expected content page has little or no extractable primary text.
+  evidence: Text metrics and template class.
+  verification: Expected primary content is present.
+  initial_status: planned
+  implementation_order: 45
+- key: content.near_duplicate_cluster
+  category: content
+  default_severity: medium
+  applies_to:
+  - website
+  required_input: scan
+  description: Several indexable pages have highly similar primary content.
+  evidence: Cluster URLs, hashes/similarity.
+  verification: Pages are differentiated, canonicalized, or intentionally accepted.
+  initial_status: planned
+  implementation_order: 46
+- key: content.language_mismatch
+  category: content
+  default_severity: low
+  applies_to:
+  - website
+  required_input: snapshot
+  description: Declared language conflicts with detected primary language.
+  evidence: Declared and detected values/confidence.
+  verification: Values align or exception recorded.
+  initial_status: planned
+  implementation_order: 47
+- key: mobile.viewport_missing
+  category: mobile
+  default_severity: high
+  applies_to:
+  - website
+  required_input: snapshot
+  description: Page lacks a suitable viewport declaration.
+  evidence: Meta viewport evidence.
+  verification: Suitable viewport declaration exists.
+  initial_status: planned
+  implementation_order: 48
+- key: mobile.content_parity_gap
+  category: mobile
+  default_severity: high
+  applies_to:
+  - website
+  required_input: render
+  description: Configured mobile and desktop profiles expose materially different
+    indexable content.
+  evidence: Profile hashes and missing elements.
+  verification: Critical content and metadata are equivalent by policy.
+  initial_status: planned
+  implementation_order: 49
+- key: links.broken_internal
+  category: links
+  default_severity: high
+  applies_to:
+  - website
+  required_input: fetch
+  description: Internal link points to failed or rejected target.
+  evidence: Source, target, anchor summary, status.
+  verification: Target works or link is corrected.
+  initial_status: planned
+  implementation_order: 50
+- key: links.orphan_indexable
+  category: links
+  default_severity: medium
+  applies_to:
+  - website
+  required_input: scan
+  description: Indexable URL has no discovered internal incoming links.
+  evidence: URL, sitemap/source discovery, graph count.
+  verification: Internal incoming link exists or exception.
+  initial_status: planned
+  implementation_order: 51
+- key: links.depth_high
+  category: links
+  default_severity: low
+  applies_to:
+  - website
+  required_input: scan
+  description: Important page exceeds configured crawl depth.
+  evidence: Shortest path and depth.
+  verification: Depth meets policy.
+  initial_status: planned
+  implementation_order: 52
+- key: links.internal_nofollow
+  category: links
+  default_severity: low
+  applies_to:
+  - website
+  required_input: snapshot
+  description: Internal link is unexpectedly nofollow.
+  evidence: Source, target, rel.
+  verification: Rel is intentional or removed.
+  initial_status: planned
+  implementation_order: 53
+- key: links.empty_anchor
+  category: links
+  default_severity: low
+  applies_to:
+  - website
+  required_input: snapshot
+  description: Internal link lacks meaningful accessible text/name.
+  evidence: Element location and target.
+  verification: Accessible name exists.
+  initial_status: planned
+  implementation_order: 54
+- key: links.redirecting_internal
+  category: links
+  default_severity: low
+  applies_to:
+  - website
+  required_input: fetch
+  description: Internal links point through avoidable redirects.
+  evidence: Source, target, chain.
+  verification: Source links directly to intended URL.
+  initial_status: planned
+  implementation_order: 55
+- key: images.alt_missing
+  category: images
+  default_severity: medium
+  applies_to:
+  - website
+  required_input: snapshot
+  description: Informative image lacks alt text under heuristic policy.
+  evidence: Image source and element context.
+  verification: Suitable alt exists or image is marked decorative.
+  initial_status: planned
+  implementation_order: 56
+- key: images.dimensions_missing
+  category: images
+  default_severity: low
+  applies_to:
+  - website
+  required_input: snapshot
+  description: Image lacks explicit intrinsic dimensions.
+  evidence: Element evidence.
+  verification: Width/height or equivalent aspect-ratio reservation exists.
+  initial_status: planned
+  implementation_order: 57
+- key: images.oversized_resource
+  category: images
+  default_severity: medium
+  applies_to:
+  - website
+  required_input: fetch
+  description: Image transfer size exceeds configured threshold for context.
+  evidence: Resource bytes, dimensions, element context.
+  verification: Optimized resource meets policy.
+  initial_status: planned
+  implementation_order: 58
+- key: images.lcp_lazy_loaded
+  category: images
+  default_severity: high
+  applies_to:
+  - website
+  required_input: lighthouse
+  description: Likely LCP image is configured for lazy loading.
+  evidence: Lighthouse/DOM evidence.
+  verification: Critical image loading is corrected.
+  initial_status: planned
+  implementation_order: 59
+- key: structured_data.invalid_jsonld
+  category: structured_data
+  default_severity: high
+  applies_to:
+  - website
+  required_input: snapshot
+  description: JSON-LD cannot be parsed.
+  evidence: Script location and parse error.
+  verification: JSON-LD parses.
+  initial_status: planned
+  implementation_order: 60
+- key: structured_data.unsupported_or_deprecated
+  category: structured_data
+  default_severity: low
+  applies_to:
+  - website
+  required_input: snapshot
+  description: Markup uses a type/property not supported by configured search feature
+    catalog.
+  evidence: Type/property and catalog version.
+  verification: Markup is updated or retained intentionally.
+  initial_status: planned
+  implementation_order: 61
+- key: structured_data.required_property_missing
+  category: structured_data
+  default_severity: medium
+  applies_to:
+  - website
+  required_input: snapshot
+  description: Supported rich-result type lacks a required property.
+  evidence: Type, missing properties, catalog version.
+  verification: Required properties exist.
+  initial_status: planned
+  implementation_order: 62
+- key: structured_data.visible_content_mismatch
+  category: structured_data
+  default_severity: high
+  applies_to:
+  - website
+  required_input: snapshot
+  description: Markup materially conflicts with visible extracted content.
+  evidence: Compared fields and evidence.
+  verification: Markup reflects visible content.
+  initial_status: planned
+  implementation_order: 63
+- key: render.failed
+  category: rendering
+  default_severity: high
+  applies_to:
+  - website
+  required_input: render
+  description: Browser navigation or extraction failed.
+  evidence: Error class, request summary, limits reached.
+  verification: Rendered scan succeeds.
+  initial_status: planned
+  implementation_order: 64
+- key: render.metadata_only_after_js
+  category: rendering
+  default_severity: medium
+  applies_to:
+  - website
+  required_input: render
+  description: Critical metadata exists only after JavaScript execution.
+  evidence: Source/rendered diff.
+  verification: Server response contains intended metadata or exception accepted.
+  initial_status: planned
+  implementation_order: 65
+- key: render.content_missing_in_source
+  category: rendering
+  default_severity: medium
+  applies_to:
+  - website
+  required_input: render
+  description: Important primary content appears only after rendering.
+  evidence: Source/rendered text metrics and elements.
+  verification: Content is available according to rendering strategy.
+  initial_status: planned
+  implementation_order: 66
+- key: render.links_not_crawlable
+  category: rendering
+  default_severity: high
+  applies_to:
+  - website
+  required_input: render
+  description: Navigation depends on non-link interactions or invalid hrefs.
+  evidence: Element evidence.
+  verification: Crawlable anchors exist.
+  initial_status: planned
+  implementation_order: 67
+- key: render.robots_changed
+  category: rendering
+  default_severity: high
+  applies_to:
+  - website
+  required_input: render
+  description: Robots directives change after execution.
+  evidence: Source/rendered directives.
+  verification: Directives are consistent.
+  initial_status: planned
+  implementation_order: 68
+- key: cwv.lcp_poor
+  category: performance
+  default_severity: high
+  applies_to:
+  - website
+  required_input: crux
+  description: Field LCP is in the poor range for the configured 75th-percentile view.
+  evidence: CrUX scope, period, percentile.
+  verification: Field data improves beyond policy threshold.
+  initial_status: planned
+  implementation_order: 69
+- key: cwv.inp_poor
+  category: performance
+  default_severity: high
+  applies_to:
+  - website
+  required_input: crux
+  description: Field INP is in the poor range.
+  evidence: CrUX scope, period, percentile.
+  verification: Field data improves beyond policy threshold.
+  initial_status: planned
+  implementation_order: 70
+- key: cwv.cls_poor
+  category: performance
+  default_severity: high
+  applies_to:
+  - website
+  required_input: crux
+  description: Field CLS is in the poor range.
+  evidence: CrUX scope, period, percentile.
+  verification: Field data improves beyond policy threshold.
+  initial_status: planned
+  implementation_order: 71
+- key: performance.lab_regression
+  category: performance
+  default_severity: medium
+  applies_to:
+  - website
+  required_input: lighthouse
+  description: Comparable Lighthouse metric regressed beyond release policy.
+  evidence: Baseline/candidate environment and metric.
+  verification: Regression falls within policy.
+  initial_status: planned
+  implementation_order: 72
+- key: performance.field_data_unavailable
+  category: performance
+  default_severity: info
+  applies_to:
+  - website
+  required_input: crux
+  description: CrUX has insufficient data for the requested scope.
+  evidence: Requested key/scope and provider result.
+  verification: Informational; use lab data without relabeling it as field data.
+  initial_status: planned
+  implementation_order: 73
+- key: ai_crawler.searchbot_blocked
+  category: ai_crawler
+  default_severity: info
+  applies_to:
+  - website
+  required_input: robots
+  description: OAI-SearchBot is blocked for selected paths.
+  evidence: Matched robots rules.
+  verification: Informational policy choice; update robots only if intended.
+  initial_status: planned
+  implementation_order: 74
+- key: ai_crawler.trainingbot_policy
+  category: ai_crawler
+  default_severity: info
+  applies_to:
+  - website
+  required_input: robots
+  description: GPTBot policy is recorded independently from search inclusion policy.
+  evidence: Matched rules.
+  verification: Informational; explicit customer decision.
+  initial_status: planned
+  implementation_order: 75
+- key: ai_crawler.policy_inconsistent
+  category: ai_crawler
+  default_severity: low
+  applies_to:
+  - website
+  required_input: robots
+  description: Crawler groups contain contradictory or unintended rules under project
+    policy.
+  evidence: Crawler matrix and matched records.
+  verification: Policy matches documented intent.
+  initial_status: planned
+  implementation_order: 76
+- key: ai_crawler.snippet_restricted
+  category: ai_crawler
+  default_severity: info
+  applies_to:
+  - website
+  required_input: snapshot
+  description: Important page applies snippet/index controls that may limit reuse
+    or appearance.
+  evidence: Directive evidence.
+  verification: Informational unless project policy expects otherwise.
+  initial_status: planned
+  implementation_order: 77
+- key: android.assetlinks_missing
+  category: android_links
+  default_severity: critical
+  applies_to:
+  - android
+  required_input: deep_link
+  description: Digital Asset Links file is missing or unreachable.
+  evidence: Host, status, redirects, content type.
+  verification: Valid file is directly accessible.
+  initial_status: planned
+  implementation_order: 78
+- key: android.assetlinks_invalid
+  category: android_links
+  default_severity: high
+  applies_to:
+  - android
+  required_input: deep_link
+  description: Digital Asset Links JSON is invalid.
+  evidence: Parse/schema errors.
+  verification: Document validates.
+  initial_status: planned
+  implementation_order: 79
+- key: android.package_mismatch
+  category: android_links
+  default_severity: critical
+  applies_to:
+  - android
+  required_input: deep_link
+  description: Hosted association does not include expected package.
+  evidence: Expected and observed packages.
+  verification: Expected package association exists.
+  initial_status: planned
+  implementation_order: 80
+- key: android.fingerprint_mismatch
+  category: android_links
+  default_severity: critical
+  applies_to:
+  - android
+  required_input: deep_link
+  description: Expected signing certificate fingerprint is absent.
+  evidence: Expected/observed fingerprints, environment.
+  verification: Correct fingerprint exists.
+  initial_status: planned
+  implementation_order: 81
+- key: android.autoverify_missing
+  category: android_links
+  default_severity: medium
+  applies_to:
+  - android
+  required_input: manifest
+  description: Relevant intent filter does not request verification.
+  evidence: Manifest location and route.
+  verification: autoVerify is correctly configured.
+  initial_status: planned
+  implementation_order: 82
+- key: android.host_unverified
+  category: android_links
+  default_severity: high
+  applies_to:
+  - android
+  required_input: deep_link
+  description: Declared host lacks a matching hosted association.
+  evidence: Host, manifest rule, document evidence.
+  verification: Host validates.
+  initial_status: planned
+  implementation_order: 83
+- key: ios.aasa_missing
+  category: ios_links
+  default_severity: critical
+  applies_to:
+  - ios
+  required_input: deep_link
+  description: AASA file is missing or unreachable.
+  evidence: Host, attempted locations, status.
+  verification: Valid file is accessible without disallowed redirect.
+  initial_status: planned
+  implementation_order: 84
+- key: ios.aasa_invalid
+  category: ios_links
+  default_severity: high
+  applies_to:
+  - ios
+  required_input: deep_link
+  description: AASA content is invalid.
+  evidence: Parse/schema/content-type evidence.
+  verification: Document validates.
+  initial_status: planned
+  implementation_order: 85
+- key: ios.appid_mismatch
+  category: ios_links
+  default_severity: critical
+  applies_to:
+  - ios
+  required_input: deep_link
+  description: Expected Team ID and Bundle ID combination is absent.
+  evidence: Expected and observed app identifiers.
+  verification: Expected application identifier exists.
+  initial_status: planned
+  implementation_order: 86
+- key: ios.associated_domain_missing
+  category: ios_links
+  default_severity: high
+  applies_to:
+  - ios
+  required_input: declaration
+  description: Expected applinks domain is not declared.
+  evidence: Supplied declarations and host.
+  verification: Domain is declared.
+  initial_status: planned
+  implementation_order: 87
+- key: ios.route_not_covered
+  category: ios_links
+  default_severity: medium
+  applies_to:
+  - ios
+  required_input: deep_link
+  description: Expected web route is not covered by AASA components/paths.
+  evidence: Route and evaluated rules.
+  verification: Route is covered.
+  initial_status: planned
+  implementation_order: 88
+- key: app_store.name_limit
+  category: aso
+  default_severity: medium
+  applies_to:
+  - ios
+  required_input: store_listing
+  description: App name exceeds current provider limit.
+  evidence: Locale, value length, provider-rule version.
+  verification: Value meets provider limit.
+  initial_status: planned
+  implementation_order: 89
+- key: app_store.subtitle_limit
+  category: aso
+  default_severity: medium
+  applies_to:
+  - ios
+  required_input: store_listing
+  description: Subtitle exceeds current provider limit.
+  evidence: Locale, value length, provider-rule version.
+  verification: Value meets provider limit.
+  initial_status: planned
+  implementation_order: 90
+- key: app_store.keywords_limit
+  category: aso
+  default_severity: medium
+  applies_to:
+  - ios
+  required_input: store_listing
+  description: Keyword field exceeds current provider limit.
+  evidence: Locale and length.
+  verification: Value meets provider limit.
+  initial_status: planned
+  implementation_order: 91
+- key: store_listing.required_metadata
+  category: aso
+  default_severity: high
+  applies_to:
+  - mobile
+  required_input: store_listing
+  description: Required configured listing metadata is missing.
+  evidence: Platform, locale, missing fields.
+  verification: Fields are supplied.
+  initial_status: planned
+  implementation_order: 92
+- key: store_listing.locale_gap
+  category: aso
+  default_severity: low
+  applies_to:
+  - mobile
+  required_input: store_listing
+  description: Important locale is incomplete compared with project policy.
+  evidence: Locale coverage matrix.
+  verification: Locale meets policy.
+  initial_status: planned
+  implementation_order: 93
+- key: route_map.web_without_app_target
+  category: route_map
+  default_severity: medium
+  applies_to:
+  - mobile
+  required_input: route_map
+  description: Mapped public web pattern lacks a platform destination.
+  evidence: Pattern and platform.
+  verification: Destination or documented fallback exists.
+  initial_status: planned
+  implementation_order: 94
+- key: route_map.conflict
+  category: route_map
+  default_severity: high
+  applies_to:
+  - mobile
+  required_input: route_map
+  description: Multiple rules ambiguously match the same route.
+  evidence: Conflicting rules and sample URL.
+  verification: Rules are deterministic.
+  initial_status: planned
+  implementation_order: 95
+- key: route_map.fallback_failed
+  category: route_map
+  default_severity: high
+  applies_to:
+  - mobile
+  required_input: route_map
+  description: Web fallback returns an error or unsafe redirect.
+  evidence: Sample URL and fetch chain.
+  verification: Fallback succeeds.
+  initial_status: planned
+  implementation_order: 96

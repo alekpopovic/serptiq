@@ -1,0 +1,91 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://searchops.example/schemas/release-event.schema.json",
+  "title": "SearchOps Incoming Release Event v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "event_id",
+    "project_external_key",
+    "environment",
+    "release",
+    "occurred_at"
+  ],
+  "properties": {
+    "version": {
+      "const": "1"
+    },
+    "event_id": {
+      "type": "string",
+      "minLength": 8,
+      "maxLength": 200
+    },
+    "project_external_key": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 200
+    },
+    "environment": {
+      "type": "string",
+      "enum": [
+        "development",
+        "test",
+        "staging",
+        "production",
+        "other"
+      ]
+    },
+    "release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "identifier"
+      ],
+      "properties": {
+        "identifier": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        },
+        "commit_sha": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "pattern": "^[0-9a-fA-F]{7,64}$"
+        },
+        "branch": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 255
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        }
+      }
+    },
+    "occurred_at": {
+      "type": "string",
+      "format": "date-time"
+    },
+    "changed_urls": {
+      "type": "array",
+      "maxItems": 5000,
+      "items": {
+        "type": "string",
+        "format": "uri"
+      }
+    },
+    "metadata": {
+      "type": "object",
+      "maxProperties": 50
+    }
+  }
+}

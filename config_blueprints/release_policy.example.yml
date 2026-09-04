@@ -1,0 +1,23 @@
+schema_version: 1
+name: Default advisory SEO regression policy
+mode: advisory
+comparison:
+  baseline: latest_successful_production_scan_before_release
+  candidate: first_successful_scan_after_release
+fail_when:
+  new_critical_findings_gte: 1
+  newly_non_indexable_expected_pages_gte: 10
+  indexable_page_count_decrease_percent_gte: 5
+  new_redirect_loops_gte: 1
+  canonical_target_error_increase_gte: 5
+warn_when:
+  new_high_findings_gte: 5
+  broken_internal_links_increase_gte: 20
+  title_missing_increase_gte: 10
+  mobile_lcp_regression_percent_gte: 15
+  lighthouse_performance_drop_gte: 10
+minimum_evidence:
+  candidate_scan_state: completed
+  comparable_policy_snapshot: true
+  source_freshness_hours_lte: 24
+unknown_behavior: warn

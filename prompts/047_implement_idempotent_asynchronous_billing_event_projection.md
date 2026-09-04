@@ -1,0 +1,143 @@
+---
+id: '047'
+title: Implement idempotent asynchronous billing event projection
+phase: 04 Plans, entitlements, usage and billing
+recommended_reasoning: xhigh
+recommended_model: strongest_available_codex
+depends_on:
+- '046'
+status: pending
+---
+
+# Prompt 047 — Implement idempotent asynchronous billing event projection
+
+## Codex execution settings
+
+- **Recommended reasoning:** `xhigh`
+- **Recommended model:** the strongest coding-capable Codex model available in the current environment
+- **Dependencies:** `046`
+- **Execution mode:** one prompt at a time; inspect and modify the real repository; do not simulate completion
+
+The reasoning label is a minimum recommendation for this task. Use deeper reasoning when implementation evidence demands it. Never lower rigor for authentication, authorization, billing, concurrency, tenant isolation, outbound networking, browser execution, migrations or production safety.
+
+## Mandatory operating contract
+
+Before writing code:
+
+1. Read `AGENTS.md`.
+2. Read `tracking/state.json` and the result summaries for all dependencies.
+3. Read this entire prompt and the referenced documents below.
+4. Inspect the current code, tests, schema, migrations, configuration and Git diff. The repository—not an assumed greenfield state—is the source of truth.
+5. Start the prompt:
+
+```bash
+ruby tracking/scripts/prompt_tracker.rb start 047
+```
+
+If the tracker refuses, stop and resolve the stated dependency/current-state problem honestly. Do not edit `tracking/state.json` by hand to bypass it.
+
+During implementation:
+
+- Follow the modular-monolith, PostgreSQL-only, native-session and Solid-stack decisions.
+- Do not add Devise, OmniAuth, Doorkeeper, Sidekiq, Redis, Elasticsearch or Kubernetes unless a later accepted ADR explicitly supersedes the blueprint.
+- Preserve tenant isolation and enforce access in backend/domain boundaries, not only in views.
+- Add database constraints as well as model validation.
+- Treat every external payload and customer-controlled value as hostile.
+- Keep unrelated refactors out of this prompt.
+- Do not hide failing tests, skipped checks, assumptions or security limitations.
+
+## Objective
+
+Project durable provider events into canonical customer/subscription state correctly under duplicates, retries and out-of-order delivery.
+
+## Required references
+
+- `docs/08_INTEGRATIONS_AND_API.md`
+- `docs/09_TEST_STRATEGY.md`
+- `docs/adr/0008_provider_neutral_billing.md`
+
+## Required work
+
+1. Implement event parser/version handling for supported Lemon Squeezy subscription/order events while preserving unknown events safely.
+2. Resolve organization and plan version through authenticated provider mappings/custom data; reject ambiguous or cross-environment mappings.
+3. Lock canonical subscription/customer rows and apply transitions by provider event/order timestamps plus deterministic precedence.
+4. Make projection idempotent and record processing attempt, result, failure category and generated audit/domain events.
+5. Handle an event arriving before checkout/customer mapping by retrying/reconciling rather than creating an unsafe guessed tenant.
+6. Do not downgrade a newer canonical snapshot with stale event data.
+7. Create dead-letter state and controlled replay operation.
+8. Trigger entitlement/access revision invalidation only after canonical state changes.
+
+## Required verification
+
+- Event matrix tests for all supported types.
+- Duplicate/out-of-order/retry/concurrent projection tests.
+- Unknown version/type and missing mapping tests.
+- Test stale event cannot overwrite newer subscription state.
+
+Also run every existing check affected by the change. Use real PostgreSQL for locking, queue, quota and concurrency behavior. Provider calls must use fakes/sanitized fixtures in the default test suite.
+
+## Acceptance checklist
+
+- [ ] Implement event parser/version handling for supported Lemon Squeezy subscription/order events while preserving unknown events safely.
+- [ ] Resolve organization and plan version through authenticated provider mappings/custom data; reject ambiguous or cross-environment mappings.
+- [ ] Lock canonical subscription/customer rows and apply transitions by provider event/order timestamps plus deterministic precedence.
+- [ ] Make projection idempotent and record processing attempt, result, failure category and generated audit/domain events.
+- [ ] Handle an event arriving before checkout/customer mapping by retrying/reconciling rather than creating an unsafe guessed tenant.
+- [ ] Do not downgrade a newer canonical snapshot with stale event data.
+- [ ] Create dead-letter state and controlled replay operation.
+- [ ] Trigger entitlement/access revision invalidation only after canonical state changes.
+- [ ] Required automated tests were added at the correct layers and all recorded required checks pass.
+- [ ] Negative, cross-tenant, retry/idempotency and failure paths are covered where applicable.
+- [ ] Migrations include constraints/indexes and production-safety notes where applicable.
+- [ ] Customer-visible terminology distinguishes observations, provider data, heuristics and guarantees.
+- [ ] Documentation, configuration examples, schemas and ADRs affected by the change are synchronized.
+- [ ] No secret, token, private key, production credential or sensitive raw payload was committed.
+- [ ] `git diff` contains no accidental or unexplained changes.
+
+## Constraints and explicit non-goals
+
+- Do not infer organization from customer email.
+- Do not discard unknown events before durable recording.
+
+## Completion protocol
+
+1. Review the diff and execute the required verification.
+2. Run:
+
+```bash
+ruby tracking/scripts/prompt_tracker.rb validate
+```
+
+3. If required work or verification cannot be completed, keep the prompt honest:
+
+```bash
+ruby tracking/scripts/prompt_tracker.rb block 047 \
+  --reason "Describe the exact blocker, evidence, and safe next action"
+```
+
+4. Only after the acceptance checklist is satisfied, complete it with factual details. Prefer repeatable `--test` arguments:
+
+```bash
+ruby tracking/scripts/prompt_tracker.rb complete 047 \
+  --summary "Describe the implemented behavior and key files" \
+  --test "actual command::passed::actual result" \
+  --files "comma-separated changed paths" \
+  --risks "remaining risks or none" \
+  --next-steps "specific follow-up or none"
+```
+
+5. In the final Codex response report:
+
+```text
+Prompt: 047
+Status: completed or blocked
+Implemented:
+Key files:
+Migrations:
+Tests and actual results:
+Security/tenancy review:
+Remaining risks:
+Next eligible prompt:
+```
+
+Never claim completion based only on generated code or an unexecuted test plan.
