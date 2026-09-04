@@ -1,0 +1,37 @@
+<aside class="so-card p-5" aria-labelledby="onboarding-plan-impact-title">
+  <h2 id="onboarding-plan-impact-title" class="font-bold text-slate-950">Effective plan impact</h2>
+  <p class="mt-2 text-sm leading-6 text-slate-600">
+    These are current SearchOps entitlement observations. They are checked again at completion and are not guarantees of future capacity.
+  </p>
+  <dl class="mt-4 space-y-3 text-sm">
+    <% [
+      [ "Projects", plan_preview.projects ],
+      [ "Website properties", plan_preview.website_properties ],
+      [ "Mobile properties", plan_preview.mobile_properties ]
+    ].each do |label, impact| %>
+      <div class="flex items-start justify-between gap-4">
+        <dt class="font-medium text-slate-700"><%= label %></dt>
+        <dd class="text-right text-slate-600">
+          <% if impact.enabled? %>
+            <%= impact.current %> of <%= impact.limit %> active; <%= impact.remaining %> remaining
+          <% else %>
+            unavailable (<%= impact.state.humanize.downcase %>)
+          <% end %>
+        </dd>
+      </div>
+    <% end %>
+    <div class="flex items-start justify-between gap-4">
+      <dt class="font-medium text-slate-700">Maximum URLs per scan</dt>
+      <dd class="text-right text-slate-600">
+        <%= plan_preview.crawl_max_urls.enabled? ? plan_preview.crawl_max_urls.value : "Unavailable" %>
+      </dd>
+    </div>
+    <div class="flex items-start justify-between gap-4">
+      <dt class="font-medium text-slate-700">JavaScript rendering</dt>
+      <dd class="text-right text-slate-600"><%= plan_preview.rendering_enabled ? "Available" : "Unavailable" %></dd>
+    </div>
+  </dl>
+  <p class="mt-4 rounded-lg border border-teal-200 bg-teal-50 px-3 py-2 text-xs leading-5 text-teal-900">
+    No scan credits are reserved by this wizard. Credits are reserved only when a later scan request passes admission.
+  </p>
+</aside>

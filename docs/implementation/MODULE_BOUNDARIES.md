@@ -33,6 +33,7 @@ contain domain decisions.
 | `projects` | `Projects` | Projects, environments and project settings |
 | `properties` | `Properties` | Project properties and ownership-verification state |
 | `verification` | `Verification` | Ownership challenges, evidence and verification lifecycle |
+| `onboarding` | `Onboarding` | Temporary guided setup state and project/property provisioning orchestration |
 | `crawling` | `Crawling` | Scans, frontier, fetch policy, robots, sitemaps, links and artifacts |
 | `analysis` | `Analysis` | Versioned rule registry, execution and evidence contracts |
 | `auditing` | `Auditing` | Append-only security and domain audit records |
@@ -164,6 +165,13 @@ resolves property scopes through `Authorization::Public`, checks organization pr
 `Entitlements::Public`, and emits append-only history through `Auditing::Public` plus the Shared outbox. The
 delivery layer injects its grouped project rollup reader into Projects so neither domain forms a dependency
 cycle.
+
+Onboarding owns temporary, actor-bound draft state and orchestrates the already-authorized public operations
+of Projects, Properties and Verification. It may read narrow public counts, normalization results and
+entitlement resolutions to preview and revalidate capacity, but it does not bypass those domains' mutation
+authorization or persist copies of their completed aggregates. The orchestration dependency is one-way: none
+of the provisioned domains depends on Onboarding. Crawl preferences saved during setup are only bounded input;
+Crawling remains the owner of durable crawl policy and quota-backed scan admission.
 
 ## Shared primitives
 

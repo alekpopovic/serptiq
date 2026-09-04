@@ -95,6 +95,12 @@ authorize member and scope
 
 Never use plan-name conditionals in domain code. Use stable keys such as `crawl.javascript_rendering` and `crawl.credits_monthly`.
 
+Prompt 057's guided project setup previews current resource counts and the effective `projects.max`,
+`website_properties.max`, `mobile_properties.max`, `crawl.manual`, `crawl.max_urls_per_scan` and
+`crawl.javascript_rendering` values before provisioning. It re-resolves them at completion, but creates no
+usage event or quota reservation. A preview is an observation rather than a capacity hold; only a later
+explicit scan request reaches quota admission.
+
 ## 5. Entitlement precedence
 
 1. Platform emergency deny.

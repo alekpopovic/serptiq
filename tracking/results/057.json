@@ -1,0 +1,56 @@
+{
+  "prompt_id": "057",
+  "title": "Build the guided project and property onboarding wizard",
+  "status": "completed",
+  "started_at": "2026-09-04T22:47:39Z",
+  "finished_at": "2026-09-04T23:22:08Z",
+  "summary": "Implemented a persisted six-step project/property onboarding wizard with composed organization-scoped permissions, tenant- and actor-bound drafts, safe navigation/resume, PostgreSQL concurrency and idempotency controls, atomic website/mobile provisioning, ownership challenge handoff, read-only plan impact, factual readiness, cancellation, privacy-safe instrumentation, accessible no-JavaScript UI, and synchronized documentation.",
+  "tests": [
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test test/domain/onboarding/project_setup_test.rb test/database/onboarding_draft_constraints_test.rb test/requests/project_onboarding_test.rb test/system/project_onboarding_test.rb",
+      "outcome": "passed",
+      "notes": "18 runs, 130 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails db:migrate:down:primary VERSION=20260904144000",
+      "outcome": "passed",
+      "notes": "Migration rollback completed in 0.049 seconds"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails db:migrate:up:primary VERSION=20260904144000",
+      "outcome": "passed",
+      "notes": "Migration reapply completed in 0.035 seconds"
+    },
+    {
+      "command": "mise exec -- bin/quality",
+      "outcome": "passed",
+      "notes": "14 checks passed; 1000 Ruby files, 67 ERB files, architecture/access/authorization contracts, Brakeman 0 warnings, advisory audits clean"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test",
+      "outcome": "passed",
+      "notes": "763 runs, 5842 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test:system",
+      "outcome": "passed",
+      "notes": "38 runs, 184 assertions, 0 failures, 0 errors, 0 skips"
+    }
+  ],
+  "files_changed": [
+    "app/controllers/onboarding;app/domains/onboarding;app/domains/projects/public.rb;app/domains/properties/public.rb;app/domains/properties/public/active_counts.rb;app/views/onboarding/project_setups;app/views/dashboard/index.html.erb;app/views/projects/projects/index.html.erb;config/architecture.yml;config/authorization_inventory.yml;config/routes.rb;db/migrate/20260904144000_create_project_onboarding_drafts.rb;db/structure.sql;docs/01_PRD_V1.md;docs/03_ERD.md;docs/05_PLAN_ENTITLEMENT_MATRIX.md;docs/implementation/PROJECT_ONBOARDING.md;docs/implementation/MODULE_BOUNDARIES.md;docs/implementation/README.md;test/database/onboarding_draft_constraints_test.rb;test/domain/onboarding;test/requests/project_onboarding_test.rb;test/support/onboarding_helpers.rb;test/system/project_onboarding_test.rb;test/test_helper.rb;tracking"
+  ],
+  "migrations": [
+    "20260904144000_create_project_onboarding_drafts.rb"
+  ],
+  "decisions": [
+    "Require an organization-scoped projects.create/properties.manage/properties.verify/scans.configure bundle before draft access or provisioning;Use PostgreSQL advisory and row locks plus preallocated aggregate IDs for retry-safe completion;Treat plan impact as a read-only observation and reserve no credits;Defer durable versioned crawl policy to Prompt 058 and exact Search Console provider-property selection to the existing verification flow"
+  ],
+  "risks": [
+    "Search Console completion intentionally requires a post-creation exact provider-property selection because credentials/provider evidence cannot be inferred;the full versioned crawl-policy surface is owned by Prompt 058"
+  ],
+  "next_steps": [
+    "Commit and push Prompt 057;then execute Prompt 058 according to the dependency graph"
+  ],
+  "commit": null
+}

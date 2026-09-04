@@ -1547,6 +1547,59 @@ CREATE TABLE public.plans (
 
 
 --
+-- Name: project_onboarding_drafts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.project_onboarding_drafts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    actor_membership_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    website_property_id uuid NOT NULL,
+    android_property_id uuid NOT NULL,
+    ios_property_id uuid NOT NULL,
+    project_release_key character varying(36) NOT NULL,
+    state character varying(24) DEFAULT 'draft'::character varying NOT NULL,
+    current_step character varying(24) DEFAULT 'project'::character varying NOT NULL,
+    last_completed_step character varying(24),
+    flow_type character varying(24),
+    project_name character varying(160),
+    project_slug public.citext,
+    project_description text,
+    default_locale character varying(16),
+    time_zone character varying(64),
+    website_kind character varying(32),
+    website_display_name character varying(160),
+    website_origin text,
+    add_android boolean DEFAULT false NOT NULL,
+    android_display_name character varying(160),
+    android_package_name public.citext,
+    add_ios boolean DEFAULT false NOT NULL,
+    ios_display_name character varying(160),
+    ios_bundle_id public.citext,
+    ios_team_id character varying(10),
+    verification_method character varying(32),
+    crawl_max_urls integer DEFAULT 500 NOT NULL,
+    crawl_max_depth integer DEFAULT 5 NOT NULL,
+    crawl_query_handling character varying(24) DEFAULT 'tracking_only'::character varying NOT NULL,
+    crawl_obey_robots boolean DEFAULT true NOT NULL,
+    crawl_rendering boolean DEFAULT false NOT NULL,
+    completed_at timestamp(6) with time zone,
+    lock_version integer DEFAULT 0 NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT project_onboarding_drafts_completion_shape CHECK ((((state)::text = 'draft'::text) OR ((project_name IS NOT NULL) AND (project_slug IS NOT NULL) AND (default_locale IS NOT NULL) AND (time_zone IS NOT NULL) AND (flow_type IS NOT NULL) AND (website_kind IS NOT NULL) AND (website_display_name IS NOT NULL) AND (website_origin IS NOT NULL) AND (verification_method IS NOT NULL) AND ((current_step)::text = 'review'::text) AND ((((flow_type)::text = 'website_only'::text) AND (add_android = false) AND (add_ios = false) AND (android_display_name IS NULL) AND (android_package_name IS NULL) AND (ios_display_name IS NULL) AND (ios_bundle_id IS NULL) AND (ios_team_id IS NULL)) OR (((flow_type)::text = 'combined'::text) AND ((add_android = true) OR (add_ios = true)) AND (((add_android = true) AND (android_display_name IS NOT NULL) AND (android_package_name IS NOT NULL)) OR ((add_android = false) AND (android_display_name IS NULL) AND (android_package_name IS NULL))) AND (((add_ios = true) AND (ios_display_name IS NOT NULL) AND (ios_bundle_id IS NOT NULL) AND (ios_team_id IS NOT NULL)) OR ((add_ios = false) AND (ios_display_name IS NULL) AND (ios_bundle_id IS NULL) AND (ios_team_id IS NULL)))))))),
+    CONSTRAINT project_onboarding_drafts_crawl_bounds CHECK (((crawl_max_urls >= 1) AND (crawl_max_urls <= 200000) AND ((crawl_max_depth >= 0) AND (crawl_max_depth <= 20)) AND ((crawl_query_handling)::text = ANY (ARRAY[('ignore'::character varying)::text, ('tracking_only'::character varying)::text, ('all'::character varying)::text])))),
+    CONSTRAINT project_onboarding_drafts_flow_type CHECK (((flow_type IS NULL) OR ((flow_type)::text = ANY (ARRAY[('website_only'::character varying)::text, ('combined'::character varying)::text])))),
+    CONSTRAINT project_onboarding_drafts_lifecycle CHECK ((((state)::text = ANY (ARRAY[('draft'::character varying)::text, ('completed'::character varying)::text])) AND ((((state)::text = 'draft'::text) AND (completed_at IS NULL)) OR (((state)::text = 'completed'::text) AND (completed_at IS NOT NULL))))),
+    CONSTRAINT project_onboarding_drafts_release_key_format CHECK (((project_release_key)::text ~ '^prj_[0-9a-f]{32}$'::text)),
+    CONSTRAINT project_onboarding_drafts_steps CHECK ((((current_step)::text = ANY (ARRAY[('project'::character varying)::text, ('product'::character varying)::text, ('property'::character varying)::text, ('verification'::character varying)::text, ('crawl'::character varying)::text, ('review'::character varying)::text])) AND ((last_completed_step IS NULL) OR ((last_completed_step)::text = ANY (ARRAY[('project'::character varying)::text, ('product'::character varying)::text, ('property'::character varying)::text, ('verification'::character varying)::text, ('crawl'::character varying)::text, ('review'::character varying)::text]))))),
+    CONSTRAINT project_onboarding_drafts_verification_method CHECK (((verification_method IS NULL) OR ((verification_method)::text = ANY (ARRAY[('dns_txt'::character varying)::text, ('html_file'::character varying)::text, ('meta_tag'::character varying)::text, ('search_console'::character varying)::text])))),
+    CONSTRAINT project_onboarding_drafts_website_kind CHECK (((website_kind IS NULL) OR ((website_kind)::text = ANY (ARRAY[('website'::character varying)::text, ('web_application'::character varying)::text]))))
+);
+
+
+--
 -- Name: projects; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2410,6 +2463,14 @@ ALTER TABLE ONLY public.plans
 
 
 --
+-- Name: project_onboarding_drafts project_onboarding_drafts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.project_onboarding_drafts
+    ADD CONSTRAINT project_onboarding_drafts_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: projects projects_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3224,6 +3285,55 @@ CREATE UNIQUE INDEX index_plans_on_display_order ON public.plans USING btree (di
 --
 
 CREATE UNIQUE INDEX index_plans_on_key ON public.plans USING btree (key);
+
+
+--
+-- Name: index_project_onboarding_drafts_on_active_actor; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_project_onboarding_drafts_on_active_actor ON public.project_onboarding_drafts USING btree (organization_id, actor_membership_id) WHERE ((state)::text = 'draft'::text);
+
+
+--
+-- Name: index_project_onboarding_drafts_on_android_property_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_project_onboarding_drafts_on_android_property_id ON public.project_onboarding_drafts USING btree (android_property_id);
+
+
+--
+-- Name: index_project_onboarding_drafts_on_ios_property_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_project_onboarding_drafts_on_ios_property_id ON public.project_onboarding_drafts USING btree (ios_property_id);
+
+
+--
+-- Name: index_project_onboarding_drafts_on_project_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_project_onboarding_drafts_on_project_id ON public.project_onboarding_drafts USING btree (project_id);
+
+
+--
+-- Name: index_project_onboarding_drafts_on_project_release_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_project_onboarding_drafts_on_project_release_key ON public.project_onboarding_drafts USING btree (project_release_key);
+
+
+--
+-- Name: index_project_onboarding_drafts_on_stale; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_project_onboarding_drafts_on_stale ON public.project_onboarding_drafts USING btree (organization_id, updated_at) WHERE ((state)::text = 'draft'::text);
+
+
+--
+-- Name: index_project_onboarding_drafts_on_website_property_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_project_onboarding_drafts_on_website_property_id ON public.project_onboarding_drafts USING btree (website_property_id);
 
 
 --
@@ -4063,6 +4173,14 @@ ALTER TABLE ONLY public.plan_entitlements
 
 
 --
+-- Name: project_onboarding_drafts fk_project_onboarding_drafts_tenant_actor; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.project_onboarding_drafts
+    ADD CONSTRAINT fk_project_onboarding_drafts_tenant_actor FOREIGN KEY (organization_id, actor_membership_id) REFERENCES public.memberships(organization_id, id) ON DELETE CASCADE;
+
+
+--
 -- Name: projects fk_projects_same_org_authorization_scope; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4399,6 +4517,14 @@ ALTER TABLE ONLY public.audit_events
 
 
 --
+-- Name: project_onboarding_drafts fk_rails_c02a837188; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.project_onboarding_drafts
+    ADD CONSTRAINT fk_rails_c02a837188 FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE CASCADE;
+
+
+--
 -- Name: usage_windows fk_rails_c8db8dda1e; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4717,6 +4843,7 @@ ALTER TABLE ONLY public.website_property_configs
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904144000'),
 ('20260904143000'),
 ('20260904142000'),
 ('20260904141000'),

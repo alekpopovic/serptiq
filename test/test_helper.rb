@@ -21,6 +21,7 @@ module ActiveSupport
     include TestSupport::TenancyHelpers
     include TestSupport::GoogleOauthHelpers
     include TestSupport::GithubOauthHelpers
+    include TestSupport::OnboardingHelpers
     include TestSupport::PermissionAssertions
     include TestSupport::PlanCatalogHelpers
     include TestSupport::ProjectHelpers

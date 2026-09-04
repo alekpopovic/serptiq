@@ -29,7 +29,7 @@
             <h2 id="workspace-empty-title" class="mt-4 text-lg font-bold text-slate-950">Organization context verified</h2>
             <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-600">Projects keep related web and mobile properties inside one authorization and reporting boundary.</p>
             <% if allowed_to?("projects.create") %>
-              <%= link_to "Create project", new_organization_project_path(Current.organization.slug), class: "so-button so-button-primary mt-5" %>
+              <%= link_to "Create project", organization_project_onboarding_path(Current.organization.slug), class: "so-button so-button-primary mt-5" %>
             <% else %>
               <%= link_to "View accessible projects", organization_projects_path(Current.organization.slug), class: "so-button so-button-secondary mt-5" %>
             <% end %>

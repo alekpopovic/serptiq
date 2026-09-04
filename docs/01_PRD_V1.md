@@ -463,6 +463,11 @@ Sign in
 → review prioritized findings
 ```
 
+Prompt 057 implements the organization-to-property portion as a persisted six-step setup. It previews current
+resource and crawl entitlements, creates the reviewed project/properties atomically, and reports verification
+and settings readiness without starting a crawl. Credit reservation remains part of the later explicit scan
+admission step, never a GET, refresh or wizard completion side effect.
+
 ### 11.2 Issue remediation flow
 
 ```text

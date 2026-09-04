@@ -627,6 +627,19 @@ compatible meter windows in the same pool and exact period.
 
 ## 6. Projects and properties
 
+### `project_onboarding_drafts`
+
+Temporary tenant-owned guided-setup state is bound to the exact active organization membership that started
+it. Explicit columns store six-step project, website/mobile property, verification-method and bounded initial
+crawl-preference input. The row preallocates project/property UUIDs and a public project release key so locked
+completion and retries address the same aggregate identities.
+
+A partial unique index permits one active draft per organization/member; the future aggregate identifiers and
+release key are globally unique. A composite foreign key prevents cross-tenant actor substitution. Lifecycle,
+step, enum, crawl-bound, release-key and completed-shape checks reject malformed direct writes. Completion
+uses the row as an idempotency anchor but does not make it a parent of the resulting project/property rows.
+Deleting or abandoning a draft never cascades into provisioned aggregates.
+
 ### `projects`
 
 | Column | Type | Notes |

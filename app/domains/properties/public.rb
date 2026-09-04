@@ -4,8 +4,10 @@ module Properties
   module Public
     module_function
 
-    def create_property(clock: -> { Time.current }, **attributes)
-      CreateProperty.new(clock: clock).call(**attributes)
+    def create_property(clock: -> { Time.current }, id_generator: nil, **attributes)
+      options = { clock: clock }
+      options[:id_generator] = id_generator if id_generator
+      CreateProperty.new(**options).call(**attributes)
     end
 
     def update_property(clock: -> { Time.current }, **attributes)
@@ -56,6 +58,19 @@ module Properties
       CanonicalOrigin.new(origin: origin)
     end
 
+    def normalize_configuration(kind:, attributes:)
+      PropertyConfiguration.build(kind, attributes)
+    end
+
+    def active_counts(organization_id:)
+      relation = Property.active.where(organization_id: organization_id)
+      grouped = relation.group(:kind).count
+      ActiveCounts.new(
+        website: grouped.values_at("website", "web_application").compact.sum,
+        mobile: grouped.values_at("android_app", "ios_app").compact.sum
+      )
+    end
+
     def reference(organization_id:, project_id:, property_id:)
       property = Property.includes(
         :website_property_config, :android_property_config, :ios_property_config
@@ -79,6 +94,28 @@ module Properties
         property_id: property_id,
         project_id: project_id,
         organization_id: organization_id
+      )
+      return unless environment
+
+      EnvironmentReference.new(
+        id: environment.id,
+        organization_id: environment.organization_id,
+        project_id: environment.project_id,
+        property_id: environment.property_id,
+        key: environment.key,
+        kind: environment.kind,
+        status: environment.status,
+        primary: environment.primary?,
+        origin: environment.origin_value
+      )
+    end
+
+    def primary_environment_reference(organization_id:, project_id:, property_id:)
+      environment = Environment.active.find_by(
+        property_id: property_id,
+        project_id: project_id,
+        organization_id: organization_id,
+        primary: true
       )
       return unless environment
 

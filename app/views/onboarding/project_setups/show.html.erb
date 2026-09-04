@@ -1,0 +1,156 @@
+<% content_for :title, @draft.completed? ? "Setup readiness" : "Guided project setup" %>
+
+<div class="mx-auto max-w-6xl">
+  <%= render "shared/breadcrumbs", items: [
+    { label: "Dashboard", path: organization_dashboard_path(Current.organization.slug) },
+    { label: "Projects", path: organization_projects_path(Current.organization.slug) },
+    { label: "Guided setup", path: organization_project_onboarding_path(Current.organization.slug) },
+    { label: @draft.completed? ? "Readiness" : @draft.current_step.humanize, path: nil }
+  ] %>
+
+  <div class="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+    <section class="so-card p-6 sm:p-8" aria-labelledby="project-setup-title">
+      <p class="so-eyebrow"><%= @draft.completed? ? "Readiness review" : "Saved server-side" %></p>
+      <h1 id="project-setup-title" class="mt-2 text-3xl font-black tracking-tight text-slate-950">
+        <%= @draft.completed? ? "Project setup status" : @draft.current_step.humanize %>
+      </h1>
+
+      <% unless @draft.completed? %>
+        <ol class="mt-6 flex flex-wrap gap-2 text-xs" aria-label="Setup progress">
+          <% Onboarding::Draft::STEPS.each_with_index do |step, index| %>
+            <li class="rounded-full border px-3 py-1 <%= step == @draft.current_step ? "border-teal-700 bg-teal-50 font-bold text-teal-900" : "border-slate-200 text-slate-600" %>" <%= 'aria-current="step"'.html_safe if step == @draft.current_step %>>
+              <%= index + 1 %>. <%= step.humanize %>
+            </li>
+          <% end %>
+        </ol>
+      <% end %>
+
+      <% if @field_errors.any? %>
+        <div id="onboarding-errors" class="so-alert so-alert-danger mt-6" role="alert" tabindex="-1" data-controller="focus">
+          <h2 class="font-bold">Review the highlighted setup values</h2>
+          <ul class="mt-2 list-disc space-y-1 pl-5 text-sm">
+            <% @field_errors.each do |field, messages| %>
+              <% target = field == :base ? nil : (field == :mobile_platforms ? "onboarding_add_android" : "onboarding_#{field}") %>
+              <% Array(messages).each do |message| %>
+                <li><% if target %><a class="underline" href="#<%= target %>"><%= message %></a><% else %><%= message %><% end %></li>
+              <% end %>
+            <% end %>
+          </ul>
+        </div>
+      <% end %>
+
+      <% if @draft.completed? %>
+        <section class="mt-7" aria-labelledby="readiness-checklist-title">
+          <h2 id="readiness-checklist-title" class="text-xl font-bold text-slate-950">Factual readiness checklist</h2>
+          <ul class="mt-4 space-y-3">
+            <% @readiness.items.each do |item| %>
+              <li class="rounded-lg border border-slate-200 p-4">
+                <div class="flex items-center justify-between gap-4">
+                  <strong><%= item.label %></strong>
+                  <span class="so-badge <%= item.ready? ? "so-badge-success" : "so-badge-warning" %>"><%= item.ready? ? "Ready" : "Not ready" %></span>
+                </div>
+                <p class="mt-2 text-sm text-slate-600"><%= item.detail %></p>
+              </li>
+            <% end %>
+          </ul>
+          <p class="mt-5 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+            Setup does not start a crawl and has reserved zero scan credits. A later explicit scan action must pass permission, entitlement, quota, verification, and resource-state checks.
+          </p>
+          <div class="mt-6 flex flex-wrap gap-3">
+            <%= link_to "Complete ownership verification", organization_project_property_environment_verification_path(
+              Current.organization.slug,
+              @draft.project_slug,
+              @draft.website_property_id,
+              @readiness.environment_id
+            ), class: "so-button so-button-primary" %>
+            <%= link_to "Open project", organization_project_path(Current.organization.slug, @draft.project_slug), class: "so-button so-button-secondary" %>
+          </div>
+        </section>
+      <% else %>
+        <%= form_with scope: :onboarding,
+          url: organization_project_onboarding_step_path(Current.organization.slug, @draft.id, @draft.current_step),
+          method: :patch,
+          class: "mt-7 space-y-5",
+          html: { aria: { describedby: (@field_errors.any? ? "onboarding-errors" : nil) } } do |form| %>
+
+          <% if @draft.current_step == "project" %>
+            <div>
+              <%= form.label :name, "Project name", class: "so-label" %>
+              <%= form.text_field :name, value: @draft.project_name, maxlength: 160, required: true, class: "so-input" %>
+            </div>
+            <div>
+              <%= form.label :slug, "Project slug", class: "so-label" %>
+              <%= form.text_field :slug, value: @draft.project_slug, maxlength: 63, required: true, class: "so-input" %>
+              <p class="so-hint">Normalized to lowercase letters, numbers, and hyphens.</p>
+            </div>
+            <div>
+              <%= form.label :description, "Description", class: "so-label" %>
+              <%= form.text_area :description, value: @draft.project_description, maxlength: 2000, rows: 4, class: "so-input" %>
+            </div>
+            <div class="grid gap-4 sm:grid-cols-2">
+              <div><%= form.label :default_locale, "Default locale", class: "so-label" %><%= form.select :default_locale, @locales, { selected: @draft.default_locale || Current.organization.default_locale }, class: "so-input" %></div>
+              <div><%= form.label :time_zone, "Time zone", class: "so-label" %><%= form.select :time_zone, @time_zones, { selected: @draft.time_zone || Current.organization.time_zone }, class: "so-input" %></div>
+            </div>
+          <% elsif @draft.current_step == "product" %>
+            <fieldset>
+              <legend class="so-label">Product path</legend>
+              <label class="mt-3 flex gap-3 rounded-lg border border-slate-200 p-4"><%= form.radio_button :flow_type, "website_only", checked: @draft.flow_type != "combined" %><span><strong>Website only</strong><span class="block text-sm text-slate-600">Create one website or web application property.</span></span></label>
+              <label class="mt-3 flex gap-3 rounded-lg border border-slate-200 p-4"><%= form.radio_button :flow_type, "combined", checked: @draft.flow_type == "combined" %><span><strong>Combined web and mobile</strong><span class="block text-sm text-slate-600">Create a website plus selected mobile properties.</span></span></label>
+            </fieldset>
+            <fieldset>
+              <legend class="so-label">Mobile platforms for combined setup</legend>
+              <label class="mt-3 flex gap-3"><%= form.check_box :add_android, checked: @draft.add_android %><span>Android app</span></label>
+              <label class="mt-3 flex gap-3"><%= form.check_box :add_ios, checked: @draft.add_ios %><span>iOS app</span></label>
+            </fieldset>
+          <% elsif @draft.current_step == "property" %>
+            <div>
+              <%= form.label :website_kind, "Website property type", class: "so-label" %>
+              <%= form.select :website_kind, [ [ "Website", "website" ], [ "Web application", "web_application" ] ], { selected: @draft.website_kind || "website" }, class: "so-input" %>
+            </div>
+            <div><%= form.label :website_display_name, "Website display name", class: "so-label" %><%= form.text_field :website_display_name, value: @draft.website_display_name, maxlength: 160, required: true, class: "so-input" %></div>
+            <div><%= form.label :website_origin, "Production origin", class: "so-label" %><%= form.url_field :website_origin, value: @draft.website_origin, maxlength: 2048, required: true, placeholder: "https://www.example.com", class: "so-input" %><p class="so-hint">Only a canonical public HTTP(S) origin is stored. This does not prove ownership.</p></div>
+            <% if @draft.add_android %>
+              <fieldset class="rounded-xl border border-slate-200 p-4"><legend class="px-2 font-bold">Android property</legend><div><%= form.label :android_display_name, "Android display name", class: "so-label" %><%= form.text_field :android_display_name, value: @draft.android_display_name, maxlength: 160, required: true, class: "so-input" %></div><div class="mt-4"><%= form.label :android_package_name, "Android package name", class: "so-label" %><%= form.text_field :android_package_name, value: @draft.android_package_name, required: true, class: "so-input" %></div></fieldset>
+            <% end %>
+            <% if @draft.add_ios %>
+              <fieldset class="rounded-xl border border-slate-200 p-4"><legend class="px-2 font-bold">iOS property</legend><div><%= form.label :ios_display_name, "iOS display name", class: "so-label" %><%= form.text_field :ios_display_name, value: @draft.ios_display_name, maxlength: 160, required: true, class: "so-input" %></div><div class="mt-4"><%= form.label :ios_bundle_id, "iOS bundle ID", class: "so-label" %><%= form.text_field :ios_bundle_id, value: @draft.ios_bundle_id, required: true, class: "so-input" %></div><div class="mt-4"><%= form.label :ios_team_id, "Apple Team ID", class: "so-label" %><%= form.text_field :ios_team_id, value: @draft.ios_team_id, maxlength: 10, required: true, class: "so-input" %></div></fieldset>
+            <% end %>
+          <% elsif @draft.current_step == "verification" %>
+            <fieldset>
+              <legend class="so-label">Ownership verification method</legend>
+              <% [ [ "DNS TXT", "dns_txt", "Publish a unique TXT value." ], [ "HTML file", "html_file", "Serve an exact challenge file." ], [ "Meta tag", "meta_tag", "Publish one exact meta value." ], [ "Search Console", "search_console", "Select an exact provider property after creation; provider ownership is rechecked." ] ].each do |label, value, detail| %>
+                <label class="mt-3 flex gap-3 rounded-lg border border-slate-200 p-4"><%= form.radio_button :verification_method, value, checked: (@draft.verification_method || "dns_txt") == value %><span><strong><%= label %></strong><span class="block text-sm text-slate-600"><%= detail %></span></span></label>
+              <% end %>
+            </fieldset>
+          <% elsif @draft.current_step == "crawl" %>
+            <p class="text-sm leading-6 text-slate-600">These are bounded onboarding preferences. Prompt 058 owns the full versioned crawl-policy surface. No scan or credit reservation happens here.</p>
+            <div><%= form.label :max_urls, "Maximum URLs", class: "so-label" %><%= form.number_field :max_urls, value: @draft.crawl_max_urls, min: 1, max: 200000, required: true, class: "so-input" %></div>
+            <div><%= form.label :max_depth, "Maximum crawl depth", class: "so-label" %><%= form.number_field :max_depth, value: @draft.crawl_max_depth, min: 0, max: 20, required: true, class: "so-input" %></div>
+            <div><%= form.label :query_handling, "Query parameter handling", class: "so-label" %><%= form.select :query_handling, [ [ "Ignore query variants", "ignore" ], [ "Ignore known tracking parameters", "tracking_only" ], [ "Keep all query variants", "all" ] ], { selected: @draft.crawl_query_handling }, class: "so-input" %></div>
+            <label class="flex gap-3"><%= form.check_box :obey_robots, checked: @draft.crawl_obey_robots %><span><strong>Respect robots rules</strong><span class="block text-sm text-slate-600">Recommended safe default; robots rules are not access control.</span></span></label>
+            <label class="flex gap-3"><%= form.check_box :rendering, checked: @draft.crawl_rendering, disabled: !@plan_preview.rendering_enabled %><span><strong>Request JavaScript rendering</strong><span class="block text-sm text-slate-600"><%= @plan_preview.rendering_enabled ? "Available under the current plan." : "Unavailable under the current plan." %></span></span></label>
+          <% elsif @draft.current_step == "review" %>
+            <section aria-labelledby="review-title"><h2 id="review-title" class="text-xl font-bold">Review saved values</h2><dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2"><div><dt class="font-semibold">Project</dt><dd><%= @draft.project_name %> (<%= @draft.project_slug %>)</dd></div><div><dt class="font-semibold">Path</dt><dd><%= @draft.flow_type.humanize %></dd></div><div><dt class="font-semibold">Website</dt><dd><%= @draft.website_display_name %> — <%= @draft.website_origin %></dd></div><div><dt class="font-semibold">Verification</dt><dd><%= @draft.verification_method.humanize %></dd></div><div><dt class="font-semibold">Crawl bound</dt><dd><%= @draft.crawl_max_urls %> URLs, depth <%= @draft.crawl_max_depth %></dd></div><div><dt class="font-semibold">Mobile</dt><dd><%= [ (@draft.add_android ? "Android" : nil), (@draft.add_ios ? "iOS" : nil) ].compact.presence&.join(" and ") || "None" %></dd></div></dl><p class="mt-5 text-sm text-slate-600">Completion rechecks permissions and effective limits in one locked transaction. It creates no scan and reserves no credits.</p></section>
+          <% end %>
+
+          <div class="flex flex-wrap justify-between gap-3 border-t border-slate-200 pt-5">
+            <div>
+              <% if @draft.previous_step %><%= form.button "Back", name: "direction", value: "back", formnovalidate: true, class: "so-button so-button-secondary" %><% end %>
+            </div>
+            <% unless @draft.current_step == "review" %><%= form.button "Save and continue", name: "direction", value: "continue", class: "so-button so-button-primary" %><% end %>
+          </div>
+        <% end %>
+
+        <% if @draft.current_step == "review" %>
+          <%= button_to "Create project and properties", complete_organization_project_onboarding_path(Current.organization.slug, @draft.id), class: "so-button so-button-primary mt-5" %>
+        <% end %>
+
+        <div class="mt-8 border-t border-slate-200 pt-5">
+          <%= button_to "Cancel setup and remove draft", organization_project_onboarding_draft_path(Current.organization.slug, @draft.id), method: :delete, class: "so-button so-button-danger", form: { data: { turbo_confirm: "Remove this saved setup draft? No project or scan will be created." } } %>
+        </div>
+      <% end %>
+    </section>
+
+    <%= render "plan_preview", plan_preview: @plan_preview %>
+  </div>
+</div>

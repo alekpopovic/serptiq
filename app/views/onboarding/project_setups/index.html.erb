@@ -1,0 +1,37 @@
+<% content_for :title, "Guided project setup" %>
+
+<div class="mx-auto max-w-6xl">
+  <%= render "shared/breadcrumbs", items: [
+    { label: "Dashboard", path: organization_dashboard_path(Current.organization.slug) },
+    { label: "Projects", path: organization_projects_path(Current.organization.slug) },
+    { label: "Guided setup", path: nil }
+  ] %>
+
+  <div class="mt-6 grid gap-6 lg:grid-cols-[minmax(0,1fr)_22rem]">
+    <section class="so-card p-6 sm:p-8" aria-labelledby="guided-setup-title">
+      <p class="so-eyebrow">Resumable onboarding</p>
+      <h1 id="guided-setup-title" class="mt-2 text-3xl font-black tracking-tight text-slate-950">Set up a project and its properties</h1>
+      <p class="mt-4 max-w-2xl text-sm leading-6 text-slate-600">
+        Review project basics, choose a website-only or combined web/mobile path, select an ownership method, and record bounded initial crawl preferences. Every step is saved on the server.
+      </p>
+      <ul class="mt-6 grid gap-3 sm:grid-cols-2" aria-label="Setup stages">
+        <% Onboarding::Draft::STEPS.each_with_index do |step, index| %>
+          <li class="rounded-lg border border-slate-200 px-4 py-3 text-sm text-slate-700"><strong><%= index + 1 %>.</strong> <%= step.humanize %></li>
+        <% end %>
+      </ul>
+
+      <% if @draft %>
+        <div class="mt-7 rounded-xl border border-amber-200 bg-amber-50 p-5">
+          <h2 class="font-bold text-amber-950">A saved setup is in progress</h2>
+          <p class="mt-2 text-sm text-amber-900">Resume at <strong><%= @draft.current_step.humanize.downcase %></strong>. Starting again will return this same draft.</p>
+          <%= link_to "Resume setup", organization_project_onboarding_draft_path(Current.organization.slug, @draft.id), class: "so-button so-button-primary mt-4" %>
+        </div>
+      <% else %>
+        <%= button_to "Start guided setup", organization_project_onboarding_path(Current.organization.slug), class: "so-button so-button-primary mt-7" %>
+      <% end %>
+      <%= link_to "Create only a project", new_organization_project_path(Current.organization.slug), class: "mt-5 inline-block text-sm font-semibold text-teal-800 underline" %>
+    </section>
+
+    <%= render "plan_preview", plan_preview: @plan_preview %>
+  </div>
+</div>

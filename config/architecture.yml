@@ -43,6 +43,9 @@ modules:
   verification:
     namespace: Verification
     allowed_dependencies: [projects, properties, authorization, auditing, integrations, shared]
+  onboarding:
+    namespace: Onboarding
+    allowed_dependencies: [tenancy, authorization, entitlements, projects, properties, verification, shared]
   crawling:
     namespace: Crawling
     allowed_dependencies: [projects, properties, authorization, entitlements, usage, shared]

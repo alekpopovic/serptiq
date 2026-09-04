@@ -122,6 +122,22 @@ Rails.application.routes.draw do
   get "dashboard/organizations/:organization_slug/projects",
     to: "projects/projects#index",
     as: :organization_projects
+  get "dashboard/organizations/:organization_slug/project-onboarding",
+    to: "onboarding/project_setups#index",
+    as: :organization_project_onboarding
+  post "dashboard/organizations/:organization_slug/project-onboarding",
+    to: "onboarding/project_setups#create"
+  get "dashboard/organizations/:organization_slug/project-onboarding/:draft_id",
+    to: "onboarding/project_setups#show",
+    as: :organization_project_onboarding_draft
+  patch "dashboard/organizations/:organization_slug/project-onboarding/:draft_id/steps/:step",
+    to: "onboarding/project_setups#update",
+    as: :organization_project_onboarding_step
+  post "dashboard/organizations/:organization_slug/project-onboarding/:draft_id/complete",
+    to: "onboarding/project_setups#complete",
+    as: :complete_organization_project_onboarding
+  delete "dashboard/organizations/:organization_slug/project-onboarding/:draft_id",
+    to: "onboarding/project_setups#destroy"
   get "dashboard/organizations/:organization_slug/projects/new",
     to: "projects/projects#new",
     as: :new_organization_project

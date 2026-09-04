@@ -69,6 +69,15 @@ controllers:
       archive: &archive_projects { kind: permission, permission: projects.archive }
       reactivate: *archive_projects
       destroy: { kind: permission, permission: projects.delete }
+  Onboarding::ProjectSetupsController:
+    source: app/controllers/onboarding/project_setups_controller.rb
+    actions:
+      index: &guided_project_setup { kind: permission, permission: projects.create }
+      create: *guided_project_setup
+      show: *guided_project_setup
+      update: *guided_project_setup
+      complete: *guided_project_setup
+      destroy: *guided_project_setup
   Properties::PropertiesController:
     source: app/controllers/properties/properties_controller.rb
     actions:
@@ -253,14 +262,52 @@ domain_operations:
   Projects::Public.reference:
     kind: context
     reason: explicit_tenant_project_projection_for_downstream_modules
+  Projects::Public.active_count:
+    kind: context
+    reason: caller_authorized_tenant_capacity_projection
+  Projects::Public.normalize_slug: { kind: context, reason: pure_project_slug_normalization }
+  Projects::Public.valid_slug?: { kind: context, reason: pure_project_slug_validation }
+  Onboarding::Public.start_draft:
+    kind: context
+    reason: composes_projects_properties_verification_and_scans_permissions
+  Onboarding::Public.active_draft:
+    kind: context
+    reason: creator_and_tenant_scoped_draft_lookup_after_composed_authorization
+  Onboarding::Public.draft:
+    kind: context
+    reason: creator_and_tenant_scoped_draft_lookup_after_composed_authorization
+  Onboarding::Public.update_draft:
+    kind: context
+    reason: composes_projects_properties_verification_and_scans_permissions
+  Onboarding::Public.cancel_draft:
+    kind: context
+    reason: creator_and_tenant_scoped_draft_cleanup_after_composed_authorization
+  Onboarding::Public.complete_draft:
+    kind: context
+    reason: composes_existing_authorized_aggregate_operations_atomically
+  Onboarding::Public.plan_preview:
+    kind: context
+    reason: authorized_read_only_entitlement_and_capacity_projection
+  Onboarding::Public.readiness:
+    kind: context
+    reason: authorized_factual_readiness_projection
   Properties::Public.create_property: { kind: permission, permission: properties.manage }
   Properties::Public.update_property: { kind: permission, permission: properties.manage }
   Properties::Public.transition_property: { kind: permission, permission: properties.manage }
+  Properties::Public.normalize_configuration:
+    kind: context
+    reason: pure_typed_property_configuration_normalization
+  Properties::Public.active_counts:
+    kind: context
+    reason: caller_authorized_tenant_capacity_projection
   Properties::Public.create_environment: { kind: permission, permission: properties.manage }
   Properties::Public.update_environment: { kind: permission, permission: properties.manage }
   Properties::Public.transition_environment: { kind: permission, permission: properties.manage }
   Properties::Public.environment_page: { kind: permission, permission: properties.read }
   Properties::Public.environment_details: { kind: permission, permission: properties.read }
+  Properties::Public.primary_environment_reference:
+    kind: context
+    reason: explicit_tenant_primary_environment_projection_for_downstream_modules
   Properties::Public.apply_verification_summary:
     kind: context
     reason: exact_primary_environment_verification_summary_projection

@@ -91,6 +91,8 @@ Do not pre-populate these reports with fictional implementation or test results.
   destination enforcement, explicit canonical redirects and bounded evidence.
 - [`SEARCH_CONSOLE_VERIFICATION.md`](./SEARCH_CONSOLE_VERIFICATION.md) defines separate provider consent,
   exact URL-prefix/domain matching, dual authorization and connection-change revalidation.
+- [`PROJECT_ONBOARDING.md`](./PROJECT_ONBOARDING.md) defines the persisted guided setup state machine,
+  composed permission boundary, atomic/idempotent provisioning, plan preview and factual readiness semantics.
 - [`BILLING_PROVIDER_CONTRACT.md`](./BILLING_PROVIDER_CONTRACT.md) defines normalized billing values,
   adapter operations/errors, transport policies, canonical lifecycle and second-provider requirements.
 - [`LEMON_SQUEEZY_ADAPTER.md`](./LEMON_SQUEEZY_ADAPTER.md) defines the first production adapter's exact

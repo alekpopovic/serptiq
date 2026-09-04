@@ -4,8 +4,12 @@ module Projects
   module Public
     module_function
 
-    def create_project(clock: -> { Time.current }, **attributes)
-      CreateProject.new(clock: clock).call(**attributes)
+    def create_project(clock: -> { Time.current }, id_generator: nil, release_key_generator: nil,
+      **attributes)
+      options = { clock: clock }
+      options[:id_generator] = id_generator if id_generator
+      options[:release_key_generator] = release_key_generator if release_key_generator
+      CreateProject.new(**options).call(**attributes)
     end
 
     def update_project(clock: -> { Time.current }, **attributes)
@@ -31,6 +35,18 @@ module Projects
       ProjectReference.new(
         id: project.id, organization_id: project.organization_id, status: project.status
       )
+    end
+
+    def active_count(organization_id:)
+      Project.active.where(organization_id: organization_id).count
+    end
+
+    def normalize_slug(value)
+      ProjectSlug.call(value)
+    end
+
+    def valid_slug?(value)
+      Project::SLUG_PATTERN.match?(value.to_s)
     end
   end
 end
