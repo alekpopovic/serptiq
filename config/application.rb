@@ -16,6 +16,12 @@ module Searchops
     # Common ones are `templates`, `generators`, or `middleware`, for example.
     config.autoload_lib(ignore: %w[assets tasks])
 
+    # Tenant and externally referenced aggregate roots default to UUIDs. High-
+    # volume internal rows opt into bigint explicitly; see DATABASES.md.
+    config.generators do |generators|
+      generators.orm :active_record, primary_key_type: :uuid
+    end
+
     # Configuration for the application, engines, and railties goes here.
     #
     # These settings can be overridden in specific environments using the files

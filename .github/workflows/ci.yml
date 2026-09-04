@@ -114,7 +114,10 @@ jobs:
       - name: Run tests
         env:
           RAILS_ENV: test
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/searchops_test
+          QUEUE_DATABASE_URL: postgres://postgres:postgres@localhost:5432/searchops_test_queue
+          CACHE_DATABASE_URL: postgres://postgres:postgres@localhost:5432/searchops_test_cache
+          CABLE_DATABASE_URL: postgres://postgres:postgres@localhost:5432/searchops_test_cable
           # RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
         run: bin/rails db:test:prepare test
 
@@ -146,7 +149,10 @@ jobs:
       - name: Run System Tests
         env:
           RAILS_ENV: test
-          DATABASE_URL: postgres://postgres:postgres@localhost:5432
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/searchops_test
+          QUEUE_DATABASE_URL: postgres://postgres:postgres@localhost:5432/searchops_test_queue
+          CACHE_DATABASE_URL: postgres://postgres:postgres@localhost:5432/searchops_test_cache
+          CABLE_DATABASE_URL: postgres://postgres:postgres@localhost:5432/searchops_test_cable
           # RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
         run: bin/rails db:test:prepare test:system
 

@@ -51,7 +51,7 @@ secret-management workflow; do not copy literal documentation values.
 | Category | Public/runtime settings | Secrets and credentials |
 |---|---|---|
 | Application URLs | application name and exact application origin | Rails master key and secret key base |
-| Database roles | process database role and bounded pool size | database URL or password; separate role credentials in deployment |
+| Database roles | process database role, four bounded pool sizes, process count, connection budget and SQL timeout bounds | PostgreSQL URLs for primary, queue, cache and cable, or one shared host/user/password credential set |
 | Object storage | service, private bucket, region and optional endpoint origin | access key ID/secret when workload identity is unavailable |
 | OAuth providers | enable flags and client IDs | client secrets; later token records use database encryption |
 | Billing | provider and store ID | API key and webhook verification secret |
@@ -71,10 +71,14 @@ userinfo, path, query or fragment; staging/production require HTTPS and reject
 local, private and loopback hosts. Enum values are allowlisted.
 
 Production and staging require an application origin, release SHA, Rails secret
-key base, Active Record encryption keys, database credentials, and S3 bucket and
-region. Enabled OAuth, billing, SMTP and Slack integrations add their own
-fail-fast requirements. Workload identity is preferred for object storage, so
-static storage access keys are not mandatory.
+key base, Active Record encryption keys, a database connection budget, database
+credentials, and S3 bucket and region. Database credentials are either all four
+PostgreSQL role URLs (`DATABASE_URL`, `QUEUE_DATABASE_URL`,
+`CACHE_DATABASE_URL`, and `CABLE_DATABASE_URL`) or the shared host, username,
+and password settings documented in [Database topology](DATABASES.md). A partial
+URL set fails initialization. Enabled OAuth, billing, SMTP and Slack
+integrations add their own fail-fast requirements. Workload identity is
+preferred for object storage, so static storage access keys are not mandatory.
 
 ## Redaction contract
 

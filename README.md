@@ -38,6 +38,10 @@ bin/dev
 
 Copy `.env.example` only as a list of supported variable names; provide real values through an ignored local file or a secret manager and never commit them. The typed settings, precedence, production requirements, redaction rules, and rotation process are documented in [`docs/implementation/CONFIGURATION.md`](./docs/implementation/CONFIGURATION.md).
 
+PostgreSQL connection names, pool budgeting, clean setup, key policy and the
+strict readiness query are documented in
+[`docs/implementation/DATABASES.md`](./docs/implementation/DATABASES.md).
+
 The initial Rails scaffold was generated outside the repository and merged without overwriting the blueprint:
 
 ```bash

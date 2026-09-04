@@ -1,0 +1,120 @@
+{
+  "prompt_id": "006",
+  "title": "Configure PostgreSQL databases and required extensions",
+  "status": "completed",
+  "started_at": "2026-09-04T01:27:17Z",
+  "finished_at": "2026-09-04T01:41:07Z",
+  "summary": "Configured PostgreSQL-only primary, queue, cache and cable databases with local colocation and independent protected-environment URLs; added bounded pools and capacity validation, timeouts, application names, advisory-lock configuration, reversible pgcrypto enablement, UUID/bigint policy, strict SELECT 1 health checks, clean setup documentation, CI wiring and negative/real-connection tests.",
+  "tests": [
+    {
+      "command": "RAILS_ENV=test ... bundle exec rails db:create db:prepare",
+      "outcome": "passed",
+      "notes": "created four previously absent isolated databases; primary schema has pgcrypto and queue/cache/cable Solid schemas loaded"
+    },
+    {
+      "command": "RAILS_ENV=test ... bundle exec rails test",
+      "outcome": "passed",
+      "notes": "31 runs, 213 assertions, 0 failures, 0 errors, 0 skips against four PostgreSQL databases"
+    },
+    {
+      "command": "RAILS_ENV=test ... bundle exec rails test:system",
+      "outcome": "passed",
+      "notes": "0 runs, 0 failures; CI task initializes successfully pending Prompt 010 system scenarios"
+    },
+    {
+      "command": "RAILS_ENV=test ... bundle exec rails db:migrate:down:primary VERSION=20260904012600 and db:migrate:up:primary",
+      "outcome": "passed",
+      "notes": "pgcrypto disabled and re-enabled through namespaced reversible migration tasks"
+    },
+    {
+      "command": "mise exec ruby@3.4.10 -- bundle exec rubocop",
+      "outcome": "passed",
+      "notes": "46 files inspected, no offenses"
+    },
+    {
+      "command": "mise exec ruby@3.4.10 -- bundle exec brakeman --no-pager",
+      "outcome": "passed",
+      "notes": "79 checks, 0 security warnings"
+    },
+    {
+      "command": "mise exec ruby@3.4.10 -- bundle exec bundler-audit check",
+      "outcome": "passed",
+      "notes": "no vulnerabilities found"
+    },
+    {
+      "command": "mise exec ruby@3.4.10 -- bin/importmap audit",
+      "outcome": "passed",
+      "notes": "no vulnerable packages found"
+    },
+    {
+      "command": "RAILS_ENV=test mise exec ruby@3.4.10 -- bundle exec rails zeitwerk:check",
+      "outcome": "passed",
+      "notes": "all is good"
+    },
+    {
+      "command": "ruby script/check_architecture",
+      "outcome": "passed",
+      "notes": "architecture boundaries passed"
+    },
+    {
+      "command": "ruby script/check_adr_index",
+      "outcome": "passed",
+      "notes": "ADR index passed"
+    },
+    {
+      "command": "ruby tracking/scripts/test_prompt_tracker.rb",
+      "outcome": "passed",
+      "notes": "12 runs, 122 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "ruby tracking/scripts/validate_blueprint.rb",
+      "outcome": "passed",
+      "notes": "blueprint valid; 120 prompts and 10 ADRs"
+    },
+    {
+      "command": "ruby tracking/scripts/prompt_tracker.rb validate",
+      "outcome": "passed",
+      "notes": "120 prompts; catalog and state consistent before completion"
+    }
+  ],
+  "files_changed": [
+    ".env.example",
+    ".github/workflows/ci.yml",
+    "README.md",
+    "app/domains/shared/database_connections.rb",
+    "app/domains/shared/database_health_check.rb",
+    "config/application.rb",
+    "config/database.yml",
+    "config/initializers/searchops_configuration.rb",
+    "config/searchops.yml",
+    "config/searchops/configuration.rb",
+    "config/searchops/database_configuration_validator.rb",
+    "db/migrate/20260904012600_enable_pgcrypto_extension.rb",
+    "db/schema.rb",
+    "docs/adr/0002_postgresql_and_solid_stack.md",
+    "docs/adr/README.md",
+    "docs/implementation/CONFIGURATION.md",
+    "docs/implementation/DATABASES.md",
+    "docs/implementation/README.md",
+    "test/configuration/configuration_test.rb",
+    "test/database/postgresql_configuration_test.rb",
+    "test/system/.keep",
+    "tracking/scripts/validate_blueprint.rb",
+    "tracking/state.json",
+    "tracking/EXECUTION_LOG.md",
+    "tracking/execution_log.jsonl"
+  ],
+  "migrations": [
+    "db/migrate/20260904012600_enable_pgcrypto_extension.rb: reversible pgcrypto enablement on primary only; extension removal requires review once dependent defaults/functions exist"
+  ],
+  "decisions": [
+    "Use UUIDs for tenant and externally referenced aggregate roots; allow explicit bigint exceptions only for justified high-volume internal detail rows; preserve upstream bigint designs for Solid databases; enforce a conservative aggregate connection budget at boot"
+  ],
+  "risks": [
+    "The aggregate capacity formula is intentionally conservative when role URLs use separate clusters; operators must capacity-plan each managed cluster. Initial focused tests exposed four expectation/test-double issues and were corrected before the passing full suite. An initial unnamespaced multi-DB rollback command failed; the correct primary-namespaced down/up tasks passed. System scenarios remain in Prompt 010; this prompt only makes the existing task runnable."
+  ],
+  "next_steps": [
+    "Prompt 007"
+  ],
+  "commit": null
+}

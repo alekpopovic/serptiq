@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require Rails.root.join("config/searchops/configuration")
+require Rails.root.join("config/searchops/database_configuration_validator")
 require Rails.root.join("app/domains/shared/redaction")
 
 settings = Searchops::Configuration.load(
@@ -12,6 +13,7 @@ settings = Searchops::Configuration.load(
 
 Rails.application.config.x.searchops = settings
 Rails.application.config.x.redaction = Shared::Redaction.new
+Searchops::DatabaseConfigurationValidator.new(environment: Rails.env).validate!
 
 origin = settings.fetch(:application_origin)
 Rails.application.config.action_mailer.default_url_options = {

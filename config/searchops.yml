@@ -1,6 +1,21 @@
 shared:
   application_name: SearchOps
   database_role: web
+  database_port: 5432
+  database_username: searchops
+  primary_database_pool: 5
+  queue_database_pool: 5
+  cache_database_pool: 2
+  cable_database_pool: 2
+  database_process_count: 1
+  database_reserved_connections: 5
+  database_connect_timeout_seconds: 3
+  database_checkout_timeout_seconds: 3
+  database_statement_timeout_ms: 15000
+  database_lock_timeout_ms: 5000
+  database_idle_transaction_timeout_ms: 30000
+  database_health_timeout_ms: 1000
+  database_advisory_locks: true
   object_storage_service: local
   oauth_google_enabled: false
   oauth_github_enabled: false
@@ -29,6 +44,7 @@ development:
   application_origin: http://localhost:3000
   object_storage_service: local
   email_from: development@localhost
+  database_connection_budget: 25
 
 test:
   application_origin: https://searchops.test
@@ -39,6 +55,7 @@ test:
   browser_concurrency: 1
   email_delivery_method: test
   email_from: test@searchops.test
+  database_connection_budget: 25
 
 staging:
   object_storage_service: s3

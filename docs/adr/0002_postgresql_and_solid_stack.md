@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-09-04
 - Owners: Platform
-- Last reviewed: 2026-09-04 (Prompt 005)
+- Last reviewed: 2026-09-04 (Prompt 006)
 
 ## Context
 
@@ -22,6 +22,7 @@ Use PostgreSQL for transactional data and Solid Queue, Solid Cache and Solid Cab
 
 ## Implementation status
 
-Rails is initialized with PostgreSQL and the Solid Queue, Cache and Cable gems;
-production connection entries exist. Prompt 007 still owns verified topology
-and the replacement of generated development in-process adapters.
+Rails is initialized with PostgreSQL and the Solid Queue, Cache and Cable gems.
+Prompt 006 added four environment-specific connections, explicit capacity and
+timeout controls, `pgcrypto`, and a strict readiness query. Prompt 007 still
+owns adapter activation and worker/cache/cable runtime behavior.

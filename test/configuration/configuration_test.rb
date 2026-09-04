@@ -84,6 +84,46 @@ class SearchopsConfigurationTest < ActiveSupport::TestCase
     assert_equal 2, configuration.secret(:encryption_primary_keys).size
   end
 
+  test "rejects aggregate database pools above the declared capacity" do
+    error = assert_raises(Searchops::Configuration::Error) do
+      load_configuration(
+        environment: "test",
+        env: {
+          "SEARCHOPS_PRIMARY_DATABASE_POOL" => "10",
+          "SEARCHOPS_QUEUE_DATABASE_POOL" => "10",
+          "SEARCHOPS_CACHE_DATABASE_POOL" => "10",
+          "SEARCHOPS_CABLE_DATABASE_POOL" => "10",
+          "SEARCHOPS_DATABASE_PROCESS_COUNT" => "3",
+          "SEARCHOPS_DATABASE_RESERVED_CONNECTIONS" => "5",
+          "SEARCHOPS_DATABASE_CONNECTION_BUDGET" => "100"
+        }
+      )
+    end
+
+    assert_includes error.message, "database connection demand 125 exceeds"
+  end
+
+  test "rejects non-PostgreSQL database URLs without echoing credentials" do
+    error = assert_raises(Searchops::Configuration::Error) do
+      load_configuration(environment: "test", env: { "DATABASE_URL" => "mysql://user:do-not-print@database.invalid/app" })
+    end
+
+    assert_includes error.message, "DATABASE_URL"
+    assert_not_includes error.message, "do-not-print"
+  end
+
+  test "rejects a partial protected database URL set" do
+    environment = complete_production_environment.dup
+    environment.delete("QUEUE_DATABASE_URL")
+
+    error = assert_raises(Searchops::Configuration::Error) do
+      load_configuration(environment: "production", env: environment)
+    end
+
+    assert_includes error.message, "QUEUE_DATABASE_URL is required"
+    assert_not_includes error.message, "database.invalid"
+  end
+
   test "example environment leaves every declared secret blank" do
     example = Rails.root.join(".env.example").each_line(chomp: true).filter_map do |line|
       next if line.empty? || line.start_with?("#")
@@ -119,6 +159,10 @@ class SearchopsConfigurationTest < ActiveSupport::TestCase
       "SEARCHOPS_OBJECT_STORAGE_REGION" => "eu-central-1",
       "SECRET_KEY_BASE" => "secret-key-base",
       "DATABASE_URL" => "postgresql://database.invalid/searchops",
+      "QUEUE_DATABASE_URL" => "postgresql://database.invalid/searchops_queue",
+      "CACHE_DATABASE_URL" => "postgresql://database.invalid/searchops_cache",
+      "CABLE_DATABASE_URL" => "postgresql://database.invalid/searchops_cable",
+      "SEARCHOPS_DATABASE_CONNECTION_BUDGET" => "25",
       "ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEYS" => "current-key,previous-key",
       "ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY" => "deterministic-key",
       "ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT" => "derivation-salt"

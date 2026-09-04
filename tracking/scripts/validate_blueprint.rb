@@ -19,7 +19,7 @@ end
 def load_yaml(path)
   YAML.safe_load(
     path.read.force_encoding(Encoding::UTF_8),
-    permitted_classes: [Date],
+    permitted_classes: [ Date ],
     permitted_symbols: [],
     aliases: false
   )
@@ -117,7 +117,7 @@ begin
     end
   end
 
-  allowed_empty = [ROOT.join("tracking", "execution_log.jsonl").to_s]
+  allowed_empty = [ ROOT.join("tracking", "execution_log.jsonl").to_s ]
   ROOT.glob("**/*").select(&:file?).each do |path|
     next if allowed_empty.include?(path.to_s)
     fail_if(path.size.zero?, "unexpected empty file: #{path.relative_path_from(ROOT)}")

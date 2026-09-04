@@ -23,6 +23,32 @@ module Searchops
       database_role: Definition.new("SEARCHOPS_DATABASE_ROLE", :enum, "web", nil, nil,
         %w[web scheduler worker test], false, nil),
       database_pool: Definition.new("RAILS_MAX_THREADS", :integer, 5, 1, 100, nil, false, nil),
+      database_host: Definition.new("SEARCHOPS_DATABASE_HOST", :string, nil, nil, nil, nil, false, nil),
+      database_port: Definition.new("SEARCHOPS_DATABASE_PORT", :integer, 5432, 1, 65_535, nil, false, nil),
+      database_username: Definition.new("SEARCHOPS_DATABASE_USERNAME", :string, "searchops", nil, nil, nil, false, nil),
+      primary_database_pool: Definition.new("SEARCHOPS_PRIMARY_DATABASE_POOL", :integer, 5, 1, 1000, nil, false, nil),
+      queue_database_pool: Definition.new("SEARCHOPS_QUEUE_DATABASE_POOL", :integer, 5, 1, 1000, nil, false, nil),
+      cache_database_pool: Definition.new("SEARCHOPS_CACHE_DATABASE_POOL", :integer, 2, 1, 1000, nil, false, nil),
+      cable_database_pool: Definition.new("SEARCHOPS_CABLE_DATABASE_POOL", :integer, 2, 1, 1000, nil, false, nil),
+      database_process_count: Definition.new("SEARCHOPS_DATABASE_PROCESS_COUNT", :integer, 1, 1, 1000, nil, false, nil),
+      database_reserved_connections: Definition.new("SEARCHOPS_DATABASE_RESERVED_CONNECTIONS", :integer,
+        5, 0, 1000, nil, false, nil),
+      database_connection_budget: Definition.new("SEARCHOPS_DATABASE_CONNECTION_BUDGET", :integer,
+        nil, 1, 100_000, nil, false, nil),
+      database_connect_timeout_seconds: Definition.new("SEARCHOPS_DATABASE_CONNECT_TIMEOUT_SECONDS", :integer,
+        3, 1, 30, nil, false, nil),
+      database_checkout_timeout_seconds: Definition.new("SEARCHOPS_DATABASE_CHECKOUT_TIMEOUT_SECONDS", :integer,
+        3, 1, 30, nil, false, nil),
+      database_statement_timeout_ms: Definition.new("SEARCHOPS_DATABASE_STATEMENT_TIMEOUT_MS", :integer,
+        15_000, 100, 300_000, nil, false, nil),
+      database_lock_timeout_ms: Definition.new("SEARCHOPS_DATABASE_LOCK_TIMEOUT_MS", :integer,
+        5_000, 100, 60_000, nil, false, nil),
+      database_idle_transaction_timeout_ms: Definition.new("SEARCHOPS_DATABASE_IDLE_TRANSACTION_TIMEOUT_MS", :integer,
+        30_000, 1000, 600_000, nil, false, nil),
+      database_health_timeout_ms: Definition.new("SEARCHOPS_DATABASE_HEALTH_TIMEOUT_MS", :integer,
+        1000, 50, 5000, nil, false, nil),
+      database_advisory_locks: Definition.new("SEARCHOPS_DATABASE_ADVISORY_LOCKS", :boolean,
+        true, nil, nil, nil, false, nil),
       object_storage_service: Definition.new("SEARCHOPS_OBJECT_STORAGE_SERVICE", :enum, "local", nil, nil,
         %w[local s3], false, nil),
       object_storage_bucket: Definition.new("SEARCHOPS_OBJECT_STORAGE_BUCKET", :string, nil, nil, nil, nil, false, nil),
@@ -70,7 +96,13 @@ module Searchops
       process_role: Definition.new("SEARCHOPS_PROCESS_ROLE", :enum, "web", nil, nil,
         %w[web scheduler worker_default worker_crawl worker_render worker_analysis worker_report], false, nil),
       secret_key_base: Definition.new("SECRET_KEY_BASE", :secret, nil, nil, nil, nil, true, [ :secret_key_base ]),
-      database_url: Definition.new("DATABASE_URL", :secret, nil, nil, nil, nil, true, [ :database, :url ]),
+      database_url: Definition.new("DATABASE_URL", :database_url, nil, nil, nil, nil, true, [ :database, :url ]),
+      queue_database_url: Definition.new("QUEUE_DATABASE_URL", :database_url,
+        nil, nil, nil, nil, true, [ :database, :queue_url ]),
+      cache_database_url: Definition.new("CACHE_DATABASE_URL", :database_url,
+        nil, nil, nil, nil, true, [ :database, :cache_url ]),
+      cable_database_url: Definition.new("CABLE_DATABASE_URL", :database_url,
+        nil, nil, nil, nil, true, [ :database, :cable_url ]),
       database_password: Definition.new("SEARCHOPS_DATABASE_PASSWORD", :secret, nil, nil, nil, nil, true,
         [ :database, :password ]),
       object_storage_access_key_id: Definition.new("SEARCHOPS_OBJECT_STORAGE_ACCESS_KEY_ID", :secret,
@@ -165,10 +197,15 @@ module Searchops
       file_values = configuration_file_values
 
       DEFINITIONS.to_h do |key, definition|
+        environment_override = environment_value(definition.env_key)
         raw_value = if definition.secret
           secret_value(definition)
+        elsif environment_override
+          environment_override
+        elsif file_values.key?(key.to_s)
+          file_values.fetch(key.to_s)
         else
-          environment_value(definition.env_key) || file_values[key.to_s] || definition.default
+          definition.default
         end
         [ key, parse(key, raw_value, definition) ]
       end
@@ -210,6 +247,7 @@ module Searchops
 
       case definition.type
       when :string, :secret then raw_value.to_s
+      when :database_url then parse_database_url(key, raw_value)
       when :secret_list then parse_secret_list(raw_value)
       when :integer then parse_integer(key, raw_value, definition)
       when :boolean then parse_boolean(key, raw_value)
@@ -222,6 +260,14 @@ module Searchops
 
     def parse_secret_list(raw_value)
       Array(raw_value.is_a?(String) ? raw_value.split(",") : raw_value).map(&:strip).reject(&:empty?).freeze
+    end
+
+    def parse_database_url(key, raw_value)
+      uri = URI.parse(raw_value.to_s)
+      invalid!(key, "must use postgresql:// or postgres://") unless %w[postgresql postgres].include?(uri.scheme)
+      raw_value.to_s
+    rescue URI::InvalidURIError
+      invalid!(key, "must be a valid PostgreSQL URL")
     end
 
     def parse_integer(key, raw_value, definition)
@@ -274,10 +320,14 @@ module Searchops
     end
 
     def validate_protected_environment(errors)
-      require_settings(errors, :application_origin, :release_sha)
+      require_settings(errors, :application_origin, :release_sha, :database_connection_budget)
       require_secrets(errors, :secret_key_base, :encryption_primary_keys,
         :encryption_deterministic_key, :encryption_key_derivation_salt)
-      unless present?(secret(:database_url)) || present?(secret(:database_password))
+      if present?(secret(:database_url))
+        require_secrets(errors, :queue_database_url, :cache_database_url, :cable_database_url)
+      elsif present?(secret(:database_password))
+        require_settings(errors, :database_host, :database_username)
+      else
         errors << "one of DATABASE_URL or SEARCHOPS_DATABASE_PASSWORD is required"
       end
       if fetch(:object_storage_service) == "s3"
@@ -311,6 +361,21 @@ module Searchops
       if fetch(:slack_enabled)
         require_settings(errors, :slack_client_id)
         require_secrets(errors, :slack_client_secret, :slack_signing_secret)
+      end
+      validate_database_capacity(errors)
+    end
+
+    def validate_database_capacity(errors)
+      budget = fetch(:database_connection_budget)
+      return unless budget
+
+      pools = %i[primary_database_pool queue_database_pool cache_database_pool cable_database_pool]
+      demand = pools.sum { |key| fetch(key) } * fetch(:database_process_count) + fetch(:database_reserved_connections)
+      if demand > budget
+        errors << "database connection demand #{demand} exceeds SEARCHOPS_DATABASE_CONNECTION_BUDGET #{budget}"
+      end
+      if fetch(:primary_database_pool) < fetch(:database_pool) && fetch(:database_role) == "web"
+        errors << "SEARCHOPS_PRIMARY_DATABASE_POOL must be at least RAILS_MAX_THREADS for web processes"
       end
     end
 

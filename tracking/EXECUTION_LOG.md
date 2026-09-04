@@ -14,3 +14,5 @@
 | 2026-09-04T01:16:56Z | 004 | completed | Hardened tracker catalog/state/result validation, aligned the result JSON schema, expanded isolated mutation/concurrency/corruption tests, documented honest recovery, and added a read-only CI tracker job. |
 | 2026-09-04T01:18:12Z | 005 | started | Finalize ADR index and architecture guardrails |
 | 2026-09-04T01:24:18Z | 005 | completed | Created governed ADR lifecycle/index/template and PR risk checklist, added an automated ADR link/metadata guardrail, reviewed all ten decisions against the repository, and reconciled the complete module catalog. |
+| 2026-09-04T01:27:17Z | 006 | started | Configure PostgreSQL databases and required extensions |
+| 2026-09-04T01:41:07Z | 006 | completed | Configured PostgreSQL-only primary, queue, cache and cable databases with local colocation and independent protected-environment URLs; added bounded pools and capacity validation, timeouts, application names, advisory-lock configuration, reversible pgcrypto enablement, UUID/bigint policy, strict SELECT 1 health checks, clean setup documentation, CI wiring and negative/real-connection tests. |

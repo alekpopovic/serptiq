@@ -23,5 +23,7 @@ Do not pre-populate these reports with fictional implementation or test results.
   ownership and dependencies.
 - [`CONFIGURATION.md`](./CONFIGURATION.md) defines public/secret configuration,
   redaction and key rotation.
+- [`DATABASES.md`](./DATABASES.md) defines PostgreSQL topology, capacity,
+  identifiers, setup and readiness behavior.
 - [`../../tracking/README.md`](../../tracking/README.md) defines prompt evidence,
   recovery and state integrity.
