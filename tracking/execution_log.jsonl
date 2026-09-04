@@ -1,0 +1,2 @@
+{"at":"2026-09-04T00:43:36Z","event":"started","prompt_id":"000"}
+{"at":"2026-09-04T00:46:35Z","event":"completed","prompt_id":"000","summary":"Recorded the blueprint-only Git baseline, local toolchain, integrity/security inspection, compatibility risks, and a preservation-first Rails initialization path; ignored the tracker runtime lock.","result_file":"tracking/results/000.json","commit":null}

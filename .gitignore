@@ -1,0 +1,2 @@
+# Prompt tracker runtime lock; state and execution logs remain tracked.
+/tracking/.state.lock

@@ -1,0 +1,63 @@
+{
+  "prompt_id": "000",
+  "title": "Repository reconnaissance and baseline snapshot",
+  "status": "completed",
+  "started_at": "2026-09-04T00:43:36Z",
+  "finished_at": "2026-09-04T00:46:35Z",
+  "summary": "Recorded the blueprint-only Git baseline, local toolchain, integrity/security inspection, compatibility risks, and a preservation-first Rails initialization path; ignored the tracker runtime lock.",
+  "tests": [
+    {
+      "command": "git status --short --branch",
+      "outcome": "passed",
+      "notes": "main tracks origin/main; only Prompt 000 changes present after start"
+    },
+    {
+      "command": "ruby tracking/scripts/test_prompt_tracker.rb",
+      "outcome": "passed",
+      "notes": "8 runs, 75 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "ruby tracking/scripts/validate_blueprint.rb",
+      "outcome": "passed",
+      "notes": "120 prompts and all blueprint counts valid"
+    },
+    {
+      "command": "ruby tracking/scripts/prompt_tracker.rb validate",
+      "outcome": "passed",
+      "notes": "120 prompts; catalog and state consistent"
+    },
+    {
+      "command": "git diff --check",
+      "outcome": "passed",
+      "notes": "no whitespace errors"
+    },
+    {
+      "command": "filename-only credential and private-key pattern scans",
+      "outcome": "passed",
+      "notes": "no matches"
+    },
+    {
+      "command": "git push --dry-run origin main",
+      "outcome": "passed",
+      "notes": "SSH remote and upstream reachable"
+    }
+  ],
+  "files_changed": [
+    ".gitignore",
+    "docs/implementation/000_BASELINE.md",
+    "tracking/state.json",
+    "tracking/execution_log.jsonl",
+    "tracking/EXECUTION_LOG.md",
+    "tracking/results/000.json",
+    "tracking/results/000.md"
+  ],
+  "migrations": [],
+  "decisions": [],
+  "risks": [
+    "Ruby 4.0.5 differs from the 3.4.10 blueprint candidate; psql is unavailable; Docker daemon access is denied in the sandbox; Snap Chromium is unusable here; Prompt 001 must verify and pin a compatible toolchain"
+  ],
+  "next_steps": [
+    "Execute Prompt 001 and preserve all blueprint files while initializing Rails"
+  ],
+  "commit": null
+}
