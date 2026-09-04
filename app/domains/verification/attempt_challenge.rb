@@ -106,7 +106,8 @@ module Verification
         reservation = AttemptReservation.new(
           challenge_id: challenge.id,
           sequence: sequence,
-          expected_value: ChallengeToken.value_for(challenge)
+          expected_value: ChallengeToken.value_for(challenge),
+          attempted_at: now
         )
       end
       [ reservation, terminal, events ]
@@ -132,19 +133,6 @@ module Verification
         challenge = scoped_challenge!(
           actor_membership, project_id, property_id, environment_id, reservation.challenge_id
         )
-        Attempt.create!(
-          organization_id: challenge.organization_id,
-          project_id: challenge.project_id,
-          property_id: challenge.property_id,
-          environment_id: challenge.environment_id,
-          domain_verification_id: challenge.id,
-          sequence: reservation.sequence,
-          outcome: adapter_result.verified? ? "verified" : "failed",
-          failure_category: adapter_result.failure_category,
-          evidence: adapter_result.evidence,
-          attempted_at: challenge.attempted_at,
-          created_at: @clock.call
-        )
         unless challenge.pending?
           ChallengeAudit.record!(
             action: "verification.attempt_failed",
@@ -158,6 +146,19 @@ module Verification
         end
 
         now = @clock.call
+        Attempt.create!(
+          organization_id: challenge.organization_id,
+          project_id: challenge.project_id,
+          property_id: challenge.property_id,
+          environment_id: challenge.environment_id,
+          domain_verification_id: challenge.id,
+          sequence: reservation.sequence,
+          outcome: adapter_result.verified? ? "verified" : "failed",
+          failure_category: adapter_result.failure_category,
+          evidence: adapter_result.evidence,
+          attempted_at: reservation.attempted_at,
+          created_at: now
+        )
         if adapter_result.verified?
           challenge.update!(
             state: "verified", verified_at: now, expires_at: now + VERIFIED_TTL,

@@ -69,6 +69,15 @@ Label this as **Google-known indexed state**, not a live fetch. SearchOps live f
 
 Provider quotas are configuration and operational policy, not hardcoded product promises. Track provider response headers/errors, apply backoff, and schedule work fairly across organizations.
 
+## 3a. DNS TXT verification
+
+DNS proof uses a bounded resolver contract rather than a general-purpose discovery API. It queries only the
+absolute intended verification hostname, validates the echoed question, limits answer count, relevant bytes,
+CNAME links and observed authority delegations, and preserves TXT chunk bytes for an exact token comparison.
+NXDOMAIN, no TXT record, recent propagation guidance, timeout, transient failure and bounded-response rejection
+remain distinct observations. No DNS value is persisted or logged. Hourly discovery schedules explicit
+tenant/challenge rechecks for seven-day-old proof; only a successful recheck renews freshness.
+
 ## 4. CrUX
 
 Use CrUX API and CrUX History API for available URL/origin field data.

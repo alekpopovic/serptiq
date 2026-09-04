@@ -37,6 +37,8 @@ Domain verification issuance, success, bounded failure category, expiry and revo
 `DomainVerification` targets. Metadata exposes only method, operation, state and attempt count; challenge
 values, origins, DNS values, HTML bodies and provider payloads are never audit metadata. The consistency
 report also checks retained verification targets.
+Scheduled DNS rechecks use `verification.recheck_succeeded` and `verification.recheck_failed` with a null
+human actor. They retain the same bounded metadata and never include the queried name, TXT values or token.
 
 Run `bin/tenancy-security` for the required Phase 03 isolation suite and both consistency reports. Operators
 can run `bin/rails auditing:consistency:check` independently; any orphan or known cross-tenant actor/retained

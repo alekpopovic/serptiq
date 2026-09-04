@@ -32,6 +32,12 @@ class SearchopsConfigurationTest < ActiveSupport::TestCase
     assert_equal 5.0, configuration.fetch(:billing_http_read_timeout)
     assert_equal 5.0, configuration.fetch(:billing_http_write_timeout)
     assert_equal 524_288, configuration.fetch(:billing_http_max_response_bytes)
+    assert_equal false, configuration.fetch(:dns_verification_enabled)
+    assert_equal 3.0, configuration.fetch(:dns_verification_timeout)
+    assert_equal 32, configuration.fetch(:dns_verification_max_records)
+    assert_equal 4096, configuration.fetch(:dns_verification_max_response_bytes)
+    assert_equal 5, configuration.fetch(:dns_verification_max_cname_hops)
+    assert_equal 8, configuration.fetch(:dns_verification_max_delegations)
   end
 
   test "environment overrides public config and credentials for secrets" do
@@ -65,6 +71,7 @@ class SearchopsConfigurationTest < ActiveSupport::TestCase
       "SEARCHOPS_BILLING_HTTP_MAX_RESPONSE_BYTES" => "100",
       "SEARCHOPS_SLACK_ENABLED" => "sometimes",
       "SEARCHOPS_BROWSER_TIMEOUT" => "45",
+      "SEARCHOPS_DNS_VERIFICATION_TIMEOUT" => "11s",
       "SEARCHOPS_PROCESS_ROLE" => "root",
       "SEARCHOPS_APPLICATION_ORIGIN" => "https://user:password@example.com/path?token=secret"
     }

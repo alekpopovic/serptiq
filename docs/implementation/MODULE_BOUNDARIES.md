@@ -55,7 +55,9 @@ public APIs from all modules but does not own their business rules.
 `Verification` consumes immutable tenant/property/environment references through `Projects::Public` and
 `Properties::Public`. It owns challenges, append-only attempts, method adapters and freshness policy. The
 narrow `Properties::Public.apply_verification_summary` operation projects primary-environment state without
-exposing Verification internals to Properties.
+exposing Verification internals to Properties. Verification's DNS resolver adapter owns bounded wire-response
+normalization; maintenance jobs pass explicit tenant/challenge identifiers back through the Verification
+boundary and never expose raw DNS material to other modules.
 
 This combined catalog preserves both the foundational architecture capabilities
 and the explicit boundaries established by Prompt 002. Unrecognized module

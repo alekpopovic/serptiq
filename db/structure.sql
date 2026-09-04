@@ -957,6 +957,7 @@ CREATE TABLE public.domain_verification_attempts (
     attempted_at timestamp(6) with time zone NOT NULL,
     created_at timestamp(6) with time zone NOT NULL,
     CONSTRAINT domain_verification_attempts_evidence_shape CHECK (((jsonb_typeof(evidence) = 'object'::text) AND (octet_length((evidence)::text) <= 4096))),
+    CONSTRAINT domain_verification_attempts_failure_category_allowlist CHECK (((failure_category IS NULL) OR ((failure_category)::text = ANY ((ARRAY['proof_missing'::character varying, 'proof_mismatch'::character varying, 'provider_unavailable'::character varying, 'provider_unauthorized'::character varying, 'unsafe_destination'::character varying, 'malformed_response'::character varying, 'attempt_limit'::character varying, 'dns_nxdomain'::character varying, 'dns_no_record'::character varying, 'dns_propagating'::character varying, 'dns_timeout'::character varying, 'dns_transient_failure'::character varying, 'dns_multiple_records'::character varying, 'dns_response_limit'::character varying, 'dns_cname_limit'::character varying, 'dns_delegation_limit'::character varying])::text[])))),
     CONSTRAINT domain_verification_attempts_failure_shape CHECK (((((outcome)::text = 'verified'::text) AND (failure_category IS NULL)) OR (((outcome)::text = 'failed'::text) AND (failure_category IS NOT NULL)))),
     CONSTRAINT domain_verification_attempts_outcome CHECK (((sequence > 0) AND ((outcome)::text = ANY ((ARRAY['verified'::character varying, 'failed'::character varying])::text[]))))
 );
@@ -995,6 +996,7 @@ CREATE TABLE public.domain_verifications (
     CONSTRAINT domain_verifications_digest_format CHECK (((challenge_digest)::text ~ '^[0-9a-f]{64}$'::text)),
     CONSTRAINT domain_verifications_evidence_shape CHECK (((jsonb_typeof(evidence) = 'object'::text) AND (octet_length((evidence)::text) <= 4096))),
     CONSTRAINT domain_verifications_expiry_order CHECK ((expires_at > created_at)),
+    CONSTRAINT domain_verifications_failure_category_allowlist CHECK (((failure_category IS NULL) OR ((failure_category)::text = ANY ((ARRAY['proof_missing'::character varying, 'proof_mismatch'::character varying, 'provider_unavailable'::character varying, 'provider_unauthorized'::character varying, 'unsafe_destination'::character varying, 'malformed_response'::character varying, 'attempt_limit'::character varying, 'dns_nxdomain'::character varying, 'dns_no_record'::character varying, 'dns_propagating'::character varying, 'dns_timeout'::character varying, 'dns_transient_failure'::character varying, 'dns_multiple_records'::character varying, 'dns_response_limit'::character varying, 'dns_cname_limit'::character varying, 'dns_delegation_limit'::character varying])::text[])))),
     CONSTRAINT domain_verifications_lifecycle CHECK (((((state)::text = 'pending'::text) AND (verified_at IS NULL) AND (failed_at IS NULL) AND (expired_at IS NULL) AND (revoked_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'verified'::text) AND (verified_at IS NOT NULL) AND (failed_at IS NULL) AND (expired_at IS NULL) AND (revoked_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'failed'::text) AND (verified_at IS NULL) AND (failed_at IS NOT NULL) AND (expired_at IS NULL) AND (revoked_at IS NULL) AND (failure_category IS NOT NULL)) OR (((state)::text = 'expired'::text) AND (failed_at IS NULL) AND (expired_at IS NOT NULL) AND (revoked_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'revoked'::text) AND (failed_at IS NULL) AND (expired_at IS NULL) AND (revoked_at IS NOT NULL) AND (failure_category IS NULL)))),
     CONSTRAINT domain_verifications_method_allowlist CHECK (((method)::text = ANY ((ARRAY['dns_txt'::character varying, 'html_file'::character varying, 'meta_tag'::character varying, 'search_console'::character varying])::text[]))),
     CONSTRAINT domain_verifications_state_allowlist CHECK (((state)::text = ANY ((ARRAY['pending'::character varying, 'verified'::character varying, 'failed'::character varying, 'expired'::character varying, 'revoked'::character varying])::text[])))
@@ -4562,6 +4564,7 @@ ALTER TABLE ONLY public.website_property_configs
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904141000'),
 ('20260904140000'),
 ('20260904133000'),
 ('20260904131000'),

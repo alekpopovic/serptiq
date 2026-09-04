@@ -74,7 +74,8 @@ are established.
 are forbidden. Usage quota maintenance runs hourly at minute 57, expires at most 10,000 abandoned holds and
 checks finalized reservations against their immutable ledger events. Finished jobs are retained for 24 hours,
 which preserves recurring de-duplication during that window. The scheduler owns schedule creation and the
-default worker owns the `maintenance` executions.
+default worker owns the `maintenance` executions. DNS ownership recheck discovery runs hourly at minute 17,
+selects at most 200 due proofs, and enqueues jobs carrying only explicit organization/challenge identifiers.
 
 ## Cache and cable bounds
 

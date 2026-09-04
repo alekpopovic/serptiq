@@ -3,20 +3,33 @@
 require "test_helper"
 
 class VerificationAdapterContractTest < ActiveSupport::TestCase
-  ChallengeStub = Struct.new(:expected_location, :bound_origin, :challenge_digest, keyword_init: true)
+  ChallengeStub = Struct.new(
+    :expected_location, :bound_origin, :challenge_digest, :created_at, keyword_init: true
+  )
 
   test "DNS adapter compares TXT proof without retaining record values" do
     value = "searchops-verification=#{SecureRandom.urlsafe_base64(32, false)}"
     challenge = stub_challenge(value, location: "_searchops-verification.example.com")
     resolver = Object.new
-    resolver.define_singleton_method(:txt_records) { |name:| [ "other", (value if name.present?) ] }
+    resolver.define_singleton_method(:resolve) do |name:|
+      Verification::DnsResolution.new(
+        status: "resolved", records: [ "other", (value if name.present?) ], record_count: 2
+      )
+    end
 
     result = Verification::Adapters::DnsTxt.new(resolver: resolver).verify(
       challenge: challenge, expected_value: value
     )
 
     assert result.verified?
-    assert_equal({ "matched" => true, "record_count" => 2 }, result.evidence)
+    assert_equal({
+      "record_count" => 2,
+      "cname_hops" => 0,
+      "delegation_count" => 0,
+      "question_match" => true,
+      "multiple_records" => true,
+      "matched" => true
+    }, result.evidence)
     refute_includes result.evidence.to_json, value
   end
 
@@ -72,7 +85,8 @@ class VerificationAdapterContractTest < ActiveSupport::TestCase
     ChallengeStub.new(
       expected_location: location,
       bound_origin: "https://example.com",
-      challenge_digest: Verification::ChallengeToken.digest(value)
+      challenge_digest: Verification::ChallengeToken.digest(value),
+      created_at: 1.day.ago
     )
   end
 end

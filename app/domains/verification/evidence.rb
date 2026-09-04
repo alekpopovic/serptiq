@@ -4,6 +4,7 @@ module Verification
   module Evidence
     ALLOWED_KEYS = %w[
       matched record_count status_code byte_count final_origin_match provider_property_match
+      cname_hops delegation_count question_match multiple_records
     ].freeze
 
     module_function

@@ -741,6 +741,9 @@ for an authorized `properties.verify` reader; PostgreSQL stores no recoverable r
 Append-only attempt evidence carries the same tenant/project/property/environment identity, challenge ID,
 monotonic sequence, verified/failed outcome, bounded failure category, allowlisted evidence and attempt time.
 A composite foreign key prevents cross-tenant challenge substitution and a trigger rejects update/delete.
+DNS attempts additionally constrain failure categories to the normalized resolver outcomes. Periodic recheck
+uses the same monotonic sequence; a failed recheck remains attempt evidence and does not overwrite the last
+successful `verified_at` observation.
 
 ## 7. Integration tables
 

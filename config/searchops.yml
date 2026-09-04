@@ -56,6 +56,12 @@ shared:
   browser_memory_mb: 1024
   browser_max_requests: 200
   browser_concurrency: 2
+  dns_verification_enabled: true
+  dns_verification_timeout: 3s
+  dns_verification_max_records: 32
+  dns_verification_max_response_bytes: 4096
+  dns_verification_max_cname_hops: 5
+  dns_verification_max_delegations: 8
   search_console_enabled: false
   pagespeed_enabled: false
   crux_enabled: false
@@ -78,6 +84,7 @@ test:
   crawler_max_urls_per_scan: 25
   crawler_concurrency: 1
   browser_concurrency: 1
+  dns_verification_enabled: false
   email_delivery_method: test
   email_from: test@searchops.test
   database_connection_budget: 25

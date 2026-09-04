@@ -419,6 +419,12 @@ later retry remains possible after the interval. Verified proof has a maximum li
 render workloads require stricter freshness (seven days and 24 hours respectively). Origin mutation revokes
 current bound proof in PostgreSQL even if application callbacks are bypassed.
 
+DNS verification asks only the absolute intended TXT name, requires the response question to match, preserves
+case and whitespace when joining DNS TXT chunks, and compares only the exact challenge digest. Record count,
+relevant byte size, CNAME links and observed authority NS records are bounded; retained evidence contains only
+counts and booleans. The resolver has no process-global decision cache. Periodic rechecks reload the explicit
+tenant/challenge pair and exact current origin; a failed observation does not renew the proof's freshness.
+
 ## 7. Browser isolation profile
 
 Minimum production expectations:

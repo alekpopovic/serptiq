@@ -25,7 +25,10 @@ module Verification
       value = ChallengeToken.value_for(challenge)
       steps = case challenge.method
       when "dns_txt"
-        [ "Create a TXT record at the exact hostname below.", "Publish the exact value below, then retry." ]
+        [
+          "Create a TXT record at the exact hostname below.",
+          "Publish the exact value with unchanged case and whitespace, then retry. This challenge can be consumed only once."
+        ]
       when "html_file"
         [ "Serve a plain-text file at the exact HTTPS/HTTP location below.", "The response body must equal the exact value below." ]
       when "meta_tag"

@@ -8,7 +8,8 @@ module Verification
     STATES = %w[pending verified failed expired revoked].freeze
     FAILURE_CATEGORIES = %w[
       proof_missing proof_mismatch provider_unavailable provider_unauthorized unsafe_destination
-      malformed_response attempt_limit
+      malformed_response attempt_limit dns_nxdomain dns_no_record dns_propagating dns_timeout
+      dns_transient_failure dns_multiple_records dns_response_limit dns_cname_limit dns_delegation_limit
     ].freeze
     DIGEST_PATTERN = /\A[0-9a-f]{64}\z/
 

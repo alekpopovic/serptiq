@@ -1,0 +1,66 @@
+{
+  "prompt_id": "054",
+  "title": "Implement DNS TXT domain verification",
+  "status": "completed",
+  "started_at": "2026-09-04T21:19:20Z",
+  "finished_at": "2026-09-04T21:41:45Z",
+  "summary": "Implemented production-wired bounded DNS TXT resolution with exact question/token semantics, normalized NXDOMAIN/no-record/propagation/timeout/limit outcomes, atomic one-time challenge consumption, redacted evidence, and tenant-bound periodic freshness rechecks.",
+  "tests": [
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test test/domain/verification test/jobs/verification test/database/dns_verification_concurrency_test.rb test/requests/domain_verifications_test.rb test/jobs/solid_stack_topology_test.rb test/configuration/configuration_test.rb",
+      "outcome": "passed",
+      "notes": "54 runs, 485 assertions, 0 failures"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test test/domain/verification/dns_recheck_test.rb test/database/domain_verification_constraints_test.rb",
+      "outcome": "passed",
+      "notes": "8 runs, 39 assertions, 0 failures"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test",
+      "outcome": "passed",
+      "notes": "718 runs, 5517 assertions, 0 failures"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test:system",
+      "outcome": "passed",
+      "notes": "34 runs, 162 assertions, 0 failures"
+    },
+    {
+      "command": "mise exec -- bin/quality",
+      "outcome": "passed",
+      "notes": "14 checks; 925 Ruby files; Brakeman 0 warnings; advisory audits clean"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails db:rollback:primary STEP=1 && docker compose --profile test run --rm test ./bin/rails db:migrate:primary",
+      "outcome": "passed",
+      "notes": "rollback and reapply completed; apply 0.0084s"
+    }
+  ],
+  "files_changed": [
+    ".env.example",
+    "app/adapters/verification",
+    "app/controllers/verification/challenges_controller.rb",
+    "app/domains/verification",
+    "app/jobs/verification",
+    "app/services/verification_factory.rb",
+    "config/authorization_inventory.yml",
+    "config/recurring.yml",
+    "config/searchops.yml",
+    "config/searchops/configuration.rb",
+    "db/migrate/20260904141000_expand_dns_verification_failures.rb",
+    "db/structure.sql",
+    "docs",
+    "test"
+  ],
+  "migrations": [],
+  "decisions": [],
+  "risks": [
+    "No unresolved application risk; deterministic CI uses injected DNS fakes",
+    "while the documented live public-DNS smoke test remains an opt-in operator check."
+  ],
+  "next_steps": [
+    "Proceed to Prompt 055 after commit and push."
+  ],
+  "commit": null
+}

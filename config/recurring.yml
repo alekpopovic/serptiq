@@ -34,6 +34,11 @@ default: &default
     queue: billing
     priority: 40
     schedule: every 6 hours at minute 7
+  recheck_dns_verifications:
+    command: "Verification::DnsRecheckSweepJob.perform_later"
+    queue: maintenance
+    priority: 50
+    schedule: every hour at minute 17
 
 development:
   <<: *default

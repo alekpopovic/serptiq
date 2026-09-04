@@ -191,6 +191,12 @@ jobs:
   Usage::QuotaReservationMaintenanceJob:
     kind: system
     name: quota_reservation_maintenance
+  Verification::DnsRecheckJob:
+    kind: system
+    name: dns_verification_recheck
+  Verification::DnsRecheckSweepJob:
+    kind: system
+    name: dns_verification_recheck_sweep
 
 domain_operations:
   Auditing::Public.audit_page: { kind: permission, permission: audit_log.read }
@@ -278,6 +284,12 @@ domain_operations:
   Verification::Public.fresh_verification:
     kind: context
     reason: explicit_tenant_environment_freshness_projection_for_authorized_scan_admission
+  Verification::Public.schedule_dns_rechecks:
+    kind: system
+    reason: bounded_scheduled_dns_verification_refresh
+  Verification::Public.recheck_dns_challenge:
+    kind: system
+    reason: explicit_tenant_challenge_dns_refresh
   Billing::Public.create_subscription_reference:
     kind: context
     reason: explicit_tenant_and_published_plan_projection

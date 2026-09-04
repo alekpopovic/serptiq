@@ -47,7 +47,10 @@ module Verification
       when "verified" then "Ownership verified. This remains an observed, expiring proof of control."
       when "expired" then "The challenge expired. Issue a new challenge to continue."
       when "failed" then "Verification failed after the allowed attempts. Issue a new challenge."
-      else "Proof was not observed yet. Check the instructions before retrying."
+      else
+        failure_category = result.challenge.attempts.order(sequence: :desc).pick(:failure_category)
+        result.challenge.method == "dns_txt" ? DnsFailureMessage.for(failure_category) :
+          "Proof was not observed yet. Check the instructions before retrying."
       end
       redirect_to verification_path(challenge_id: result.challenge.id), notice: notice, status: :see_other
     end

@@ -81,6 +81,32 @@ class DomainVerificationConstraintsTest < ActiveSupport::TestCase
     assert_equal "unverified", @property.reload.verification_status
   end
 
+  test "database allows normalized DNS categories and rejects arbitrary failure labels" do
+    assert_raises(ActiveRecord::StatementInvalid) do
+      Verification::Challenge.transaction(requires_new: true) do
+        duplicate_challenge(failure_category: "resolver said token=secret")
+      end
+    end
+    assert_raises(ActiveRecord::StatementInvalid) do
+      Verification::Attempt.transaction(requires_new: true) do
+        Verification::Attempt.insert!({
+          id: SecureRandom.uuid,
+          organization_id: @challenge.organization_id,
+          project_id: @challenge.project_id,
+          property_id: @challenge.property_id,
+          environment_id: @challenge.environment_id,
+          domain_verification_id: @challenge.id,
+          sequence: 1,
+          outcome: "failed",
+          failure_category: "raw timeout from resolver.example",
+          evidence: {},
+          attempted_at: Time.current,
+          created_at: Time.current
+        })
+      end
+    end
+  end
+
   private
 
   def duplicate_challenge(overrides)

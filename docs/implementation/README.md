@@ -85,6 +85,8 @@ Do not pre-populate these reports with fictional implementation or test results.
   input policy, property environment lifecycle and the concurrent exactly-one-primary invariant.
 - [`DOMAIN_VERIFICATION.md`](./DOMAIN_VERIFICATION.md) defines origin-bound proof challenges, safe adapter
   evidence, retry/expiry lifecycle and workload-specific freshness.
+- [`DNS_TXT_VERIFICATION.md`](./DNS_TXT_VERIFICATION.md) defines bounded exact-name DNS resolution, byte-exact
+  TXT semantics, single-consumption concurrency and periodic ownership rechecks.
 - [`BILLING_PROVIDER_CONTRACT.md`](./BILLING_PROVIDER_CONTRACT.md) defines normalized billing values,
   adapter operations/errors, transport policies, canonical lifecycle and second-provider requirements.
 - [`LEMON_SQUEEZY_ADAPTER.md`](./LEMON_SQUEEZY_ADAPTER.md) defines the first production adapter's exact
