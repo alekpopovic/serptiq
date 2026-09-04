@@ -38,7 +38,9 @@ module Authorization
         permission_scope: permission_scope, all_permission_scopes: all_permission_scopes
       ).distinct.pluck("permissions.key", "role_assignments.id")
       EffectivePermissionSet.new(
-        permission_keys: rows.map(&:first), assignment_ids: rows.map(&:last)
+        permission_keys: rows.map(&:first),
+        assignment_ids: rows.map(&:last),
+        sources_by_permission: rows.group_by(&:first).transform_values { |entries| entries.map(&:last) }
       )
     end
 

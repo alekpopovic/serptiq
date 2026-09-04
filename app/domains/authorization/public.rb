@@ -35,5 +35,13 @@ module Authorization
     def accept_invitation(**attributes)
       AcceptInvitation.new.call(**attributes)
     end
+
+    def decision(request = nil, **attributes)
+      Decision.call(request, **attributes)
+    end
+
+    def policy(actor_membership:, organization:)
+      PolicyAdapter.new(actor_membership: actor_membership, organization: organization)
+    end
   end
 end

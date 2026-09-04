@@ -1,0 +1,61 @@
+{
+  "prompt_id": "031",
+  "title": "Implement the authorization decision service",
+  "status": "completed",
+  "started_at": "2026-09-04T08:49:43Z",
+  "finished_at": "2026-09-04T08:55:22Z",
+  "summary": "Implemented an immutable authorization request/resource contract, explainable fail-closed decision engine with scoped direct/team provenance, owner-only protections, immediate privilege-change visibility, bounded high-risk denial audit events, and reusable controller/view/job/domain policy adapters while keeping RBAC independent from plans, entitlements, quotas and billing.",
+  "tests": [
+    {
+      "command": "focused authorization decision suite",
+      "outcome": "passed",
+      "notes": "12 runs, 117 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "full Rails test suite",
+      "outcome": "passed",
+      "notes": "353 runs, 2919 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "Rails system suite",
+      "outcome": "passed",
+      "notes": "17 runs, 86 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "bin/quality",
+      "outcome": "passed",
+      "notes": "12 checks, 396 Ruby files, zero style offenses, zero Brakeman warnings, zero advisory findings"
+    },
+    {
+      "command": "bin/rails zeitwerk:check",
+      "outcome": "passed",
+      "notes": "application eager loaded successfully"
+    },
+    {
+      "command": "prompt_tracker validate",
+      "outcome": "passed",
+      "notes": "120 prompts; catalog and state consistent"
+    }
+  ],
+  "files_changed": [
+    "app/controllers/application_controller.rb",
+    "app/controllers/concerns/authorization/controller_policy.rb",
+    "app/domains/authorization",
+    "app/domains/shared",
+    "docs/04_RBAC_PERMISSION_MATRIX.md",
+    "docs/implementation/AUTHORIZATION_DECISIONS.md",
+    "test/domain/authorization/decision_test.rb"
+  ],
+  "migrations": [],
+  "decisions": [],
+  "risks": [
+    "No decision cache is used by design",
+    "trading several bounded indexed lookups per decision for immediate cross-process privilege visibility; prompt 115 may optimize only with revision-safe invalidation."
+  ],
+  "next_steps": [
+    "Prompt 032 applies the policy adapter across controllers",
+    "views",
+    "jobs and API/domain boundaries."
+  ],
+  "commit": null
+}

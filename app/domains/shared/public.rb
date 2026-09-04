@@ -31,5 +31,9 @@ module Shared
     def with_authorization_audit(**attributes, &block)
       Observability::Context.with_authorization_audit(**attributes, &block)
     end
+
+    def with_authorization_decision(**attributes, &block)
+      Observability::Context.with_authorization_decision(**attributes, &block)
+    end
   end
 end

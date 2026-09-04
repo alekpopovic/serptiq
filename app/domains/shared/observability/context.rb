@@ -59,6 +59,18 @@ module Shared
           set(attributes) { yield }
         end
 
+        def with_authorization_decision(organization_id:, actor_id:, scope_id:, scope_type:,
+          identifier_hasher: nil)
+          hasher = identifier_hasher || IdentifierHasher.default
+          attributes = {
+            organization_id_hash: organization_id && normalize_organization_hash(hasher.call(organization_id)),
+            actor_id_hash: actor_id && normalize_identifier_hash(hasher.call(actor_id)),
+            scope_id_hash: scope_id && normalize_identifier_hash(hasher.call(scope_id)),
+            scope_type: scope_type.to_s.downcase.presence
+          }
+          set(attributes) { yield }
+        end
+
         private
 
         def normalize_organization_hash(value)

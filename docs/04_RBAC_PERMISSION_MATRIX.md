@@ -177,6 +177,10 @@ decision.sources     # role assignments that contributed
 
 Stable denial reasons include `not_authenticated`, `membership_inactive`, `scope_mismatch`, `permission_missing`, `recent_auth_required`, and `resource_unavailable`. Entitlement and quota denials use their own services and codes.
 
+The implemented RBAC decision is deliberately uncached. A role grant/revocation, team lifecycle change, or
+membership lifecycle change is therefore visible to the next decision, including later decisions in the same
+request. Request/value objects may carry a typed resource context, but never an entitlement or quota result.
+
 ## 6. Custom-role constraints
 
 Custom roles are designed for Agency/Enterprise but can be hidden until shipped. They cannot grant permissions the creating administrator does not possess. System roles cannot be edited. A custom role cannot include ownership transfer, organization deletion, or platform-administration permissions.
