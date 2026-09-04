@@ -11,6 +11,8 @@ module Authorization
     has_many :role_permissions, class_name: "Authorization::RolePermission", inverse_of: :role,
       dependent: :restrict_with_exception
     has_many :permissions, through: :role_permissions
+    has_many :role_assignments, class_name: "Authorization::RoleAssignment", inverse_of: :role,
+      dependent: :restrict_with_exception
 
     validates :key, presence: true, length: { maximum: 64 }, format: { with: KEY_PATTERN }
     validates :name, presence: true, length: { maximum: 80 }

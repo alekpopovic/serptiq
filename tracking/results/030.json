@@ -1,0 +1,71 @@
+{
+  "prompt_id": "030",
+  "title": "Implement scoped role assignments",
+  "status": "completed",
+  "started_at": "2026-09-04T08:42:35Z",
+  "finished_at": "2026-09-04T08:48:36Z",
+  "summary": "Implemented tenant-safe membership/team role assignments at organization, project and property scopes; allow-only union/inheritance semantics; grant-subset and self-escalation checks; deterministic lifecycle filtering; atomic invitation role application; hashed audit context; indexed effective-permission resolution; and concurrent idempotent assign/revoke operations.",
+  "tests": [
+    {
+      "command": "focused authorization/invitation PostgreSQL suite",
+      "outcome": "passed",
+      "notes": "31 runs, 235 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "full Rails test suite",
+      "outcome": "passed",
+      "notes": "347 runs, 2863 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "Rails system suite",
+      "outcome": "passed",
+      "notes": "17 runs, 86 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "db:migrate:redo:primary VERSION=20260904080000",
+      "outcome": "passed",
+      "notes": "role assignment and typed scope tables fully reverted and reapplied"
+    },
+    {
+      "command": "bin/quality",
+      "outcome": "passed",
+      "notes": "12 checks, 387 Ruby files, zero style offenses, zero Brakeman warnings, zero advisory findings"
+    },
+    {
+      "command": "bin/rails zeitwerk:check",
+      "outcome": "passed",
+      "notes": "application eager loaded successfully"
+    },
+    {
+      "command": "prompt_tracker validate",
+      "outcome": "passed",
+      "notes": "120 prompts; catalog and state consistent"
+    }
+  ],
+  "files_changed": [
+    "app/controllers/tenancy/invitation_acceptances_controller.rb",
+    "app/domains/authorization",
+    "app/domains/shared",
+    "app/domains/tenancy",
+    "db/migrate/20260904080000_create_scoped_role_assignments.rb",
+    "db/schema.rb",
+    "docs/02_ARCHITECTURE.md",
+    "docs/03_ERD.md",
+    "docs/04_RBAC_PERMISSION_MATRIX.md",
+    "docs/07_SECURITY_AND_THREAT_MODEL.md",
+    "docs/10_DEPLOYMENT_AND_OPERATIONS.md",
+    "docs/implementation/SCOPED_ROLE_ASSIGNMENTS.md",
+    "test/database",
+    "test/domain/authorization",
+    "test/requests/invitation_flow_test.rb"
+  ],
+  "migrations": [],
+  "decisions": [],
+  "risks": [
+    "Project and Property aggregate lifecycle code in prompts 050/051 must keep the minimal authorization scope projection synchronized; no unresolved prompt-030 correctness issue."
+  ],
+  "next_steps": [
+    "Prompt 031 builds the complete authorization decision result and stable denial provenance on this effective-permission foundation."
+  ],
+  "commit": null
+}

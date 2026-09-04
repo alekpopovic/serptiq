@@ -27,5 +27,9 @@ module Shared
     def with_audit_principals(actor_id:, subject_id:, &block)
       Observability::Context.with_audit_principals(actor_id: actor_id, subject_id: subject_id, &block)
     end
+
+    def with_authorization_audit(**attributes, &block)
+      Observability::Context.with_authorization_audit(**attributes, &block)
+    end
   end
 end

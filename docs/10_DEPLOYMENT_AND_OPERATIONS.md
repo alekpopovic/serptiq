@@ -361,6 +361,12 @@ stored keyed digests cannot be used to recover raw addresses, sessions or
 accounts. The rate-limit migration creates only a new internal table and does
 not rewrite existing identity data.
 
+The scoped-role migration creates two new empty authorization tables, adds one small unique index to the
+role catalog, and adds validated foreign keys/checks. It does not rewrite organization, membership, team,
+role, or permission rows. On a catalog large enough for index construction to threaten the deployment
+lock budget, build `index_roles_on_id_and_system` concurrently in a pre-deploy migration before applying
+the foreign key; the current early-stage catalog contains only the eight governed system roles.
+
 ## 16. Incident response
 
 Severity example:

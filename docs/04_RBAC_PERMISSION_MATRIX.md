@@ -143,7 +143,8 @@ Legend: **✓** default grant, **—** not granted. Owners receive every custome
 ## 4. Scope rules
 
 1. `Owner`, `Organization Admin`, and `Billing Admin` are organization-scoped system roles.
-2. `SEO Lead`, `Developer`, `Content Editor`, `Analyst`, and `Viewer` may be assigned at organization or project scope.
+2. `SEO Lead`, `Developer`, `Content Editor`, `Analyst`, and `Viewer` may be assigned at organization,
+   project, or narrower property scope; property scope uses the role's project assignability.
 3. At project scope, only project-safe permissions are considered; organization-only grants are filtered even if present in a role template.
 4. A team assignment grants permissions only to active members of that team and organization.
 5. Expired or revoked assignments grant nothing.
@@ -152,6 +153,13 @@ Legend: **✓** default grant, **—** not granted. Owners receive every custome
 8. Ownership transfer is a dedicated, re-authenticated domain operation; it is not a generic role assignment.
 9. `roles.manage`, `api_keys.manage`, `webhooks.manage`, `integrations.manage`, billing actions, and deletion actions require recent authentication.
 10. UI capability hints may hide unavailable actions, but controllers/services always enforce decisions.
+11. Organization grants flow to descendant projects and properties, project grants flow to descendant
+    properties, and property grants apply only to that exact property. Grants are unioned; no scope flows upward.
+12. Suspended/removed memberships, archived teams, archived target scopes, expired assignments and revoked
+    assignments contribute no permissions. An archived parent project also disables property grants.
+13. Generic role assignment cannot grant `Owner`; ownership changes use the dedicated transfer operation.
+14. Accepted invitation role intent passes through the same assignment authority and tenant checks; membership
+    activation and the initial grant commit atomically.
 
 ## 5. Suggested policy API
 

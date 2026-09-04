@@ -94,6 +94,9 @@ Controls:
 - recent-authentication requirement for critical actions;
 - session rotation/re-evaluation after privilege changes;
 - same-organization checks for teams, memberships, roles, and scopes;
+- composite foreign keys for principal, grantor, custom-role and typed scope tenant agreement, including
+  same-organization property-to-project scope references;
+- grant-subset and self/team-self escalation rejection before assignment, plus allow-only database checks;
 - authorization negative-path tests.
 
 ### T-03 OAuth/OIDC login attacks
@@ -164,6 +167,7 @@ Controls:
   reactivate only through explicit acceptance;
 - allowlisted organization-scoped initial role intent, backend owner authorization, neutral
   issue response, HMAC-keyed rate limits, and structured audit outcomes;
+- atomic invitation acceptance plus initial role assignment through the ordinary grant-authority boundary;
 - `no-store` and `no-referrer` on entry/review/error responses and one generic unavailable page
   for invalid, expired, revoked, replayed, or wrong-email links.
 

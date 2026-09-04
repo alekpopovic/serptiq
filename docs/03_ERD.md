@@ -348,7 +348,8 @@ not create another row or churn catalog timestamps.
 
 ### `role_assignments`
 
-Polymorphic grantee constrained to membership or team; scope constrained to organization or project.
+Polymorphic grantee constrained to membership or team; scope constrained to organization, project or
+property. Property assignment is a narrower project-safe grant and never grants organization permissions.
 
 | Column | Type | Notes |
 |---|---|---|
@@ -357,13 +358,24 @@ Polymorphic grantee constrained to membership or team; scope constrained to orga
 | grantee_type | string | Membership, Team |
 | grantee_id | uuid | |
 | role_id | uuid | |
-| scope_type | string | Organization, Project |
+| scope_type | string | Organization, Project, Property |
 | scope_id | uuid | |
 | granted_by_membership_id | uuid | |
 | expires_at | timestamptz | optional |
 | revoked_at | timestamptz | |
+| revoked_by_membership_id | uuid | required when revoked |
+| effect | string | fixed to `allow`; deny assignments are rejected |
 
 Unique active assignment across grantee, role, and scope.
+
+### `authorization_scope_references`
+
+Minimal authorization projection used before and after the owning Project/Property aggregates are
+introduced. Organization references use the organization UUID; project references carry their tenant;
+property references additionally carry a same-organization project UUID. The table stores only scope
+type and active/archive lifecycle, and composite foreign keys make assignment and property-parent tenant
+agreement a database invariant. Project and Property domain operations register projection changes
+through the Authorization public boundary.
 
 ## 5. Plans, entitlements, billing, and usage
 

@@ -262,9 +262,15 @@ Authorization::Decision.call(
 Role assignment scopes:
 
 - organization;
-- project.
+- project;
+- property as a narrower project-safe scope.
 
 A team can receive a role assignment. A direct member assignment can supplement team assignments. Deny overrides are not exposed in the MVP; emergency feature denial belongs to entitlements, not RBAC.
+
+Until the Project and Property aggregates are introduced, Authorization owns a minimal scope-reference
+projection containing only opaque identifiers, tenant linkage, parent-project linkage and active/archive
+state. The owning aggregates register changes through `Authorization::Public`; the projection is not a
+second source of business metadata.
 
 Permission registry keys are stable. Renaming a display label does not change the key.
 

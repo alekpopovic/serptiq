@@ -15,5 +15,25 @@ module Authorization
     def catalog_report(path: Catalog::DEFAULT_PATH)
       CatalogReport.new(catalog: validate_catalog(path: path)).call
     end
+
+    def register_scope(**attributes)
+      ScopeRegistry.new.register(**attributes)
+    end
+
+    def effective_permissions(**attributes)
+      EffectivePermissionQuery.new.call(**attributes)
+    end
+
+    def assign_role(**attributes)
+      AssignRole.new.call(**attributes)
+    end
+
+    def revoke_role(**attributes)
+      RevokeRole.new.call(**attributes)
+    end
+
+    def accept_invitation(**attributes)
+      AcceptInvitation.new.call(**attributes)
+    end
   end
 end

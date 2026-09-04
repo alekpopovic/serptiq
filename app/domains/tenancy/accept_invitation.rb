@@ -8,6 +8,16 @@ module Tenancy
     end
 
     def call(token:, user:, rate_limit_key:)
+      perform(token: token, user: user, rate_limit_key: rate_limit_key).membership
+    end
+
+    def call_with_intent(token:, user:, rate_limit_key:, &block)
+      perform(token: token, user: user, rate_limit_key: rate_limit_key, &block)
+    end
+
+    private
+
+    def perform(token:, user:, rate_limit_key:)
       @rate_limiter.consume!(scope: "accept_ip", key: rate_limit_key)
       deny! unless InvitationToken.valid?(token) && Identity::Public.active_user?(user)
 
@@ -28,18 +38,27 @@ module Tenancy
           accepted_at: now,
           accepted_by_membership_id: membership.id
         )
-        [ :accepted, membership ]
+        [ :accepted, membership, invitation ]
       end
       deny! unless outcome.first == :accepted
 
-      membership = outcome.last
+      membership = outcome.second
+      invitation = outcome.third
+      accepted = AcceptedInvitation.new(
+        membership: membership,
+        initial_role_key: invitation.initial_role_key,
+        initial_scope_type: invitation.initial_scope_type,
+        initial_scope_id: invitation.initial_scope_id,
+        invited_by_membership_id: invitation.invited_by_membership_id
+      )
+      yield accepted if block_given?
       Audit.emit(
         "invitation.accepted",
         outcome: "succeeded",
         operation: "accept",
         subject_membership_id: membership.id
       )
-      membership
+      accepted
     rescue StandardError => error
       Audit.emit(
         "invitation.accept_rejected",
@@ -49,8 +68,6 @@ module Tenancy
       )
       raise
     end
-
-    private
 
     def activate_membership!(membership, invitation, user, now)
       if membership.nil?

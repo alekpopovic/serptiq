@@ -49,6 +49,12 @@ module Tenancy
       AcceptInvitation.new.call(token: token, user: user, rate_limit_key: rate_limit_key)
     end
 
+    def accept_invitation_with_access_intent(token:, user:, rate_limit_key:, &block)
+      AcceptInvitation.new.call_with_intent(
+        token: token, user: user, rate_limit_key: rate_limit_key, &block
+      )
+    end
+
     def revoke_invitation(actor_membership:, invitation_id:)
       ManageInvitation.new.revoke(actor_membership: actor_membership, invitation_id: invitation_id)
     end
@@ -130,6 +136,20 @@ module Tenancy
 
     def authorization_principals(organization_id:, membership_id:)
       ResolveAuthorizationPrincipals.new.call(organization_id: organization_id, membership_id: membership_id)
+    end
+
+    def authorization_organization(organization_id:)
+      ResolveAuthorizationSubject.new.organization(organization_id: organization_id)
+    end
+
+    def authorization_membership(organization_id:, membership_id:)
+      ResolveAuthorizationSubject.new.membership(
+        organization_id: organization_id, membership_id: membership_id
+      )
+    end
+
+    def authorization_team(organization_id:, team_id:)
+      ResolveAuthorizationSubject.new.team(organization_id: organization_id, team_id: team_id)
     end
 
     def team_page(actor_membership:, page: nil)

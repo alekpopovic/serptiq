@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_04_075000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_04_080000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -46,6 +46,23 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_075000) do
     t.check_constraint "permission_count > 0 AND role_count > 0", name: "authorization_catalog_revisions_positive_counts"
     t.check_constraint "schema_version > 0", name: "authorization_catalog_revisions_positive_schema"
     t.check_constraint "source_path::text = 'config_blueprints/permissions.yml'::text", name: "authorization_catalog_revisions_source_path"
+  end
+
+  create_table "authorization_scope_references", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "archived_at"
+    t.datetime "created_at", null: false
+    t.integer "lock_version", default: 0, null: false
+    t.uuid "organization_id", null: false
+    t.uuid "project_id"
+    t.string "project_scope_type", limit: 24
+    t.string "scope_type", limit: 24, null: false
+    t.string "status", limit: 24, default: "active", null: false
+    t.datetime "updated_at", null: false
+    t.index ["organization_id", "id", "scope_type"], name: "index_authorization_scopes_on_org_id_and_type", unique: true
+    t.index ["organization_id", "project_id"], name: "index_authorization_scopes_on_org_and_project"
+    t.check_constraint "scope_type::text = 'Organization'::text AND id = organization_id AND project_id IS NULL AND project_scope_type IS NULL OR scope_type::text = 'Project'::text AND id <> organization_id AND project_id IS NULL AND project_scope_type IS NULL OR scope_type::text = 'Property'::text AND id <> organization_id AND project_id IS NOT NULL AND project_scope_type::text = 'Project'::text AND id <> project_id", name: "authorization_scopes_shape"
+    t.check_constraint "scope_type::text = ANY (ARRAY['Organization'::character varying, 'Project'::character varying, 'Property'::character varying]::text[])", name: "authorization_scopes_type_allowlist"
+    t.check_constraint "status::text = 'active'::text AND archived_at IS NULL OR status::text = 'archived'::text AND archived_at IS NOT NULL", name: "authorization_scopes_lifecycle"
   end
 
   create_table "identities", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -247,6 +264,37 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_075000) do
     t.check_constraint "scope::text = ANY (ARRAY['organization'::character varying, 'project'::character varying]::text[])", name: "permissions_scope_allowlist"
   end
 
+  create_table "role_assignments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.string "effect", limit: 16, default: "allow", null: false
+    t.datetime "expires_at"
+    t.uuid "granted_by_membership_id", null: false
+    t.uuid "grantee_id", null: false
+    t.string "grantee_type", limit: 24, null: false
+    t.uuid "membership_grantee_id"
+    t.uuid "organization_id", null: false
+    t.datetime "revoked_at"
+    t.uuid "revoked_by_membership_id"
+    t.uuid "role_id", null: false
+    t.uuid "role_organization_id"
+    t.boolean "role_system", null: false
+    t.uuid "scope_id", null: false
+    t.string "scope_type", limit: 24, null: false
+    t.uuid "team_grantee_id"
+    t.datetime "updated_at", null: false
+    t.index ["organization_id", "grantee_type", "grantee_id", "revoked_at", "expires_at"], name: "index_role_assignments_on_effective_principal"
+    t.index ["organization_id", "grantee_type", "grantee_id", "role_id", "scope_type", "scope_id"], name: "index_role_assignments_on_active_grant", unique: true, where: "(revoked_at IS NULL)"
+    t.index ["organization_id", "scope_type", "scope_id", "revoked_at", "expires_at"], name: "index_role_assignments_on_effective_scope"
+    t.index ["role_id"], name: "index_role_assignments_on_role_id"
+    t.check_constraint "effect::text = 'allow'::text", name: "role_assignments_allow_only"
+    t.check_constraint "expires_at IS NULL OR expires_at > created_at", name: "role_assignments_expiry_after_creation"
+    t.check_constraint "grantee_type::text = 'Membership'::text AND membership_grantee_id = grantee_id AND team_grantee_id IS NULL OR grantee_type::text = 'Team'::text AND team_grantee_id = grantee_id AND membership_grantee_id IS NULL", name: "role_assignments_grantee_shape"
+    t.check_constraint "revoked_at IS NULL AND revoked_by_membership_id IS NULL OR revoked_at IS NOT NULL AND revoked_by_membership_id IS NOT NULL", name: "role_assignments_revocation_consistency"
+    t.check_constraint "revoked_at IS NULL OR revoked_at >= created_at", name: "role_assignments_revocation_after_creation"
+    t.check_constraint "role_system = true AND role_organization_id IS NULL OR role_system = false AND role_organization_id = organization_id", name: "role_assignments_role_tenant"
+    t.check_constraint "scope_type::text = ANY (ARRAY['Organization'::character varying, 'Project'::character varying, 'Property'::character varying]::text[])", name: "role_assignments_scope_type_allowlist"
+  end
+
   create_table "role_permissions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.uuid "permission_id", null: false
@@ -268,6 +316,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_075000) do
     t.uuid "organization_id"
     t.boolean "system", default: false, null: false
     t.datetime "updated_at", null: false
+    t.index ["id", "system"], name: "index_roles_on_id_and_system", unique: true
     t.index ["key"], name: "index_roles_on_system_key", unique: true, where: "(system = true)"
     t.index ["organization_id", "id"], name: "index_roles_on_organization_and_id", unique: true
     t.index ["organization_id", "key"], name: "index_roles_on_organization_and_key", unique: true, where: "(system = false)"
@@ -359,6 +408,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_075000) do
     t.check_constraint "primary_email IS NULL OR char_length(primary_email::text) >= 3 AND char_length(primary_email::text) <= 320 AND primary_email::text = lower(primary_email::text)", name: "users_normalized_email"
   end
 
+  add_foreign_key "authorization_scope_references", "authorization_scope_references", column: ["organization_id", "project_id", "project_scope_type"], primary_key: ["organization_id", "id", "scope_type"], name: "fk_authorization_property_scope_same_org_project", on_delete: :restrict
+  add_foreign_key "authorization_scope_references", "organizations", on_delete: :restrict
   add_foreign_key "identities", "users", on_delete: :restrict
   add_foreign_key "invitations", "memberships", column: ["organization_id", "accepted_by_membership_id"], primary_key: ["organization_id", "id"], name: "fk_invitations_same_org_acceptor", on_delete: :restrict
   add_foreign_key "invitations", "memberships", column: ["organization_id", "invited_by_membership_id"], primary_key: ["organization_id", "id"], name: "fk_invitations_same_org_inviter", on_delete: :restrict
@@ -370,6 +421,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_075000) do
   add_foreign_key "organization_ownerships", "organizations", on_delete: :restrict
   add_foreign_key "organization_slug_aliases", "organizations", on_delete: :restrict
   add_foreign_key "organizations", "organization_ownerships", column: "current_ownership_id", on_delete: :restrict, deferrable: :deferred
+  add_foreign_key "role_assignments", "authorization_scope_references", column: ["organization_id", "scope_id", "scope_type"], primary_key: ["organization_id", "id", "scope_type"], name: "fk_role_assignments_same_org_scope", on_delete: :restrict
+  add_foreign_key "role_assignments", "memberships", column: ["organization_id", "granted_by_membership_id"], primary_key: ["organization_id", "id"], name: "fk_role_assignments_same_org_grantor", on_delete: :restrict
+  add_foreign_key "role_assignments", "memberships", column: ["organization_id", "membership_grantee_id"], primary_key: ["organization_id", "id"], name: "fk_role_assignments_same_org_membership", on_delete: :restrict
+  add_foreign_key "role_assignments", "memberships", column: ["organization_id", "revoked_by_membership_id"], primary_key: ["organization_id", "id"], name: "fk_role_assignments_same_org_revoker", on_delete: :restrict
+  add_foreign_key "role_assignments", "organizations", on_delete: :restrict
+  add_foreign_key "role_assignments", "roles", column: ["role_id", "role_system"], primary_key: ["id", "system"], name: "fk_role_assignments_role_kind", on_delete: :restrict
+  add_foreign_key "role_assignments", "roles", column: ["role_organization_id", "role_id"], primary_key: ["organization_id", "id"], name: "fk_role_assignments_same_org_custom_role", on_delete: :restrict
+  add_foreign_key "role_assignments", "teams", column: ["organization_id", "team_grantee_id"], primary_key: ["organization_id", "id"], name: "fk_role_assignments_same_org_team", on_delete: :restrict
   add_foreign_key "role_permissions", "permissions", on_delete: :restrict
   add_foreign_key "role_permissions", "roles", on_delete: :restrict
   add_foreign_key "roles", "organizations", on_delete: :restrict

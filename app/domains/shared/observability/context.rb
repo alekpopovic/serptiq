@@ -8,7 +8,7 @@ module Shared
       HASH_PATTERN = /\A[0-9a-f]{24}\z/
       FIELDS = %i[
         request_id trace_id job_id release environment organization_id_hash project_id scan_id
-        actor_id_hash subject_id_hash
+        actor_id_hash subject_id_hash role_id_hash scope_id_hash principal_type scope_type
       ].freeze
 
       attribute(*FIELDS)
@@ -40,6 +40,21 @@ module Shared
           attributes = {
             actor_id_hash: actor_id && normalize_identifier_hash(hasher.call(actor_id)),
             subject_id_hash: subject_id && normalize_identifier_hash(hasher.call(subject_id))
+          }
+          set(attributes) { yield }
+        end
+
+        def with_authorization_audit(organization_id:, actor_id:, principal_id:, role_id:, scope_id:,
+          principal_type:, scope_type:, identifier_hasher: nil)
+          hasher = identifier_hasher || IdentifierHasher.default
+          attributes = {
+            organization_id_hash: normalize_organization_hash(hasher.call(organization_id)),
+            actor_id_hash: normalize_identifier_hash(hasher.call(actor_id)),
+            subject_id_hash: normalize_identifier_hash(hasher.call(principal_id)),
+            role_id_hash: normalize_identifier_hash(hasher.call(role_id)),
+            scope_id_hash: normalize_identifier_hash(hasher.call(scope_id)),
+            principal_type: principal_type.to_s.downcase,
+            scope_type: scope_type.to_s.downcase
           }
           set(attributes) { yield }
         end

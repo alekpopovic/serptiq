@@ -6,14 +6,16 @@ module Tenancy
 
     layout "authenticated"
     before_action :set_sensitive_headers
-    rescue_from InvitationAccessDenied, RemovedMembershipReactivationDenied, with: :render_unavailable
+    rescue_from InvitationAccessDenied, RemovedMembershipReactivationDenied,
+      Authorization::AssignmentDenied, ActiveRecord::RecordNotFound,
+      with: :render_unavailable
 
     def show
       @invitation = Public.review_invitation(token: invitation_cookie.read, user: Current.user)
     end
 
     def create
-      membership = Public.accept_invitation(
+      membership = Authorization::Public.accept_invitation(
         token: invitation_cookie.read,
         user: Current.user,
         rate_limit_key: request.remote_ip
