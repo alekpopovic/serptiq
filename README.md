@@ -26,6 +26,33 @@ The exact patch versions are a dated baseline from 2026-09-04. Prompt 001 requir
 
 Read [`CODEX_START_HERE.md`](./CODEX_START_HERE.md), then run the tracker validation and execute prompt `000`.
 
+## Application development setup
+
+The application baseline is Ruby 3.4.10, Bundler 4.0.14, Rails 8.1.3.1, Node.js 24.20.0, and PostgreSQL. Install the pinned runtimes with your version manager, provide a local PostgreSQL connection through `DATABASE_URL` when the defaults do not apply, then run:
+
+```bash
+bundle _4.0.14_ install
+bin/rails db:prepare
+bin/dev
+```
+
+Copy `.env.example` only as a list of supported variable names; provide real values through an ignored local file or a secret manager and never commit them.
+
+The initial Rails scaffold was generated outside the repository and merged without overwriting the blueprint:
+
+```bash
+mise exec ruby@3.4.10 -- rails _8.1.3.1_ new \
+  /tmp/searchops-rails-001.P9eESQ \
+  --name searchops \
+  --database=postgresql \
+  --css=tailwind \
+  --javascript=importmap \
+  --skip-git \
+  --skip-bundle
+```
+
+Ruby 3.4.10 and Rails 8.1.3.1 were selected after checking the official release indexes and Rails compatibility guidance on 2026-09-04. Later prompts refine database topology, CI, security tooling, and operational configuration.
+
 ## Package map
 
 ```text

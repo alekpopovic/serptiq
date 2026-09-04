@@ -6,7 +6,7 @@ Checked on **2026-09-04** unless an item states otherwise. These sources provide
 
 - Ruby release index: <https://www.ruby-lang.org/en/downloads/releases/>
 - Rails 8.1 release notes: <https://guides.rubyonrails.org/8_1_release_notes.html>
-- Rails 8.1.3.1 security release: <https://rubyonrails.org/2026/7/29/Rails-Versions-8-1-3-1-8-0-3-1-and-7-2-3-1-have-been-released>
+- Rails 8.1.3.1 security release: <https://rubyonrails.org/2026/7/29/Rails-Versions-7-2-3-2-8-0-5-1-and-8-1-3-1-have-been-released>
 - Rails security guide: <https://guides.rubyonrails.org/security.html>
 - Active Record Encryption: <https://guides.rubyonrails.org/active_record_encryption.html>
 - Active Job basics: <https://guides.rubyonrails.org/active_job_basics.html>
