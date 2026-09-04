@@ -410,8 +410,40 @@ Stable commercial family: free, starter, growth, agency, enterprise.
 | retired_at | timestamptz | |
 
 Unique `(plan_id, version)`. Non-draft versions are immutable at both the model and PostgreSQL trigger
-boundaries. Provider price/variant identifiers belong to environment-scoped Billing mappings, not this
+boundaries. A stable plan is never deleted, a non-draft version is never deleted, and an audited draft cannot
+be deleted. Provider price/variant identifiers belong to environment-scoped Billing mappings, not this
 provider-neutral Plans record.
+
+### `plan_version_snapshot_references`
+
+Append-only deletion-protection registry used until and after owning invoice/report aggregates exist.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid | PK |
+| plan_version_id | uuid | restrictive FK to immutable plan version |
+| reference_type | string | InvoiceSnapshot, ReportSnapshot |
+| reference_id | uuid | owning immutable snapshot ID |
+| created_at | timestamptz | registration time |
+
+Unique `(reference_type, reference_id, plan_version_id)`. The restrictive FK prevents removal of commercial
+history referenced by an invoice or report snapshot.
+
+### `billing_plan_provider_mappings`
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid | PK |
+| plan_version_id | uuid | restrictive FK to provider-neutral plan version |
+| provider | string | Billing adapter key |
+| environment | string | development, test, staging, production |
+| currency | string | exact snapshot currency |
+| billing_interval | string | monthly, annual |
+| provider_variant_id | string | opaque provider mapping value |
+| active | boolean | only active mappings are eligible |
+
+Active mappings are unique per version/provider/environment/currency/interval, and provider variant IDs are
+unique per provider/environment. Provider identifiers never become plan identity.
 
 ### `entitlement_definitions`
 

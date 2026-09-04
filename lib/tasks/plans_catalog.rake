@@ -16,5 +16,17 @@ namespace :plans do
       puts "Plan catalog #{mode}: #{result.change_count} change(s), checksum #{result.checksum}"
       result.changes.each { |change| puts "- #{change}" }
     end
+
+    desc "Compare governed YAML, database versions and active provider mapping metadata"
+    task consistency: :environment do
+      result = Administration::Public.plan_catalog_consistency
+      if result.consistent?
+        puts "Plan catalog consistency: passed"
+      else
+        warn "Plan catalog consistency: #{result.issues.length} issue(s)"
+        result.issues.each { |issue| warn "- #{issue}" }
+        abort "Plan catalog consistency failed"
+      end
+    end
   end
 end

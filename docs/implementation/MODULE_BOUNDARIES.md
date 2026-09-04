@@ -102,7 +102,9 @@ behavior.
 Billing owns subscription persistence and obtains immutable commercial snapshots only through
 `Plans::Public`. Plans owns the provider-neutral catalog and must not depend on Billing or store provider
 price/variant identifiers. Platform catalog grants are distinct from organization RBAC: an organization owner
-does not gain authority to publish global pricing.
+does not gain authority to publish global pricing. `Administration` composes the Plans catalog diff with
+Billing subscriber counts and mapping summaries for review, consistency checks and subscriber-aware
+retirement; neither domain reads the other's tables directly.
 
 ## Shared primitives
 

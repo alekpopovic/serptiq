@@ -47,6 +47,7 @@ CREATE FUNCTION public.enforce_plan_version_immutability() RETURNS trigger
     AS $$
 BEGIN
   IF TG_OP = 'DELETE' THEN
+    IF EXISTS ( SELECT 1 FROM audit_events WHERE target_type = 'PlanVersion' AND target_id = OLD.id ) THEN RAISE EXCEPTION 'audited plan versions cannot be deleted' USING ERRCODE = '23514'; END IF;
     IF OLD.status <> 'draft' THEN
       RAISE EXCEPTION 'non-draft plan versions cannot be deleted' USING ERRCODE = '23514';
     END IF;
@@ -71,10 +72,24 @@ BEGIN
   END IF;
 
   IF (OLD.status = 'published' AND NEW.status NOT IN ('published', 'retired', 'grandfathered')) OR
-     (OLD.status IN ('retired', 'grandfathered') AND NEW.status <> OLD.status) THEN
+     (OLD.status = 'grandfathered' AND NEW.status NOT IN ('grandfathered', 'retired')) OR
+     (OLD.status = 'retired' AND NEW.status <> OLD.status) THEN
     RAISE EXCEPTION 'invalid plan version lifecycle transition' USING ERRCODE = '23514';
   END IF;
   RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: prevent_plan_deletion(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.prevent_plan_deletion() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  RAISE EXCEPTION 'stable commercial plans cannot be deleted' USING ERRCODE = '23514';
 END;
 $$;
 
@@ -204,6 +219,29 @@ CREATE TABLE public.authorization_scope_references (
     CONSTRAINT authorization_scopes_lifecycle CHECK (((((status)::text = 'active'::text) AND (archived_at IS NULL)) OR (((status)::text = 'archived'::text) AND (archived_at IS NOT NULL)))),
     CONSTRAINT authorization_scopes_shape CHECK (((((scope_type)::text = 'Organization'::text) AND (id = organization_id) AND (project_id IS NULL) AND (project_scope_type IS NULL)) OR (((scope_type)::text = 'Project'::text) AND (id <> organization_id) AND (project_id IS NULL) AND (project_scope_type IS NULL)) OR (((scope_type)::text = 'Property'::text) AND (id <> organization_id) AND (project_id IS NOT NULL) AND ((project_scope_type)::text = 'Project'::text) AND (id <> project_id)))),
     CONSTRAINT authorization_scopes_type_allowlist CHECK (((scope_type)::text = ANY (ARRAY[('Organization'::character varying)::text, ('Project'::character varying)::text, ('Property'::character varying)::text])))
+);
+
+
+--
+-- Name: billing_plan_provider_mappings; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.billing_plan_provider_mappings (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    plan_version_id uuid NOT NULL,
+    provider character varying(32) NOT NULL,
+    environment character varying(16) NOT NULL,
+    currency character varying(3) NOT NULL,
+    billing_interval character varying(16) NOT NULL,
+    provider_variant_id character varying(128) NOT NULL,
+    active boolean DEFAULT true NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT billing_plan_mappings_currency_format CHECK (((currency)::text ~ '^[A-Z]{3}$'::text)),
+    CONSTRAINT billing_plan_mappings_environment_allowlist CHECK (((environment)::text = ANY ((ARRAY['development'::character varying, 'test'::character varying, 'staging'::character varying, 'production'::character varying])::text[]))),
+    CONSTRAINT billing_plan_mappings_interval_allowlist CHECK (((billing_interval)::text = ANY ((ARRAY['monthly'::character varying, 'annual'::character varying])::text[]))),
+    CONSTRAINT billing_plan_mappings_provider_format CHECK (((provider)::text ~ '^[a-z][a-z0-9_]{1,31}$'::text)),
+    CONSTRAINT billing_plan_mappings_variant_format CHECK (((provider_variant_id)::text ~ '^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$'::text))
 );
 
 
@@ -446,6 +484,20 @@ CREATE TABLE public.plan_catalog_access_grants (
     updated_at timestamp(6) with time zone NOT NULL,
     CONSTRAINT plan_catalog_grants_permission_allowlist CHECK (((permission)::text = ANY ((ARRAY['plan_catalog.read'::character varying, 'plan_catalog.publish'::character varying])::text[]))),
     CONSTRAINT plan_catalog_grants_revocation_order CHECK (((revoked_at IS NULL) OR (revoked_at >= granted_at)))
+);
+
+
+--
+-- Name: plan_version_snapshot_references; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.plan_version_snapshot_references (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    plan_version_id uuid NOT NULL,
+    reference_type character varying(32) NOT NULL,
+    reference_id uuid NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT plan_version_snapshot_references_type_allowlist CHECK (((reference_type)::text = ANY ((ARRAY['InvoiceSnapshot'::character varying, 'ReportSnapshot'::character varying])::text[])))
 );
 
 
@@ -740,6 +792,14 @@ ALTER TABLE ONLY public.authorization_scope_references
 
 
 --
+-- Name: billing_plan_provider_mappings billing_plan_provider_mappings_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_plan_provider_mappings
+    ADD CONSTRAINT billing_plan_provider_mappings_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: identities identities_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -809,6 +869,14 @@ ALTER TABLE ONLY public.permissions
 
 ALTER TABLE ONLY public.plan_catalog_access_grants
     ADD CONSTRAINT plan_catalog_access_grants_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: plan_version_snapshot_references plan_version_snapshot_references_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.plan_version_snapshot_references
+    ADD CONSTRAINT plan_version_snapshot_references_pkey PRIMARY KEY (id);
 
 
 --
@@ -974,6 +1042,20 @@ CREATE INDEX index_authorization_scopes_on_org_and_project ON public.authorizati
 --
 
 CREATE UNIQUE INDEX index_authorization_scopes_on_org_id_and_type ON public.authorization_scope_references USING btree (organization_id, id, scope_type);
+
+
+--
+-- Name: index_billing_plan_mappings_on_active_target; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_billing_plan_mappings_on_active_target ON public.billing_plan_provider_mappings USING btree (plan_version_id, provider, environment, currency, billing_interval) WHERE (active = true);
+
+
+--
+-- Name: index_billing_plan_mappings_on_provider_variant; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_billing_plan_mappings_on_provider_variant ON public.billing_plan_provider_mappings USING btree (provider, environment, provider_variant_id);
 
 
 --
@@ -1222,6 +1304,13 @@ CREATE UNIQUE INDEX index_plan_catalog_grants_on_active_permission ON public.pla
 
 
 --
+-- Name: index_plan_version_snapshot_references_on_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_plan_version_snapshot_references_on_identity ON public.plan_version_snapshot_references USING btree (reference_type, reference_id, plan_version_id);
+
+
+--
 -- Name: index_plan_versions_on_catalog_checksum; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1460,6 +1549,13 @@ CREATE TRIGGER plan_versions_immutable_snapshot BEFORE DELETE OR UPDATE ON publi
 
 
 --
+-- Name: plans plans_prevent_deletion; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER plans_prevent_deletion BEFORE DELETE ON public.plans FOR EACH ROW EXECUTE FUNCTION public.prevent_plan_deletion();
+
+
+--
 -- Name: audit_events fk_audit_events_same_org_actor; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1513,6 +1609,14 @@ ALTER TABLE ONLY public.organizations
 
 ALTER TABLE ONLY public.organization_ownerships
     ADD CONSTRAINT fk_ownerships_same_organization_membership FOREIGN KEY (organization_id, membership_id) REFERENCES public.memberships(organization_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: billing_plan_provider_mappings fk_rails_0b34a5e891; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_plan_provider_mappings
+    ADD CONSTRAINT fk_rails_0b34a5e891 FOREIGN KEY (plan_version_id) REFERENCES public.plan_versions(id) ON DELETE RESTRICT;
 
 
 --
@@ -1633,6 +1737,14 @@ ALTER TABLE ONLY public.sessions
 
 ALTER TABLE ONLY public.memberships
     ADD CONSTRAINT fk_rails_99326fb65d FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: plan_version_snapshot_references fk_rails_9d09607450; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.plan_version_snapshot_references
+    ADD CONSTRAINT fk_rails_9d09607450 FOREIGN KEY (plan_version_id) REFERENCES public.plan_versions(id) ON DELETE RESTRICT;
 
 
 --
@@ -1786,6 +1898,7 @@ ALTER TABLE ONLY public.team_memberships
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904088000'),
 ('20260904086000'),
 ('20260904084000'),
 ('20260904082000'),

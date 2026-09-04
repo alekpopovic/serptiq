@@ -12,6 +12,10 @@ module Plans
       CatalogSync.new(catalog: validate_catalog(path: path)).call(dry_run: dry_run)
     end
 
+    def compare_catalog(path: Catalog::DEFAULT_PATH)
+      CatalogComparison.new(catalog: validate_catalog(path: path)).call
+    end
+
     def authorize_catalog!(user:, permission:)
       CatalogAdminPolicy.new.authorize!(user: user, permission: permission)
     end
@@ -24,12 +28,28 @@ module Plans
       CatalogQuery.new.call
     end
 
-    def version_snapshot(id:)
-      VersionLookup.new.call(id: id)
+    def version_snapshot(id:, lock: false)
+      VersionLookup.new.call(id: id, lock: lock)
     end
 
-    def publish_version(**attributes)
-      PublishPlanVersion.new.call(**attributes)
+    def catalog_version(plan_key:, version:, lock: false)
+      CatalogVersionLookup.new.call(plan_key: plan_key, version: version, lock: lock)
+    end
+
+    def purchasable_version(**attributes)
+      CurrentVersionSelector.new.call(**attributes)
+    end
+
+    def plan_change_target(**attributes)
+      ChangeTargetSelector.new.call(**attributes)
+    end
+
+    def register_snapshot_reference(**attributes)
+      RegisterSnapshotReference.new.call(**attributes)
+    end
+
+    def publish_version(path: Catalog::DEFAULT_PATH, **attributes)
+      PublishPlanVersion.new(catalog: validate_catalog(path: path)).call(**attributes)
     end
 
     def retire_version(**attributes)

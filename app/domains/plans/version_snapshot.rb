@@ -5,6 +5,20 @@ module Plans
     :id, :plan_key, :version, :status, :display_name, :currency, :pricing_kind,
     :monthly_price_cents, :annual_price_cents
   ) do
+    def self.from_record(version)
+      new(
+        id: version.id,
+        plan_key: version.plan.key,
+        version: version.version,
+        status: version.status,
+        display_name: version.display_name,
+        currency: version.currency,
+        pricing_kind: version.pricing_kind,
+        monthly_price_cents: version.monthly_price_cents,
+        annual_price_cents: version.annual_price_cents
+      )
+    end
+
     def initialize(**attributes)
       super(**attributes)
       freeze

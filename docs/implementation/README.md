@@ -57,5 +57,7 @@ Do not pre-populate these reports with fictional implementation or test results.
   states, last-owner protection, immediate session invalidation and safe attribution.
 - [`TEAMS.md`](./TEAMS.md) defines organization-consistent team membership,
   archive semantics and the future authorization-principal resolver contract.
+- [`PLAN_CATALOG.md`](./PLAN_CATALOG.md) defines governed catalog synchronization,
+  publication scheduling, checkout selection, grandfathering and deletion safety.
 - [`../../tracking/README.md`](../../tracking/README.md) defines prompt evidence,
   recovery and state integrity.

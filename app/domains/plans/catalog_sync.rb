@@ -27,6 +27,7 @@ module Plans
         changes << "reorder plan #{definition.key}" if plan && plan.display_order != definition.display_order
         version = plan && PlanVersion.find_by(plan_id: plan.id, version: definition.version)
         if version.nil?
+          validate_version_sequence!(plan, definition)
           changes << "add #{definition.key} v#{definition.version}"
         elsif version_mismatch?(version, definition)
           raise PublishedVersionImmutable unless version.status == "draft"
@@ -68,6 +69,7 @@ module Plans
       version = PlanVersion.find_by(plan_id: plan.id, version: definition.version)
       attributes = definition.version_attributes(plan_id: plan.id)
       if version.nil?
+        validate_version_sequence!(plan, definition)
         PlanVersion.create!(attributes.merge(status: "draft"))
         changes << "add #{definition.key} v#{definition.version}"
       elsif version_mismatch?(version, definition)
@@ -81,6 +83,17 @@ module Plans
     def version_mismatch?(version, definition)
       expected = definition.version_attributes(plan_id: version.plan_id).stringify_keys
       version.attributes.slice(*expected.keys) != expected
+    end
+
+    def validate_version_sequence!(plan, definition)
+      previous = if plan
+        PlanVersion.where(plan_id: plan.id).where.not(status: "draft").maximum(:version) || 0
+      else
+        0
+      end
+      return if definition.version == previous + 1
+
+      raise CatalogVersionBumpInvalid
     end
   end
 end

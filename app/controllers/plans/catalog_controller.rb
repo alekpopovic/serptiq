@@ -11,6 +11,7 @@ module Plans
       Public.authorize_catalog!(user: Current.user, permission: "plan_catalog.read")
       @publish_decision = Public.catalog_decision(user: Current.user, permission: "plan_catalog.publish")
       @entries = Public.catalog_entries
+      @catalog_review = Administration::Public.plan_catalog_review
     end
 
     def publish
@@ -18,7 +19,9 @@ module Plans
       Public.publish_version(
         plan_key: params[:plan_key],
         version: params[:version],
-        effective_at: nil,
+        expected_previous_version: params[:expected_previous_version],
+        catalog_checksum: params[:catalog_checksum],
+        effective_at: params[:effective_at],
         confirmation: params[:confirmation],
         authorization: authorization
       )
@@ -27,7 +30,7 @@ module Plans
 
     def retire
       authorization = publish_authorization!
-      Public.retire_version(
+      Administration::Public.retire_plan_version(
         plan_key: params[:plan_key],
         version: params[:version],
         confirmation: params[:confirmation],

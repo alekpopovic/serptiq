@@ -133,11 +133,22 @@ domain_operations:
   Billing::Public.create_subscription_reference:
     kind: context
     reason: explicit_tenant_and_published_plan_projection
+  Billing::Public.active_subscriber_counts: { kind: context, reason: platform_catalog_review_projection }
+  Billing::Public.active_subscriber_count: { kind: context, reason: locked_catalog_retirement_projection }
+  Billing::Public.plan_provider_mappings: { kind: system, reason: provider_mapping_consistency_projection }
+  Administration::Public.plan_catalog_review: { kind: context, reason: called_after_platform_catalog_authorization }
+  Administration::Public.retire_plan_version: { kind: context, reason: requires_platform_catalog_decision }
+  Administration::Public.plan_catalog_consistency: { kind: system, reason: operator_catalog_diagnostic }
   Plans::Public.validate_catalog: { kind: system, reason: governed_catalog_validation }
   Plans::Public.sync_catalog: { kind: system, reason: operator_catalog_synchronization }
+  Plans::Public.compare_catalog: { kind: system, reason: governed_catalog_diff }
   Plans::Public.authorize_catalog!: { kind: context, reason: platform_catalog_grant_validation }
   Plans::Public.catalog_decision: { kind: context, reason: platform_catalog_grant_hint }
   Plans::Public.catalog_entries: { kind: context, reason: called_after_platform_catalog_authorization }
   Plans::Public.version_snapshot: { kind: context, reason: internal_immutable_catalog_projection }
+  Plans::Public.catalog_version: { kind: context, reason: locked_catalog_orchestration_projection }
+  Plans::Public.purchasable_version: { kind: context, reason: current_catalog_selection }
+  Plans::Public.plan_change_target: { kind: context, reason: current_catalog_target_selection }
+  Plans::Public.register_snapshot_reference: { kind: context, reason: immutable_invoice_or_report_snapshot_link }
   Plans::Public.publish_version: { kind: context, reason: requires_platform_catalog_decision }
   Plans::Public.retire_version: { kind: context, reason: requires_platform_catalog_decision }

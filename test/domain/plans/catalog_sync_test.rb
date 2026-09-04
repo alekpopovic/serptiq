@@ -49,6 +49,23 @@ class PlansCatalogSyncTest < ActiveSupport::TestCase
     assert_equal "Starter Preview", version.reload.display_name
   end
 
+  test "new source revisions cannot skip the next explicit version" do
+    Plans::Public.sync_catalog
+    version = Plans::PlanVersion.joins(:plan).find_by!(plans: { key: "starter" }, version: 1)
+    publish(version)
+    skipped_catalog = catalog_with do |document|
+      document.fetch("plans").find { |row| row.fetch("key") == "starter" }["version"] = 3
+    end
+
+    assert_raises(Plans::CatalogVersionBumpInvalid) do
+      Plans::Public.sync_catalog(path: skipped_catalog, dry_run: true)
+    end
+    assert_raises(Plans::CatalogVersionBumpInvalid) do
+      Plans::Public.sync_catalog(path: skipped_catalog)
+    end
+    refute Plans::PlanVersion.joins(:plan).exists?(plans: { key: "starter" }, version: 3)
+  end
+
   private
 
   def publish(record)

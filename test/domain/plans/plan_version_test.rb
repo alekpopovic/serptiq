@@ -19,11 +19,10 @@ class PlansPlanVersionTest < ActiveSupport::TestCase
   end
 
   test "controlled publish and retire transitions are audited" do
-    published = Plans::Public.publish_version(
+    published = publish_catalog_version(
       plan_key: "growth",
       version: 1,
       effective_at: Time.current,
-      confirmation: "PUBLISH growth VERSION 1",
       authorization: @authorization
     )
     assert_equal "published", published.status
@@ -38,7 +37,8 @@ class PlansPlanVersionTest < ActiveSupport::TestCase
       plan_key: "growth",
       version: 1,
       confirmation: "RETIRE growth VERSION 1",
-      authorization: @authorization
+      authorization: @authorization,
+      active_subscriber_count: 0
     )
     assert_equal "retired", retired.status
     assert Auditing::AuditEvent.exists?(
@@ -54,6 +54,8 @@ class PlansPlanVersionTest < ActiveSupport::TestCase
       Plans::Public.publish_version(
         plan_key: "growth",
         version: 1,
+        expected_previous_version: 0,
+        catalog_checksum: Plans::Catalog.load.definitions.find { |definition| definition.key == "growth" }.checksum,
         effective_at: Time.current,
         confirmation: "publish it",
         authorization: @authorization
@@ -80,11 +82,10 @@ class PlansPlanVersionTest < ActiveSupport::TestCase
     decision = Plans::Public.authorize_catalog!(user: reader, permission: "plan_catalog.read")
 
     assert_raises(Plans::CatalogAccessDenied) do
-      Plans::Public.publish_version(
+      publish_catalog_version(
         plan_key: "growth",
         version: 1,
         effective_at: Time.current,
-        confirmation: "PUBLISH growth VERSION 1",
         authorization: decision
       )
     end
@@ -92,11 +93,10 @@ class PlansPlanVersionTest < ActiveSupport::TestCase
   end
 
   test "model and PostgreSQL trigger reject mutation or deletion after publish" do
-    Plans::Public.publish_version(
+    publish_catalog_version(
       plan_key: "growth",
       version: 1,
       effective_at: Time.current,
-      confirmation: "PUBLISH growth VERSION 1",
       authorization: @authorization
     )
 

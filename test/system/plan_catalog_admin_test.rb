@@ -18,7 +18,7 @@ class PlanCatalogAdminSystemTest < ApplicationSystemTestCase
     assert_text "Plan catalog"
     assert_text "Enterprise"
     within find("tr", text: "growth") do
-      fill_in "publish_confirmation_growth_1", with: "PUBLISH growth VERSION 1"
+      fill_in "publish_confirmation_growth_1", with: "PUBLISH growth VERSION 1 AFTER 0"
       click_button "Publish"
     end
 

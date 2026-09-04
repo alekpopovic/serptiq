@@ -18,7 +18,10 @@ class PlanCatalogAdminRequestTest < ActionDispatch::IntegrationTest
     get admin_plan_catalog_path
     assert_response :forbidden
 
-    post publish_admin_plan_version_path("free", 1), params: { confirmation: "PUBLISH free VERSION 1" }
+    post publish_admin_plan_version_path("free", 1), params: catalog_publish_request_params(
+      plan_key: "free",
+      version: 1
+    )
     assert_response :forbidden
     assert_equal "draft", plan_version("free", 1).status
   end
@@ -34,7 +37,7 @@ class PlanCatalogAdminRequestTest < ActionDispatch::IntegrationTest
     assert_select "input[value='Publish']", count: 0
 
     post publish_admin_plan_version_path("starter", 1),
-      params: { confirmation: "PUBLISH starter VERSION 1" }
+      params: catalog_publish_request_params(plan_key: "starter", version: 1)
     assert_response :forbidden
   end
 
@@ -42,7 +45,11 @@ class PlanCatalogAdminRequestTest < ActionDispatch::IntegrationTest
     grant("plan_catalog.publish")
     authenticate_request(@session)
 
-    post publish_admin_plan_version_path("growth", 1), params: { confirmation: "yes" }
+    post publish_admin_plan_version_path("growth", 1), params: catalog_publish_request_params(
+      plan_key: "growth",
+      version: 1,
+      confirmation: "yes"
+    )
     assert_response :conflict
     assert Auditing::AuditEvent.exists?(
       action: "plan.version_publish_rejected",
@@ -51,7 +58,7 @@ class PlanCatalogAdminRequestTest < ActionDispatch::IntegrationTest
     )
 
     post publish_admin_plan_version_path("growth", 1),
-      params: { confirmation: "PUBLISH growth VERSION 1" }
+      params: catalog_publish_request_params(plan_key: "growth", version: 1)
     assert_response :see_other
     assert_equal "published", plan_version("growth", 1).status
     assert Auditing::AuditEvent.exists?(action: "plan.version_published", actor_user_id: @user.id)
@@ -69,7 +76,7 @@ class PlanCatalogAdminRequestTest < ActionDispatch::IntegrationTest
     authenticate_request(stale)
 
     post publish_admin_plan_version_path("agency", 1),
-      params: { confirmation: "PUBLISH agency VERSION 1" }
+      params: catalog_publish_request_params(plan_key: "agency", version: 1)
 
     assert_response :unauthorized
     assert_equal "draft", plan_version("agency", 1).status

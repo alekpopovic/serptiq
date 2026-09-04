@@ -49,7 +49,7 @@ class BillingSubscriptionReferenceTest < ActiveSupport::TestCase
         billing_interval: "monthly"
       )
     end
-    assert_equal "plan_version_not_published", error.reason_code
+    assert_equal "plan_version_not_purchasable", error.reason_code
 
     publish("free", 1)
     Billing::Public.create_subscription_reference(
@@ -70,12 +70,13 @@ class BillingSubscriptionReferenceTest < ActiveSupport::TestCase
   private
 
   def publish(plan_key, version)
-    Plans::Public.publish_version(
+    path = version == 1 ? nil : @temporary_catalog_directory&.join("plans.yml")
+    publish_catalog_version(
       plan_key: plan_key,
       version: version,
       effective_at: Time.current,
-      confirmation: "PUBLISH #{plan_key} VERSION #{version}",
-      authorization: @authorization
+      authorization: @authorization,
+      path: path
     )
   end
 

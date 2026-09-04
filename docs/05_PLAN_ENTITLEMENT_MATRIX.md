@@ -143,14 +143,28 @@ Provider status and application `access_state` are separate fields.
 - Synchronization creates or updates drafts only. Any checksum difference for a published, retired or
   grandfathered version is rejected; change the per-plan version number instead.
 - Publishing requires the platform-scoped `plan_catalog.publish` grant, recent authentication and the exact
-  confirmation phrase displayed by the administration screen. Publish and retire outcomes are audited.
+  `PUBLISH <key> VERSION <n> AFTER <previous>` confirmation phrase displayed by the administration screen.
+  The review shows additions, changed values, removals and active subscribers attached to the previous
+  version. Publish and retire outcomes are audited.
+- A definition may be published only as the next integer version. Its `effective_at` may be immediate or up
+  to one year in the future. Checkout resolves the highest effective version for the requested stable plan,
+  currency and interval; a latest effective retired/grandfathered version fails closed instead of falling
+  back to an older commercial offer.
 - Existing subscriptions retain their exact `plan_version_id` and copied display/pricing metadata when a new
   draft or published version appears. No catalog sync silently migrates customer state.
-- Grandfathering means the old immutable version remains usable by subscriptions already attached to it but
-  is not a target for new subscriptions. An explicit, audited migration must select subscriptions, preserve a
-  before/after record and define rollback and customer communication before moving them.
+- Retiring a version with active subscriptions first marks it `grandfathered`; it becomes `retired` only after
+  its active subscriber count reaches zero. Neither state is offered to new subscriptions. An explicit,
+  audited migration must select subscriptions, preserve a before/after record and define rollback and
+  customer communication before moving them.
+- Upgrade targets have a higher catalog display order and use the `immediate` policy; downgrade targets have a
+  lower order and use `period_end`; a same-family version migration is `explicit`. Missing, not-yet-effective,
+  retired, grandfathered, wrong-currency and unsupported-interval targets return a closed unavailable result.
 - Provider price or variant identifiers are environment-specific Billing mappings. They must never be added
-  to the provider-neutral plan catalog or used as commercial branching keys.
+  to the provider-neutral plan catalog or used as commercial branching keys. Run
+  `bin/rails plans:catalog:consistency` to compare YAML, database drafts/current versions and active mapping
+  metadata before release.
 
-The initial migration creates new, empty tables and takes only catalog-level locks. Apply it before catalog
-sync; the PostgreSQL trigger installed by the migration is required for direct-SQL immutability enforcement.
+The catalog-governance migration creates two empty reference/mapping tables and installs/replaces triggers on
+`plans` and `plan_versions`. Trigger installation briefly takes table-level DDL locks, so apply it before
+catalog sync and outside peak write traffic. The PostgreSQL triggers are required for direct-SQL immutability
+and deletion enforcement.

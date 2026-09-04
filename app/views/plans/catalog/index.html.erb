@@ -26,11 +26,13 @@
             <th class="px-5 py-3">Monthly</th>
             <th class="px-5 py-3">Annual</th>
             <th class="px-5 py-3">Effective</th>
+            <th class="px-5 py-3">Reviewed diff</th>
             <th class="px-5 py-3">Controlled action</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-slate-100 bg-white">
           <% @entries.each do |entry| %>
+            <% difference = @catalog_review.entry_for(plan_key: entry.plan_key, version: entry.version) %>
             <tr>
               <td class="px-5 py-4">
                 <p class="font-semibold text-slate-950"><%= entry.display_name %></p>
@@ -44,20 +46,67 @@
                 <td class="px-5 py-4"><%= number_to_currency(entry.monthly_price_cents / 100.0, unit: "€") %></td>
                 <td class="px-5 py-4"><%= number_to_currency(entry.annual_price_cents / 100.0, unit: "€") %></td>
               <% end %>
-              <td class="whitespace-nowrap px-5 py-4 text-slate-600"><%= entry.effective_at&.to_fs(:short) || "—" %></td>
+              <td class="whitespace-nowrap px-5 py-4 text-slate-600">
+                <%= entry.effective_at&.to_fs(:short) || "—" %>
+                <% if entry.status == "published" && entry.effective_at&.future? %>
+                  <span class="so-badge so-badge-neutral">Scheduled</span>
+                <% end %>
+              </td>
+              <td class="px-5 py-4 text-slate-600">
+                <% if difference %>
+                  <p><%= difference.change_count %> catalog change(s)</p>
+                  <p><%= difference.affected_subscriber_count %> active subscriber(s) affected</p>
+                  <% if difference.database_drift.any? %>
+                    <p class="text-red-700">Draft differs from YAML; synchronize before publish.</p>
+                  <% elsif difference.version_bump_required? %>
+                    <p class="text-red-700">Published changes require a new version.</p>
+                  <% end %>
+                  <% if difference.change_count.positive? %>
+                    <details class="mt-2">
+                      <summary class="cursor-pointer font-semibold text-slate-700">Review exact changes</summary>
+                      <% [
+                        [ "Additions", difference.additions ],
+                        [ "Changed values", difference.changes ],
+                        [ "Removals", difference.removals ]
+                      ].each do |label, changes| %>
+                        <% if changes.any? %>
+                          <p class="mt-2 font-semibold"><%= label %> (<%= changes.length %>)</p>
+                          <ul class="mt-1 space-y-1 text-xs">
+                            <% changes.each do |change| %>
+                              <li>
+                                <code><%= change.path %></code>:
+                                <%= change.before.nil? ? "∅" : change.before.inspect %>
+                                → <%= change.after.nil? ? "∅" : change.after.inspect %>
+                              </li>
+                            <% end %>
+                          </ul>
+                        <% end %>
+                      <% end %>
+                    </details>
+                  <% end %>
+                <% else %>
+                  <p>Historical version retained outside the active YAML revision.</p>
+                <% end %>
+              </td>
               <td class="min-w-72 px-5 py-4">
-                <% if @publish_decision.allow? && entry.status == "draft" %>
+                <% if @publish_decision.allow? && entry.status == "draft" && difference&.publishable? %>
                   <%= form_with url: publish_admin_plan_version_path(entry.plan_key, entry.version), method: :post,
-                    class: "flex items-end gap-2" do |form| %>
-                    <div class="flex-1">
+                    class: "grid gap-2" do |form| %>
+                    <%= form.hidden_field :expected_previous_version, value: difference.expected_previous_version %>
+                    <%= form.hidden_field :catalog_checksum, value: difference.source_checksum %>
+                    <div>
+                      <%= form.label :effective_at, "Effective at (blank means now)", class: "so-label text-xs" %>
+                      <%= form.datetime_local_field :effective_at, class: "so-input" %>
+                    </div>
+                    <div>
                       <%= label_tag "publish_confirmation_#{entry.plan_key}_#{entry.version}",
-                        "Type PUBLISH #{entry.plan_key} VERSION #{entry.version}", class: "so-label text-xs" %>
+                        "Type #{difference.publication_confirmation}", class: "so-label text-xs" %>
                       <%= form.text_field :confirmation, required: true, autocomplete: "off", class: "so-input",
                         id: "publish_confirmation_#{entry.plan_key}_#{entry.version}" %>
                     </div>
                     <%= form.submit "Publish", class: "so-button so-button-primary so-button-small" %>
                   <% end %>
-                <% elsif @publish_decision.allow? && entry.status == "published" %>
+                <% elsif @publish_decision.allow? && %w[published grandfathered].include?(entry.status) %>
                   <%= form_with url: retire_admin_plan_version_path(entry.plan_key, entry.version), method: :patch,
                     class: "flex items-end gap-2" do |form| %>
                     <div class="flex-1">

@@ -22,6 +22,7 @@ module ActiveSupport
     include TestSupport::GoogleOauthHelpers
     include TestSupport::GithubOauthHelpers
     include TestSupport::PermissionAssertions
+    include TestSupport::PlanCatalogHelpers
     include TestSupport::TenantIsolationAssertions
     include TestSupport::CurrentTenantHelper
   end
