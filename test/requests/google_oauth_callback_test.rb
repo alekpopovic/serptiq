@@ -116,6 +116,7 @@ class GoogleOauthCallbackTest < ActionDispatch::IntegrationTest
     assert_equal "resource_conflict", response.headers.fetch("X-SearchOps-Error-Code")
     assert_equal existing.user_id, existing.reload.user_id
     assert_not_nil material.fetch(:transaction).reload.consumed_at
+    assert_includes emitted_log, "explicit_account_link_required"
   end
 
   test "unverified colliding email creates a separate subject account without making it primary" do
@@ -166,7 +167,7 @@ class GoogleOauthCallbackTest < ActionDispatch::IntegrationTest
     revoked = create_provider_identity(
       provider: "google", provider_subject: "synthetic-google-subject", email: "revoked@example.test"
     )
-    revoked.update!(revoked_at: @now - 1.minute)
+    revoked.update!(revoked_at: revoked.created_at)
     material = create_oauth_transaction(expires_at: @now + 10.minutes)
     install_completer(exchange: exchange_for(nonce: material.fetch(:nonce)))
 
@@ -245,6 +246,9 @@ class GoogleOauthCallbackTest < ActionDispatch::IntegrationTest
 
     assert_response :unauthorized
     assert_equal 1, Identity::ProviderIdentity.where(provider: "google").count
+    assert_includes emitted_log, "provider_identity_owned_by_another_user"
+    refute_includes emitted_log, owned.user_id
+    refute_includes response.body, owned.user_id
   end
 
   private

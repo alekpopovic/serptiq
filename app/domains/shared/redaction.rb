@@ -35,6 +35,7 @@ module Shared
       :raw_body,
       :provider_response,
       :provider_payload,
+      :link_confirmation,
       :userinfo,
       /api[-_]?key/i,
       /client[-_]?secret/i,

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_04_042000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_04_051500) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -29,6 +29,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_042000) do
     t.uuid "user_id", null: false
     t.index ["email"], name: "index_identities_on_email"
     t.index ["provider", "provider_subject"], name: "index_identities_on_provider_and_provider_subject", unique: true
+    t.index ["user_id", "provider"], name: "index_identities_on_active_user_and_provider", unique: true, where: "(revoked_at IS NULL)"
     t.index ["user_id", "provider"], name: "index_identities_on_user_id_and_provider"
     t.index ["user_id"], name: "index_identities_on_user_id"
     t.check_constraint "(profile - 'name'::text - 'login'::text - 'avatar_url'::text - 'locale'::text) = '{}'::jsonb", name: "identities_profile_keys"
@@ -37,6 +38,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_042000) do
     t.check_constraint "email IS NULL OR char_length(email::text) >= 3 AND char_length(email::text) <= 320 AND email::text = lower(email::text)", name: "identities_normalized_email"
     t.check_constraint "jsonb_typeof(profile) = 'object'::text AND octet_length(profile::text) <= 8192", name: "identities_profile_object"
     t.check_constraint "provider::text = ANY (ARRAY['google'::character varying, 'github'::character varying]::text[])", name: "identities_provider_allowlist"
+    t.check_constraint "revoked_at IS NULL OR revoked_at >= created_at", name: "identities_revocation_follows_creation"
   end
 
   create_table "oauth_transactions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|

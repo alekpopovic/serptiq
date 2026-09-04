@@ -68,7 +68,11 @@ class GithubOauthAuthorizationRequestTest < ActionDispatch::IntegrationTest
     issued = issue_identity_session(at: @now - 1.minute)
     authenticate_request(issued)
 
-    post github_oauth_authorization_path, params: { link: "1" }
+    post github_oauth_authorization_path,
+      params: {
+        link: "1",
+        link_confirmation: link_confirmation_for(provider: "github", session: issued.session, at: @now)
+      }
 
     assert_response :see_other
     transaction = Identity::OauthTransaction.sole

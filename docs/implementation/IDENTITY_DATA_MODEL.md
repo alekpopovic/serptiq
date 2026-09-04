@@ -24,6 +24,13 @@ identity already owned by another user, while repeated authentication of an
 existing stable subject only refreshes its bounded observations and
 `last_authenticated_at`.
 
+At most one non-revoked identity for a given provider may belong to a user. A
+partial unique index enforces this in PostgreSQL as well as in the model. Unlink
+retains the row with `revoked_at` for collision prevention and support history;
+an explicit recent-session link may reactivate the same subject for the same
+user, but ordinary sign-in cannot. The lifecycle check prevents a revocation
+timestamp before row creation.
+
 For GitHub, the decimal provider user `id` is the stable subject. Mutable login,
 name and avatar values are profile observations only. Private/public email is
 verified only from the authorized primary email-list record; the transient
@@ -111,3 +118,10 @@ development rows, immediately removes that default, adds bounded indexes and
 validates link consistency in PostgreSQL. Adding the session foreign key and
 indexes scans/locks this still-small table; a populated deployment must measure
 the migration and schedule it before rollout.
+
+Prompt 020 adds the active `(user_id, provider)` uniqueness rule using a
+concurrent partial index, then adds the revocation timestamp check as
+`NOT VALID` before validating existing rows. Before deployment, audit for more
+than one active row per user/provider; any such historical anomaly must be
+resolved explicitly rather than allowing the unique-index build to choose a
+winner. Rollback removes the index and check without deleting identity data.

@@ -1,0 +1,58 @@
+<% content_for :title, "Account security" %>
+
+<div class="mx-auto max-w-5xl">
+  <div>
+    <p class="so-eyebrow">Account</p>
+    <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950">Sign-in identities</h1>
+    <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+      Link another provider to keep a recovery path. Provider email and profile values are observations; they never merge accounts automatically.
+    </p>
+  </div>
+
+  <div class="mt-8 grid gap-5 md:grid-cols-2">
+    <% Identity::ProviderIdentity::PROVIDERS.each do |provider| %>
+      <% identity = @linked_providers[provider] %>
+      <% provider_name = provider == "github" ? "GitHub" : provider.capitalize %>
+      <section class="so-card p-6" aria-labelledby="<%= provider %>-identity-title">
+        <div class="flex items-start justify-between gap-4">
+          <div>
+            <h2 id="<%= provider %>-identity-title" class="text-lg font-bold text-slate-950"><%= provider_name %></h2>
+            <span class="so-badge <%= identity ? "so-badge-success" : "so-badge-neutral" %> mt-2">
+              <%= identity ? "Linked" : "Not linked" %>
+            </span>
+          </div>
+        </div>
+
+        <% if identity %>
+          <dl class="mt-5 space-y-3 text-sm">
+            <div>
+              <dt class="font-semibold text-slate-700">Linked</dt>
+              <dd class="mt-1 text-slate-600"><%= time_tag identity.created_at, identity.created_at.to_fs(:long) %></dd>
+            </div>
+            <div>
+              <dt class="font-semibold text-slate-700">Last used to authenticate</dt>
+              <dd class="mt-1 text-slate-600"><%= time_tag identity.last_authenticated_at, identity.last_authenticated_at.to_fs(:long) %></dd>
+            </div>
+          </dl>
+          <%= button_to "Unlink #{provider_name}",
+            provider_identity_path(identity),
+            method: :delete,
+            class: "so-button so-button-secondary mt-6",
+            form: { data: { turbo_confirm: "Unlink #{provider_name}? Another linked provider must remain available." } } %>
+        <% else %>
+          <p class="mt-5 text-sm leading-6 text-slate-600">No active <%= provider_name %> identity is attached to this account.</p>
+          <%= link_to "Review linking #{provider_name}",
+            confirm_identity_link_path(provider: provider),
+            class: "so-button so-button-primary mt-6" %>
+        <% end %>
+      </section>
+    <% end %>
+  </div>
+
+  <aside class="so-card mt-6 p-6" aria-labelledby="support-reference-title">
+    <h2 id="support-reference-title" class="font-bold text-slate-950">Safe support references</h2>
+    <p class="mt-2 text-sm leading-6 text-slate-600">
+      If an identity action is rejected, share only the Request ID shown on the error page. It correlates with the audit event without exposing another account or provider token.
+    </p>
+  </aside>
+</div>

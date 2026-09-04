@@ -71,5 +71,22 @@ module Identity
     def complete_github_callback!(callback:, current_session:)
       GithubCallbackCompleter.from_settings.call(callback: callback, current_session: current_session)
     end
+
+    def issue_link_confirmation!(provider:, session:, clock: -> { Time.current })
+      LinkConfirmation.new(clock: clock).issue(provider: provider, session: session)
+    end
+
+    def verify_link_confirmation!(token:, provider:, session:, clock: -> { Time.current })
+      LinkConfirmation.new(clock: clock).verify!(token: token, provider: provider, session: session)
+    end
+
+    def unlink_provider_identity!(identity_id:, current_session:, metadata: SessionMetadata.empty,
+      clock: -> { Time.current })
+      IdentityUnlinker.new(clock: clock).call(
+        identity_id: identity_id,
+        current_session: current_session,
+        metadata: metadata
+      )
+    end
   end
 end

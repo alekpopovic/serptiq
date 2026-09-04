@@ -64,6 +64,13 @@ module Identity
       issued.session
     end
 
+    def accept_issued_identity_session!(issued)
+      identity_session_cookie.write(token: issued.token, expires_at: issued.session.expires_at)
+      Current.session = issued.session
+      Current.user = issued.session.user
+      issued.session
+    end
+
     def identity_session_cookie
       @identity_session_cookie ||= SessionCookie.new(cookies)
     end

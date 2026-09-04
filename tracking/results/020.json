@@ -1,0 +1,101 @@
+{
+  "prompt_id": "020",
+  "title": "Implement identity linking and collision prevention",
+  "status": "completed",
+  "started_at": "2026-09-04T05:07:28Z",
+  "finished_at": "2026-09-04T05:21:41Z",
+  "summary": "Implemented explicit provider linking confirmation and account-security management with provider/session-bound signed confirmations, one-time recent-session OAuth linking, privacy-safe collision handling, PostgreSQL-locked unlinking, atomic session rotation, last-identity protection, safe metadata UI, request-ID diagnostics, audit events, concurrency defenses, and synchronized operations/security documentation.",
+  "tests": [
+    {
+      "command": "bundle exec rails test test/domain/identity/account_transition_test.rb test/domain/identity/link_confirmation_test.rb test/domain/identity/identity_unlinker_test.rb test/domain/identity/provider_identity_test.rb test/requests/account_security_test.rb test/requests/google_oauth_authorization_test.rb test/requests/github_oauth_authorization_test.rb test/requests/google_oauth_callback_test.rb test/requests/github_oauth_callback_test.rb test/configuration/redaction_test.rb",
+      "outcome": "passed",
+      "notes": "55 runs, 481 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "bundle exec rails test test/database/provider_identity_claim_concurrency_test.rb",
+      "outcome": "passed",
+      "notes": "1 run, 5 assertions, 0 failures, real PostgreSQL simultaneous subject claim"
+    },
+    {
+      "command": "bundle exec rails test",
+      "outcome": "passed",
+      "notes": "233 runs, 2028 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "bundle exec rails test:system test/system/identity_linking_test.rb",
+      "outcome": "passed",
+      "notes": "6 runs, 32 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "VERSION=20260904051500 bundle exec rails db:migrate:redo:primary",
+      "outcome": "passed",
+      "notes": "concurrent index and check constraint reverted and reapplied successfully on test PostgreSQL"
+    },
+    {
+      "command": "bin/quality",
+      "outcome": "passed",
+      "notes": "12 checks; 217 Ruby files and 22 ERB files clean; Brakeman 0 warnings; dependency audits clean"
+    },
+    {
+      "command": "bundle exec rails zeitwerk:check",
+      "outcome": "passed",
+      "notes": "All is good"
+    },
+    {
+      "command": "git diff --check; secret-pattern scan; prompt_tracker validate",
+      "outcome": "passed",
+      "notes": "clean diff, no secret patterns, catalog/state consistent"
+    }
+  ],
+  "files_changed": [
+    "app/controllers/application_controller.rb",
+    "app/controllers/concerns/identity/current_request.rb",
+    "app/controllers/identity/account_security_controller.rb",
+    "app/controllers/identity/google_oauth_controller.rb",
+    "app/controllers/identity/github_oauth_controller.rb",
+    "app/domains/identity/account_transition.rb",
+    "app/domains/identity/identity_unlink.rb",
+    "app/domains/identity/identity_unlinker.rb",
+    "app/domains/identity/last_sign_in_identity.rb",
+    "app/domains/identity/link_confirmation.rb",
+    "app/domains/identity/provider_identity.rb",
+    "app/domains/identity/public.rb",
+    "app/domains/shared/redaction.rb",
+    "app/views/identity/account_security/show.html.erb",
+    "app/views/identity/account_security/confirm_link.html.erb",
+    "app/views/layouts/authenticated.html.erb",
+    "app/views/shared/_account_menu.html.erb",
+    "config/routes.rb",
+    "db/schema.rb",
+    "docs/08_INTEGRATIONS_AND_API.md",
+    "docs/10_DEPLOYMENT_AND_OPERATIONS.md",
+    "docs/implementation/AUTHENTICATION_SESSIONS.md",
+    "docs/implementation/IDENTITY_DATA_MODEL.md",
+    "docs/implementation/IDENTITY_PROVIDER_ADAPTERS.md",
+    "test/configuration/redaction_test.rb",
+    "test/database/provider_identity_claim_concurrency_test.rb",
+    "test/domain/identity/account_transition_test.rb",
+    "test/domain/identity/identity_unlinker_test.rb",
+    "test/domain/identity/link_confirmation_test.rb",
+    "test/domain/identity/provider_identity_test.rb",
+    "test/requests/account_security_test.rb",
+    "test/requests/github_oauth_authorization_test.rb",
+    "test/requests/google_oauth_authorization_test.rb",
+    "test/requests/google_oauth_callback_test.rb",
+    "test/support/identity_session_helpers.rb",
+    "test/system/identity_linking_test.rb"
+  ],
+  "migrations": [
+    "db/migrate/20260904051500_harden_provider_identity_lifecycle.rb: concurrent partial unique active user/provider index and validated revocation lifecycle check; predeploy duplicate audit required"
+  ],
+  "decisions": [
+    "Provider link confirmation is signed for five minutes and bound to the exact provider/session; unlink revokes rather than deletes identity history and rotates the current session atomically"
+  ],
+  "risks": [
+    "A valid five-minute link confirmation can start more than one bounded OAuth attempt before expiry; every resulting state remains one-time and initiation limits apply. Existing duplicate active user/provider rows must be reviewed before production index creation."
+  ],
+  "next_steps": [
+    "Proceed to prompt 021 after commit and push"
+  ],
+  "commit": null
+}

@@ -28,8 +28,12 @@ module Identity
     validates :email_verified, inclusion: { in: [ true, false ] }
     validates :last_authenticated_at, presence: true
     validates :provider_subject, uniqueness: { scope: :provider }
+    validates :provider,
+      uniqueness: { scope: :user_id, conditions: -> { where(revoked_at: nil) } },
+      if: :active?
     validate :verified_email_is_present
     validate :profile_is_allowlisted
+    validate :revocation_follows_creation
 
     def active?
       revoked_at.nil?
@@ -57,6 +61,12 @@ module Identity
 
     def bounded_profile_values?
       profile.values.all? { |value| value.nil? || (value.is_a?(String) && value.bytesize <= 2048) }
+    end
+
+    def revocation_follows_creation
+      return if revoked_at.blank? || created_at.blank? || revoked_at >= created_at
+
+      errors.add(:revoked_at, "must not precede creation")
     end
   end
 end

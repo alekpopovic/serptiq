@@ -97,7 +97,12 @@ class GoogleOauthAuthorizationRequestTest < ActionDispatch::IntegrationTest
     issued = issue_identity_session(at: @now - 1.minute)
     authenticate_request(issued)
 
-    post google_oauth_authorization_path, params: { link: "1", return_to: "/dashboard" }
+    post google_oauth_authorization_path,
+      params: {
+        link: "1",
+        link_confirmation: link_confirmation_for(provider: "google", session: issued.session, at: @now),
+        return_to: "/dashboard"
+      }
 
     assert_response :see_other
     transaction = Identity::OauthTransaction.sole

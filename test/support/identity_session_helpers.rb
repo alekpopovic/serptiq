@@ -72,5 +72,9 @@ module TestSupport
         path: "/"
       )
     end
+
+    def link_confirmation_for(provider:, session:, at: Time.current)
+      Identity::LinkConfirmation.new(clock: -> { at }).issue(provider: provider, session: session)
+    end
   end
 end

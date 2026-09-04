@@ -1,5 +1,8 @@
 <% content_for :body_class, "bg-slate-100 text-slate-950" %>
-<% navigation_items = [ { label: "Dashboard", path: dashboard_path } ] %>
+<% navigation_items = [
+  { label: "Dashboard", path: dashboard_path },
+  { label: "Account security", path: account_security_path }
+] %>
 <% content_for :shell do %>
   <div class="min-h-screen lg:grid lg:grid-cols-[17rem_minmax(0,1fr)]">
     <aside class="hidden border-r border-slate-200 bg-slate-950 text-white lg:flex lg:min-h-screen lg:flex-col" aria-label="Workspace">

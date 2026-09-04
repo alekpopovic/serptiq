@@ -7,6 +7,13 @@ Rails.application.routes.draw do
   get "auth/github/callback", to: "identity/github_oauth#callback", as: :github_oauth_callback
   delete "logout", to: "identity/sessions#destroy", as: :logout
   get "dashboard", to: "dashboard#index", as: :dashboard
+  get "dashboard/account/security", to: "identity/account_security#show", as: :account_security
+  get "dashboard/account/security/identities/:provider/link",
+    to: "identity/account_security#confirm_link",
+    as: :confirm_identity_link
+  delete "dashboard/account/security/identities/:id",
+    to: "identity/account_security#destroy",
+    as: :provider_identity
 
   get "up", to: "operational_status#up", defaults: { format: :json }, as: :up
   get "ready", to: "operational_status#ready", defaults: { format: :json }, as: :ready

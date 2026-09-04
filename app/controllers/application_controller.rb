@@ -2,6 +2,7 @@ class ApplicationController < ActionController::Base
   include Identity::CurrentRequest
 
   rescue_from StandardError, with: :render_public_error
+  rescue_from ActionController::InvalidAuthenticityToken, with: :render_csrf_rejection
 
   # Only allow modern browsers supporting webp images, web push, badges, import maps, CSS nesting, and CSS :has.
   allow_browser versions: :modern
@@ -10,6 +11,10 @@ class ApplicationController < ActionController::Base
   stale_when_importmap_changes
 
   private
+
+  def render_csrf_rejection
+    render_public_error(Shared::Public::ValidationError.new(reason_code: "csrf_rejected"))
+  end
 
   def render_public_error(error)
     mapping = Shared::Errors.http_response_for(error)
@@ -25,7 +30,7 @@ class ApplicationController < ActionController::Base
     if request.format.json?
       render json: { error: payload }, status: mapping.http_status
     else
-      render template: "errors/show", locals: { error: payload }, status: mapping.http_status
+      render template: "errors/show", layout: "application", locals: { error: payload }, status: mapping.http_status
     end
   end
 

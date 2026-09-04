@@ -16,7 +16,9 @@ creates or links a user, organization, membership, or session. Instead,
 `Identity::Public.resolve_account` returns a side-effect-free decision keyed
 first by the exact provider and stable subject. A verified email collision
 returns `explicit_link_required`; it never merges accounts automatically.
-Actual linking requires the later recent-authenticated, explicit-intent flow.
+Actual linking requires a recent-authenticated, explicit-intent flow and a
+short-lived signed confirmation bound to the intended provider and exact local
+session.
 
 ## Provider protocol profiles
 
@@ -202,3 +204,27 @@ missing primary entry or public profile address remains absent or unverified
 and is never promoted to `users.primary_email`. The shared account transition
 therefore applies exactly the Google collision/link rules without importing
 issuer, JWKS, ID-token or nonce semantics into GitHub OAuth.
+
+## Linking, unlinking and support diagnostics
+
+`GET /dashboard/account/security` lists the two allowlisted providers and only
+safe local metadata: linked status, linked time and last authentication time.
+It never renders stable provider subjects, emails, tokens or raw profiles. A
+link starts from a provider-specific confirmation page and only its signed
+five-minute confirmation can submit the CSRF-protected provider start POST.
+The resulting OAuth transaction is one-time and remains bound to the same
+provider and exact recent session through callback completion.
+
+Linking never follows email equality and never transfers a stable subject from
+another user. One user may have at most one active identity for each provider.
+Unlink uses a UUID selected through the authenticated user's own association,
+locks all of that user's identities, denies removal of the last active sign-in
+identity and rotates the exact current session in the same transaction. The
+provider identity is revoked rather than deleted, so ordinary sign-in remains
+blocked and an intentional later re-link can safely reactivate only the same
+owned stable subject.
+
+Conflict and ownership failures use generic public messages. The error page's
+Request ID is the support-safe diagnostic reference and appears in the same
+structured audit context; no other user ID, provider subject or token is
+included.

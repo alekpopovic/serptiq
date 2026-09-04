@@ -1,0 +1,30 @@
+<% provider_name = @provider == "github" ? "GitHub" : @provider.capitalize %>
+<% authorization_path = @provider == "github" ? github_oauth_authorization_path : google_oauth_authorization_path %>
+<% content_for :title, "Confirm #{provider_name} linking" %>
+
+<div class="mx-auto max-w-2xl">
+  <section class="so-card p-6 sm:p-8" aria-labelledby="confirm-link-title">
+    <p class="so-eyebrow">Security confirmation</p>
+    <h1 id="confirm-link-title" class="mt-2 text-2xl font-black tracking-tight text-slate-950">
+      Link <%= provider_name %> to this account?
+    </h1>
+    <p class="mt-4 text-sm leading-6 text-slate-600">
+      Continue only if you control the <%= provider_name %> account you are about to choose. Matching email addresses do not link or merge accounts.
+    </p>
+    <p class="mt-3 text-sm leading-6 text-slate-600">
+      This confirmation is short-lived and bound to this authenticated browser session and provider. A successful link rotates the session.
+    </p>
+
+    <div class="mt-7 flex flex-wrap gap-3">
+      <%= button_to "Confirm and link #{provider_name}",
+        authorization_path,
+        params: {
+          link: "1",
+          link_confirmation: @link_confirmation,
+          return_to: account_security_path
+        },
+        class: "so-button so-button-primary" %>
+      <%= link_to "Cancel", account_security_path, class: "so-button so-button-secondary" %>
+    </div>
+  </section>
+</div>

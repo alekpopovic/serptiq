@@ -61,7 +61,16 @@ which always issue or rotate the token to prevent session fixation.
 Provider sign-in issues a fresh opaque session only after its state, PKCE and
 provider-specific identity validation plus account resolution. Explicit
 provider linking rotates the exact bound recent session after the identity
-mutation succeeds.
+mutation succeeds. Unlinking is a single database transaction that locks the
+exact recent session and all of the user's provider identities, revokes the
+selected identity, revokes the old session and issues its replacement. A
+failure in any step rolls the entire unlink transition back.
+
+The account-security workflow treats authentication as recent for 15 minutes.
+Its link confirmation is signed, five minutes long and bound to one allowlisted
+provider plus the exact server-side session. It contains no provider token and
+cannot substitute a callback. Changing provider, browser session, signature or
+expiry rejects the request before a new OAuth transaction is created.
 
 ## Security events and operations
 

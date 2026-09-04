@@ -111,7 +111,7 @@ Validate one-time state, S256 PKCE and the exact callback; exchange the code ser
 
 ### Account linking
 
-Linking a second provider requires an active recent local session and explicit confirmation. Email equality alone is insufficient.
+Linking a second provider requires an active recent local session, a signed provider/session-bound confirmation, a CSRF-protected start and a one-time OAuth transaction. Email equality alone is insufficient and an identity owned by another account is never transferred. Unlinking revokes the selected identity only when another active sign-in provider remains, and atomically rotates the current session. Account-security pages expose local linked/last-use times, not provider tokens, subjects or raw profiles.
 
 ## 7. Lemon Squeezy
 

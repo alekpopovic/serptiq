@@ -21,9 +21,11 @@ module Identity
     before_action :set_sensitive_response_headers
 
     def create
+      link_intent = parse_link_intent(params[:link])
+      verify_link_confirmation!(params[:link_confirmation]) if link_intent
       start = self.class.authorization_starter_factory.call.call(
         return_to: SafeReturnPath.call(params[:return_to]),
-        link_intent: parse_link_intent(params[:link]),
+        link_intent: link_intent,
         current_session: Current.session,
         initiator_digest: OauthInitiator.from_request(request).digest
       )
@@ -51,6 +53,14 @@ module Identity
       return true if value == true || value == "1"
 
       raise InvalidOauthInitiation
+    end
+
+    def verify_link_confirmation!(token)
+      Public.verify_link_confirmation!(
+        token: token,
+        provider: "google",
+        session: Current.session
+      )
     end
 
     def set_sensitive_response_headers

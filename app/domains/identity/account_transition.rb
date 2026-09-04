@@ -49,7 +49,14 @@ module Identity
       if stored && stored.user_id != user.id
         raise InvalidAccountLink.new(reason_code: "provider_identity_owned_by_another_user")
       end
-      raise RevokedProviderIdentity if stored && !stored.active?
+
+      advisory_lock("#{user.id}:provider:#{observed.provider}")
+      another_active = ProviderIdentity.where(
+        user_id: user.id,
+        provider: observed.provider,
+        revoked_at: nil
+      ).where.not(id: stored&.id).exists?
+      raise InvalidAccountLink.new(reason_code: "provider_already_linked") if another_active
 
       record = stored || ProviderIdentity.new(
         user: user,
@@ -94,7 +101,8 @@ module Identity
         email: observed.email,
         email_verified: observed.email_verified?,
         profile: observed.profile,
-        last_authenticated_at: now
+        last_authenticated_at: now,
+        revoked_at: nil
       )
     end
 

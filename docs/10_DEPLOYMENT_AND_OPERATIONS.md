@@ -170,6 +170,14 @@ Support overlapping key versions for safe rotation where data must be decrypted 
 
 Use expand/migrate/contract for schema changes. Avoid adding a non-null column with an immediate full-table rewrite on a large table.
 
+The provider-identity lifecycle migration builds its active user/provider unique
+index concurrently. Before running it on existing data, query for duplicate
+rows where `revoked_at IS NULL`, group by `user_id, provider`, and resolve every
+result through an audited account review. Do not automatically retain or move a
+provider subject. The revocation-time check is added without validation first
+and then validates existing rows; monitor that validation and the concurrent
+index build. The migration is reversible without deleting identity rows.
+
 ## 10. Rollback
 
 Rollback means restoring the previous image/configuration while preserving data compatibility. Every migration must state one of:

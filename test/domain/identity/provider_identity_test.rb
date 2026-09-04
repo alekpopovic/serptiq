@@ -79,6 +79,47 @@ class IdentityProviderIdentityTest < ActiveSupport::TestCase
     ).id
   end
 
+  test "one user has at most one active identity per provider while revoked history can remain" do
+    user = create_identity_user
+    original = create_provider_identity(user: user, provider: "google", provider_subject: "first-google")
+    duplicate = Identity::ProviderIdentity.new(
+      user: user,
+      provider: "google",
+      provider_subject: "second-google",
+      email_verified: false,
+      profile: {},
+      last_authenticated_at: Time.current
+    )
+
+    refute duplicate.valid?
+    assert_includes duplicate.errors[:provider], "has already been taken"
+    error = assert_raises(ActiveRecord::RecordNotUnique) do
+      Identity::ProviderIdentity.transaction(requires_new: true) { duplicate.save!(validate: false) }
+    end
+    assert_kind_of PG::UniqueViolation, error.cause
+
+    original.update!(revoked_at: Time.current)
+    duplicate.save!
+    assert duplicate.active?
+  end
+
+  test "model and database reject revocation timestamps before identity creation" do
+    identity = create_provider_identity
+    invalid_time = identity.created_at - 1.second
+    identity.revoked_at = invalid_time
+
+    refute identity.valid?
+    assert_includes identity.errors[:revoked_at], "must not precede creation"
+    error = assert_raises(ActiveRecord::StatementInvalid) do
+      Identity::ProviderIdentity.transaction(requires_new: true) do
+        identity.update_column(:revoked_at, invalid_time)
+      end
+    end
+    assert_kind_of PG::CheckViolation, error.cause
+  ensure
+    identity&.reload
+  end
+
   test "database checks reject provider and verified-email states that bypass validations" do
     invalid_provider = Identity::ProviderIdentity.new(
       user: create_identity_user,
