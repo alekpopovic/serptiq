@@ -39,7 +39,10 @@ module Identity
         callback: callback,
         current_session: Current.session
       )
-      establish_identity_session!(completion.user)
+      establish_identity_session!(
+        completion.user,
+        rotation_reason: completion.operation == "link" ? "privilege_changed" : "rotated"
+      )
       redirect_to completion.return_to, status: :see_other, allow_other_host: false
     end
 

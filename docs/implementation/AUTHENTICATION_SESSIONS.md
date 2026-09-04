@@ -22,8 +22,12 @@ redacted. IP address and user-agent inputs are also stored only as keyed
 digests, so the session table cannot reproduce those request values.
 
 Sessions have a 30-day absolute lifetime and a 24-hour idle timeout. Last-seen
-and metadata writes are limited to once every five minutes. Prompt 021 owns the
-later device-management UI and any product-level timeout configuration.
+and metadata writes are limited to once every five minutes. Session inventory
+shows only allowlisted broad client labels (`Chrome`, `Edge`, `Firefox`,
+`Safari`, other or unknown) and device classes (desktop, mobile, tablet or
+unknown). These are approximate observations from the latest user-agent, not a
+device guarantee; raw user-agent and IP values remain unavailable from the
+database.
 `authenticated_at` records credential-backed session issuance/rotation
 separately from database creation time, allowing explicit link flows to enforce
 a deterministic 15-minute recent-authentication window.
@@ -71,6 +75,28 @@ Its link confirmation is signed, five minutes long and bound to one allowlisted
 provider plus the exact server-side session. It contains no provider token and
 cannot substitute a callback. Changing provider, browser session, signature or
 expiry rejects the request before a new OAuth transaction is created.
+
+## Session inventory and risk responses
+
+`GET /dashboard/account/sessions` lists only live sessions belonging to the
+authenticated user with created time, throttled last activity and an exact
+current-session marker. UUID targets are always queried beneath that user.
+Foreign, missing and current-session IDs receive the same public denial from
+the revoke-other route. Both single-other and all-other revocation are
+CSRF-protected and require authentication within the 15-minute recent window;
+the current session remains usable.
+
+`Identity::SessionRiskResponse` is the reusable backend boundary for later
+identity, ownership and role workflows. Identity changes rotate the exact
+current session. Ownership transfer and sensitive role changes revoke every
+other live session and rotate current. Suspected compromise revokes every live
+session without issuing a replacement. PostgreSQL row/update locks serialize
+these transitions, and an old token is rejected immediately after commit.
+
+`Identity::SessionCleanupJob` runs daily on the maintenance queue. It deletes
+at most 10,000 expired or revoked session rows per run only after 90 days beyond
+their inactive timestamp, and skips rows still referenced by a rotation or
+OAuth link transaction. Repeated runs safely drain newly unreferenced chains.
 
 ## Security events and operations
 

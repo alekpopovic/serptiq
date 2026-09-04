@@ -21,10 +21,9 @@ module Identity
         raise LastSignInIdentity unless identities.count(&:active?) > 1
 
         identity.update!(revoked_at: now)
-        issued = SessionLifecycle.new(clock: @clock).rotate!(
-          session: session,
-          metadata: metadata,
-          reason: "privilege_changed"
+        issued = SessionRiskResponse.new(clock: @clock).after_identity_change!(
+          current_session: session,
+          metadata: metadata
         )
         IdentityUnlink.new(provider: identity.provider, issued_session: issued)
       end

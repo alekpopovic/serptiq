@@ -1,0 +1,100 @@
+{
+  "prompt_id": "021",
+  "title": "Harden session rotation, revocation and device management",
+  "status": "completed",
+  "started_at": "2026-09-04T05:22:24Z",
+  "finished_at": "2026-09-04T05:32:58Z",
+  "summary": "Implemented privacy-minimal session inventory and management with broad client/device observations, current-session marking, recent-authenticated single/all-other revocation, anti-enumeration and CSRF controls, reusable identity/ownership/role/compromise risk hooks, bounded maintenance cleanup, structured events, real PostgreSQL concurrency coverage, and synchronized operations documentation.",
+  "tests": [
+    {
+      "command": "bundle exec rails test test/domain/identity/session_lifecycle_test.rb test/domain/identity/session_manager_test.rb test/domain/identity/session_risk_response_test.rb test/requests/authentication_sessions_test.rb test/requests/session_management_test.rb test/requests/account_security_test.rb test/requests/google_oauth_callback_test.rb test/requests/github_oauth_callback_test.rb test/jobs/identity/session_cleanup_job_test.rb test/jobs/solid_stack_topology_test.rb test/database/session_rotation_revocation_concurrency_test.rb",
+      "outcome": "passed",
+      "notes": "61 runs, 494 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "bundle exec rails test test/database/session_rotation_revocation_concurrency_test.rb",
+      "outcome": "passed",
+      "notes": "1 run, 5 assertions, real PostgreSQL rotation/revocation race"
+    },
+    {
+      "command": "bundle exec rails test:system",
+      "outcome": "passed",
+      "notes": "7 runs, 40 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "bundle exec rails test",
+      "outcome": "passed",
+      "notes": "250 runs, 2127 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "VERSION=20260904053500 bundle exec rails db:migrate:redo:primary",
+      "outcome": "passed",
+      "notes": "restartable migration reverted and reapplied columns, validated checks and concurrent revoked-session index"
+    },
+    {
+      "command": "bin/quality",
+      "outcome": "passed",
+      "notes": "12 checks; 229 Ruby and 23 ERB files clean; Brakeman 0 warnings; dependency audits clean"
+    },
+    {
+      "command": "bundle exec rails zeitwerk:check",
+      "outcome": "passed",
+      "notes": "All is good"
+    },
+    {
+      "command": "git diff --check; secret-pattern scan; prompt_tracker validate",
+      "outcome": "passed",
+      "notes": "clean diff, no secret patterns, catalog/state consistent"
+    }
+  ],
+  "files_changed": [
+    "app/controllers/concerns/identity/current_request.rb",
+    "app/controllers/identity/github_oauth_controller.rb",
+    "app/controllers/identity/google_oauth_controller.rb",
+    "app/controllers/identity/sessions_controller.rb",
+    "app/domains/identity/identity_unlinker.rb",
+    "app/domains/identity/public.rb",
+    "app/domains/identity/session.rb",
+    "app/domains/identity/session_cleanup.rb",
+    "app/domains/identity/session_lifecycle.rb",
+    "app/domains/identity/session_management_denied.rb",
+    "app/domains/identity/session_manager.rb",
+    "app/domains/identity/session_metadata.rb",
+    "app/domains/identity/session_policy.rb",
+    "app/domains/identity/session_risk_response.rb",
+    "app/jobs/identity/session_cleanup_job.rb",
+    "app/views/identity/account_security/show.html.erb",
+    "app/views/identity/sessions/index.html.erb",
+    "app/views/layouts/authenticated.html.erb",
+    "app/views/shared/_account_menu.html.erb",
+    "config/recurring.yml",
+    "config/routes.rb",
+    "db/schema.rb",
+    "docs/10_DEPLOYMENT_AND_OPERATIONS.md",
+    "docs/implementation/AUTHENTICATION_SESSIONS.md",
+    "test/database/session_rotation_revocation_concurrency_test.rb",
+    "test/domain/identity/session_lifecycle_test.rb",
+    "test/domain/identity/session_manager_test.rb",
+    "test/domain/identity/session_risk_response_test.rb",
+    "test/jobs/identity/session_cleanup_job_test.rb",
+    "test/jobs/solid_stack_topology_test.rb",
+    "test/requests/google_oauth_callback_test.rb",
+    "test/requests/session_management_test.rb",
+    "test/system/session_management_test.rb"
+  ],
+  "migrations": [
+    "db/migrate/20260904053500_add_safe_session_client_metadata.rb: metadata-only constant-default client/device columns",
+    "validated allowlist checks and concurrent revoked-session cleanup index"
+  ],
+  "decisions": [
+    "Store only allowlisted approximate client/device classes alongside existing keyed digests; require recent authentication for user-driven other-session revocation; initial migration run exposed a duplicate pre-existing expiry index",
+    "so the migration was corrected to be existence-guarded and then migrate/redo passed"
+  ],
+  "risks": [
+    "Client/device labels are spoofable user-agent observations and must not be treated as proof. FK-referenced inactive sessions intentionally persist until references are removed and a later bounded cleanup run can delete them."
+  ],
+  "next_steps": [
+    "Proceed to prompt 022 after commit and push"
+  ],
+  "commit": null
+}

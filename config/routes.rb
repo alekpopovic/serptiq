@@ -14,6 +14,9 @@ Rails.application.routes.draw do
   delete "dashboard/account/security/identities/:id",
     to: "identity/account_security#destroy",
     as: :provider_identity
+  get "dashboard/account/sessions", to: "identity/sessions#index", as: :account_sessions
+  delete "dashboard/account/sessions/others", to: "identity/sessions#revoke_others", as: :other_sessions
+  delete "dashboard/account/sessions/:id", to: "identity/sessions#revoke", as: :account_session
 
   get "up", to: "operational_status#up", defaults: { format: :json }, as: :up
   get "ready", to: "operational_status#ready", defaults: { format: :json }, as: :ready

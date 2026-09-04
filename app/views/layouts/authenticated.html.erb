@@ -1,7 +1,8 @@
 <% content_for :body_class, "bg-slate-100 text-slate-950" %>
 <% navigation_items = [
   { label: "Dashboard", path: dashboard_path },
-  { label: "Account security", path: account_security_path }
+  { label: "Account security", path: account_security_path },
+  { label: "Sessions", path: account_sessions_path }
 ] %>
 <% content_for :shell do %>
   <div class="min-h-screen lg:grid lg:grid-cols-[17rem_minmax(0,1fr)]">

@@ -137,10 +137,18 @@ class SolidStackTopologyTest < ActiveSupport::TestCase
     configuration = ActiveSupport::ConfigurationFile.parse(Rails.root.join("config/recurring.yml"))
     tasks = configuration.fetch("test")
 
-    assert_equal %w[clear_solid_queue_finished_batches clear_solid_queue_finished_jobs], tasks.keys.sort
+    assert_equal %w[
+      cleanup_inactive_identity_sessions
+      clear_solid_queue_finished_batches
+      clear_solid_queue_finished_jobs
+    ], tasks.keys.sort
     assert tasks.values.all? { |task| task.fetch("queue") == "maintenance" }
     assert tasks.values.all? { |task| task.fetch("priority") == 50 }
-    assert tasks.values.all? { |task| task.fetch("command").start_with?("SolidQueue::") }
+    assert_equal "Identity::SessionCleanupJob.perform_later",
+      tasks.fetch("cleanup_inactive_identity_sessions").fetch("command")
+    assert tasks.except("cleanup_inactive_identity_sessions").values.all? do |task|
+      task.fetch("command").start_with?("SolidQueue::")
+    end
   end
 
   private

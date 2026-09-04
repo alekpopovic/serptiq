@@ -345,6 +345,14 @@ Solid Queue recurring tasks may trigger:
 
 Recurring definitions are version-controlled. Tasks are idempotent and use database/advisory locks where only one execution is allowed.
 
+Identity session cleanup runs daily at 03:17 on the maintenance queue. Each run
+is bounded to twenty batches of 500 rows and retains expired/revoked sessions
+for 90 days before deletion. Monitor retained row count, cleanup duration and
+foreign-key skips; referenced rotation/OAuth rows are intentionally deferred.
+The session metadata migration adds constant-default bounded columns, validates
+allowlist checks, and builds the revoked-time index concurrently. Its first
+attempt may be safely rerun because each addition is existence-guarded.
+
 ## 16. Incident response
 
 Severity example:

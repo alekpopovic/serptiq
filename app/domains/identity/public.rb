@@ -88,5 +88,45 @@ module Identity
         metadata: metadata
       )
     end
+
+    def session_inventory(user:, current_session:, clock: -> { Time.current })
+      SessionManager.new(clock: clock).inventory(user: user, current_session: current_session)
+    end
+
+    def revoke_other_session!(session_id:, current_session:, clock: -> { Time.current })
+      SessionManager.new(clock: clock).revoke_other!(session_id: session_id, current_session: current_session)
+    end
+
+    def revoke_all_other_sessions!(current_session:, clock: -> { Time.current })
+      SessionManager.new(clock: clock).revoke_all_others!(current_session: current_session)
+    end
+
+    def sessions_after_identity_change!(current_session:, metadata: SessionMetadata.empty,
+      clock: -> { Time.current })
+      SessionRiskResponse.new(clock: clock).after_identity_change!(
+        current_session: current_session,
+        metadata: metadata
+      )
+    end
+
+    def sessions_after_ownership_transfer!(current_session:, metadata: SessionMetadata.empty,
+      clock: -> { Time.current })
+      SessionRiskResponse.new(clock: clock).after_ownership_transfer!(
+        current_session: current_session,
+        metadata: metadata
+      )
+    end
+
+    def sessions_after_sensitive_role_change!(current_session:, metadata: SessionMetadata.empty,
+      clock: -> { Time.current })
+      SessionRiskResponse.new(clock: clock).after_sensitive_role_change!(
+        current_session: current_session,
+        metadata: metadata
+      )
+    end
+
+    def revoke_sessions_after_suspected_compromise!(user:, clock: -> { Time.current })
+      SessionRiskResponse.new(clock: clock).after_suspected_compromise!(user: user)
+    end
   end
 end

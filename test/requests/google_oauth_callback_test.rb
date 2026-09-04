@@ -201,7 +201,7 @@ class GoogleOauthCallbackTest < ActionDispatch::IntegrationTest
     assert_response :see_other
     assert_equal user.id, Identity::ProviderIdentity.find_by!(provider: "google").user_id
     assert_not_nil issued.session.reload.revoked_at
-    assert_equal "rotated", issued.session.revoke_reason
+    assert_equal "privilege_changed", issued.session.revoke_reason
   end
 
   test "link intent rejects a different browser session before provider exchange" do

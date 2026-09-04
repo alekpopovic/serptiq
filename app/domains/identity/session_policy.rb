@@ -6,5 +6,6 @@ module Identity
     IDLE_TIMEOUT = 24.hours
     LAST_SEEN_WRITE_INTERVAL = 5.minutes
     RECENT_AUTHENTICATION_WINDOW = 15.minutes
+    RETENTION_AFTER_INACTIVE = 90.days
   end
 end

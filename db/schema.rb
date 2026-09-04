@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_04_051500) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_04_053500) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -81,7 +81,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_051500) do
 
   create_table "sessions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "authenticated_at", null: false
+    t.string "client_name", limit: 32, default: "Unknown client", null: false
     t.datetime "created_at", null: false
+    t.string "device_type", limit: 16, default: "Unknown", null: false
     t.datetime "expires_at", null: false
     t.string "ip_address_digest", limit: 64
     t.datetime "last_seen_at", null: false
@@ -93,11 +95,14 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_051500) do
     t.string "user_agent_digest", limit: 64
     t.uuid "user_id", null: false
     t.index ["expires_at"], name: "index_sessions_on_active_expiry", where: "(revoked_at IS NULL)"
+    t.index ["revoked_at"], name: "index_sessions_on_revoked_at", where: "(revoked_at IS NOT NULL)"
     t.index ["rotated_from_id"], name: "index_sessions_on_rotated_from_id"
     t.index ["token_digest"], name: "index_sessions_on_token_digest", unique: true
     t.index ["user_id", "expires_at"], name: "index_sessions_on_user_id_and_expires_at"
     t.index ["user_id"], name: "index_sessions_on_user_id"
     t.check_constraint "authenticated_at <= last_seen_at", name: "sessions_authentication_before_last_seen"
+    t.check_constraint "client_name::text = ANY (ARRAY['Chrome'::character varying, 'Edge'::character varying, 'Firefox'::character varying, 'Safari'::character varying, 'Other client'::character varying, 'Unknown client'::character varying]::text[])", name: "sessions_client_name_allowlist"
+    t.check_constraint "device_type::text = ANY (ARRAY['Desktop'::character varying, 'Mobile'::character varying, 'Tablet'::character varying, 'Unknown'::character varying]::text[])", name: "sessions_device_type_allowlist"
     t.check_constraint "expires_at > last_seen_at", name: "sessions_expiry_after_last_seen"
     t.check_constraint "ip_address_digest IS NULL OR ip_address_digest::text ~ '^[0-9a-f]{64}$'::text", name: "sessions_ip_digest_format"
     t.check_constraint "revoke_reason IS NULL OR (revoke_reason::text = ANY (ARRAY['logout'::character varying, 'rotated'::character varying, 'privilege_changed'::character varying, 'user_inactive'::character varying, 'administrative'::character varying]::text[]))", name: "sessions_revoke_reason_allowlist"

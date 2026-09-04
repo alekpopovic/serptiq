@@ -1,0 +1,56 @@
+<% content_for :title, "Active sessions" %>
+
+<div class="mx-auto max-w-5xl">
+  <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div>
+      <p class="so-eyebrow">Account security</p>
+      <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950">Active sessions</h1>
+      <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+        Device and client labels are broad approximations derived from the latest browser request. SearchOps does not display raw IP addresses or detailed fingerprints.
+      </p>
+    </div>
+    <%= button_to "Revoke all other sessions",
+      other_sessions_path,
+      method: :delete,
+      class: "so-button so-button-secondary",
+      form: { data: { turbo_confirm: "Revoke every session except this one?" } } %>
+  </div>
+
+  <p class="mt-5 text-sm text-slate-600">Revocation requires authentication within the last 15 minutes. Sign out and sign in again if your session is older.</p>
+
+  <div class="mt-8 space-y-4">
+    <% @sessions.each do |session| %>
+      <% current = session.id == Current.session.id %>
+      <article class="so-card p-6" aria-label="<%= current ? "Current session" : "Other session" %>">
+        <div class="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <div class="flex flex-wrap items-center gap-2">
+              <h2 class="font-bold text-slate-950"><%= session.client_name %> · <%= session.device_type %></h2>
+              <% if current %>
+                <span class="so-badge so-badge-success">Current session</span>
+              <% end %>
+            </div>
+            <dl class="mt-4 grid gap-3 text-sm sm:grid-cols-2">
+              <div>
+                <dt class="font-semibold text-slate-700">Created</dt>
+                <dd class="mt-1 text-slate-600"><%= time_tag session.created_at, session.created_at.to_fs(:long) %></dd>
+              </div>
+              <div>
+                <dt class="font-semibold text-slate-700">Last activity</dt>
+                <dd class="mt-1 text-slate-600"><%= time_tag session.last_seen_at, session.last_seen_at.to_fs(:long) %></dd>
+              </div>
+            </dl>
+          </div>
+
+          <% unless current %>
+            <%= button_to "Revoke this session",
+              account_session_path(session),
+              method: :delete,
+              class: "so-button so-button-secondary",
+              form: { data: { turbo_confirm: "Revoke this session? Its old token will stop working immediately." } } %>
+          <% end %>
+        </div>
+      </article>
+    <% end %>
+  </div>
+</div>

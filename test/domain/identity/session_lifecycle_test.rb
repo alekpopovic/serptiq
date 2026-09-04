@@ -17,10 +17,28 @@ class IdentitySessionLifecycleTest < ActiveSupport::TestCase
     assert_equal 64, persisted.ip_address_digest.length
     assert_equal 64, persisted.user_agent_digest.length
     assert_equal persisted.last_seen_at, persisted.authenticated_at
+    assert_equal "Other client", persisted.client_name
+    assert_equal "Desktop", persisted.device_type
     refute_includes persisted.attributes.values.compact.map(&:to_s), raw_ip
     refute_includes persisted.attributes.values.compact.map(&:to_s), raw_agent
     assert_includes issued.inspect, "token=[FILTERED]"
     refute_includes issued.inspect, issued.token
+  end
+
+  test "stores only broad allowlisted client and device approximations" do
+    chrome_mobile = Identity::SessionMetadata.new(
+      ip_address: nil,
+      user_agent: "Mozilla/5.0 (Linux; Android 15; Mobile) AppleWebKit/537.36 Chrome/140.0 Safari/537.36"
+    )
+    safari_tablet = Identity::SessionMetadata.new(
+      ip_address: nil,
+      user_agent: "Mozilla/5.0 (iPad) Version/18.0 Mobile/15E148 Safari/604.1"
+    )
+
+    assert_equal [ "Chrome", "Mobile" ], [ chrome_mobile.client_name, chrome_mobile.device_type ]
+    assert_equal [ "Safari", "Tablet" ], [ safari_tablet.client_name, safari_tablet.device_type ]
+    assert_equal [ "Unknown client", "Unknown" ],
+      [ Identity::SessionMetadata.empty.client_name, Identity::SessionMetadata.empty.device_type ]
   end
 
   test "looks up an active session and periodically persists last seen metadata" do
@@ -42,6 +60,32 @@ class IdentitySessionLifecycleTest < ActiveSupport::TestCase
     assert_equal started_at + 10.minutes, found.reload.last_seen_at
     assert_equal metadata.ip_address_digest, found.ip_address_digest
     assert_equal metadata.user_agent_digest, found.user_agent_digest
+  end
+
+  test "does not write last-seen or metadata inside the five-minute throttle window" do
+    started_at = Time.zone.parse("2026-09-04 08:00:00")
+    original = Identity::SessionMetadata.new(
+      ip_address: "198.51.100.1",
+      user_agent: "Mozilla/5.0 Firefox/142.0",
+      key: "m" * 32
+    )
+    issued = issue_identity_session(at: started_at, metadata: original)
+    later = Identity::SessionMetadata.new(
+      ip_address: "198.51.100.2",
+      user_agent: "Mozilla/5.0 Chrome/140.0",
+      key: "m" * 32
+    )
+
+    Identity::Public.authenticate_session!(
+      token: issued.token,
+      metadata: later,
+      clock: -> { started_at + 4.minutes }
+    )
+
+    persisted = issued.session.reload
+    assert_equal started_at, persisted.last_seen_at
+    assert_equal original.ip_address_digest, persisted.ip_address_digest
+    assert_equal "Firefox", persisted.client_name
   end
 
   test "rejects malformed expired idle and revoked sessions with stable domain errors" do
@@ -120,6 +164,20 @@ class IdentitySessionLifecycleTest < ActiveSupport::TestCase
 
     refute session.valid?
     assert_includes session.errors[:authenticated_at], "must be at or before last seen"
+    error = assert_raises(ActiveRecord::StatementInvalid) do
+      Identity::Session.transaction(requires_new: true) { session.save!(validate: false) }
+    end
+    assert_kind_of PG::CheckViolation, error.cause
+  ensure
+    session&.reload
+  end
+
+  test "model and database reject non-allowlisted client metadata" do
+    session = issue_identity_session.session
+    session.client_name = "Detailed Browser 140.1"
+
+    refute session.valid?
+    assert_includes session.errors[:client_name], "is not included in the list"
     error = assert_raises(ActiveRecord::StatementInvalid) do
       Identity::Session.transaction(requires_new: true) { session.save!(validate: false) }
     end

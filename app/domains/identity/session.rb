@@ -28,6 +28,8 @@ module Identity
       format: { with: DIGEST_PATTERN }, allow_nil: true
     validates :authenticated_at, :last_seen_at, :expires_at, presence: true
     validates :revoke_reason, inclusion: { in: REVOKE_REASONS }, allow_nil: true
+    validates :client_name, inclusion: { in: SessionMetadata::CLIENT_NAMES }
+    validates :device_type, inclusion: { in: SessionMetadata::DEVICE_TYPES }
     validate :expiry_follows_last_seen
     validate :revocation_fields_are_consistent
     validate :authentication_precedes_last_seen
@@ -39,6 +41,10 @@ module Identity
       return :user_inactive unless user.active?
 
       :active
+    end
+
+    def active_at?(now)
+      status_at(now) == :active
     end
 
     private

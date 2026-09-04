@@ -9,6 +9,11 @@ default: &default
     queue: maintenance
     priority: 50
     schedule: every hour at minute 27
+  cleanup_inactive_identity_sessions:
+    command: "Identity::SessionCleanupJob.perform_later"
+    queue: maintenance
+    priority: 50
+    schedule: every day at 03:17
 
 development:
   <<: *default

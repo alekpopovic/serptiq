@@ -16,6 +16,8 @@ module Identity
         token_digest: TokenDigest.call(token),
         ip_address_digest: metadata.ip_address_digest,
         user_agent_digest: metadata.user_agent_digest,
+        client_name: metadata.client_name,
+        device_type: metadata.device_type,
         authenticated_at: now,
         last_seen_at: now,
         expires_at: now + SessionPolicy::ABSOLUTE_LIFETIME,
@@ -91,6 +93,8 @@ module Identity
         last_seen_at: now,
         ip_address_digest: metadata.ip_address_digest,
         user_agent_digest: metadata.user_agent_digest,
+        client_name: metadata.client_name,
+        device_type: metadata.device_type,
         updated_at: now
       )
     end

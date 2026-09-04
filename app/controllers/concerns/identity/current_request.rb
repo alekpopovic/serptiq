@@ -32,11 +32,12 @@ module Identity
       identity_session_cookie.delete
     end
 
-    def establish_identity_session!(user)
+    def establish_identity_session!(user, rotation_reason: "rotated")
       issued = if Current.session&.user_id == user.id
         Public.rotate_session!(
           session: Current.session,
-          metadata: SessionMetadata.from_request(request)
+          metadata: SessionMetadata.from_request(request),
+          reason: rotation_reason
         )
       else
         Public.revoke_session(session: Current.session, reason: "rotated") if Current.session
