@@ -16,7 +16,8 @@ class SharedRedactionTest < ActiveSupport::TestCase
       "billing" => { "webhook_secret" => "billing-secret", "raw_body" => "signed-payload" },
       "api" => { "api_key" => "api-secret" },
       "crawler" => { "page_body" => "private html", "rendered_dom" => "private dom" },
-      "profile" => { "email" => "person@example.com" }
+      "profile" => { "email" => "person@example.com" },
+      "provider_response" => { "login" => "private-provider-payload" }
     }
 
     filtered = redaction.structured_event(value)
@@ -31,6 +32,7 @@ class SharedRedactionTest < ActiveSupport::TestCase
     assert_equal "[FILTERED]", filtered.dig("api", "api_key")
     assert_equal [ "[FILTERED]" ], filtered.fetch("crawler").values.uniq
     assert_equal "[FILTERED]", filtered.dig("profile", "email")
+    assert_equal "[FILTERED]", filtered.fetch("provider_response")
   end
 
   test "redacts authorization cookies API keys and webhook signatures in headers" do

@@ -40,7 +40,23 @@ module Identity
     end
 
     def get_json(uri:, operation:, headers: {})
-      request_json(method: :get, uri: uri, operation: operation, headers: headers, body: nil)
+      request_json(method: :get, uri: uri, operation: operation, headers: headers, body: nil, expected: :object)
+    end
+
+    def get_json_array(uri:, operation:, headers: {}, max_items:)
+      unless max_items.is_a?(Integer) && max_items.between?(1, 100)
+        raise ArgumentError, "JSON array item limit is invalid"
+      end
+
+      request_json(
+        method: :get,
+        uri: uri,
+        operation: operation,
+        headers: headers,
+        body: nil,
+        expected: :array,
+        max_items: max_items
+      )
     end
 
     def post_form_json(uri:, operation:, form:, headers: {})
@@ -50,19 +66,20 @@ module Identity
         uri: uri,
         operation: operation,
         headers: { "Content-Type" => "application/x-www-form-urlencoded" }.merge(headers),
-        body: body
+        body: body,
+        expected: :object
       )
     end
 
     private
 
-    def request_json(method:, uri:, operation:, headers:, body:)
+    def request_json(method:, uri:, operation:, headers:, body:, expected:, max_items: nil)
       uri = validate_endpoint!(uri)
       attempts = 0
 
       loop do
         response = perform_request(method: method, uri: uri, headers: headers, body: body, operation: operation)
-        return parse_response(response, operation: operation)
+        return parse_response(response, operation: operation, expected: expected, max_items: max_items)
       rescue ProviderError => error
         raise unless retryable?(error, method: method, operation: operation, attempts: attempts)
 
@@ -90,12 +107,21 @@ module Identity
       raise ProviderError.new(category: "unavailable", operation: operation), cause: nil
     end
 
-    def parse_response(response, operation:)
+    def parse_response(response, operation:, expected:, max_items:)
       status = response.status
-      return parse_json(response, operation: operation) if status.between?(200, 299)
+      return parse_json(response, operation: operation, expected: expected, max_items: max_items) if status.between?(200, 299)
 
       case status
-      when 401, 403
+      when 401
+        raise ProviderError.new(category: "credentials_revoked", operation: operation)
+      when 403
+        if rate_limited_response?(response)
+          raise ProviderError.new(
+            category: "rate_limited",
+            operation: operation,
+            retry_after: parse_retry_after(response.headers["retry-after"])
+          )
+        end
         raise ProviderError.new(category: "credentials_revoked", operation: operation)
       when 429
         raise ProviderError.new(
@@ -110,14 +136,17 @@ module Identity
       end
     end
 
-    def parse_json(response, operation:)
+    def parse_json(response, operation:, expected:, max_items:)
       content_type = response.headers["content-type"].to_s
       unless JSON_CONTENT_TYPE.match?(content_type) && response.body.bytesize <= @max_response_bytes
         raise ProviderError.new(category: "malformed_response", operation: operation)
       end
 
       parsed = JSON.parse(response.body, max_nesting: 32)
-      return parsed.freeze if parsed.is_a?(Hash)
+      return parsed.freeze if expected == :object && parsed.is_a?(Hash)
+      if expected == :array && parsed.is_a?(Array) && parsed.length <= max_items && parsed.all?(Hash)
+        return parsed.each(&:freeze).freeze
+      end
 
       raise ProviderError.new(category: "malformed_response", operation: operation)
     rescue JSON::ParserError, JSON::NestingError
@@ -172,6 +201,10 @@ module Identity
       rescue ArgumentError
         nil
       end
+    end
+
+    def rate_limited_response?(response)
+      response.headers["x-ratelimit-remaining"] == "0" || response.headers["retry-after"].present?
     end
   end
 end

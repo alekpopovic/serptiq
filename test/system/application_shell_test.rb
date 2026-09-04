@@ -22,7 +22,7 @@ class ApplicationShellSystemTest < ApplicationSystemTestCase
 
     assert_text "Sign in to SearchOps"
     assert_text "Google sign-in is not configured"
-    assert_text "GitHub sign-in is not available yet"
+    assert_text "GitHub sign-in is not configured"
     assert_no_selector "input[type='password']"
   end
 

@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
 module Identity
-  class GoogleCallbackCompleter
+  class GithubCallbackCompleter
     def self.from_settings(settings: Rails.application.config.x.searchops)
-      new(adapter: GoogleProviderAdapter.from_settings(settings: settings))
+      new(adapter: GithubProviderAdapter.from_settings(settings: settings))
     end
 
     def initialize(adapter:, account_transition: nil, clock: -> { Time.current })
-      raise ArgumentError, "Google adapter is required" unless adapter.provider == "google"
+      raise ArgumentError, "GitHub adapter is required" unless adapter.provider == "github"
 
       @adapter = adapter
       @clock = clock
@@ -23,7 +23,6 @@ module Identity
         code: callback.authorization_code!,
         redirect_uri: @adapter.configuration.redirect_uri,
         pkce_verifier: transaction.pkce_verifier,
-        nonce_digest: transaction.nonce_digest,
         issued_after: transaction.created_at
       )
       exchange = @adapter.exchange_callback(input)
@@ -33,13 +32,13 @@ module Identity
         link_session: transaction.link_intent? ? current_session : nil
       )
       operation = transaction.link_intent? ? "link" : "sign_in"
-      Audit.emit("auth.oauth_callback_completed", outcome: "succeeded", provider: "google", operation: operation)
+      Audit.emit("auth.oauth_callback_completed", outcome: "succeeded", provider: "github", operation: operation)
       OauthCallbackCompletion.new(user: user, return_to: transaction.return_to, operation: operation)
     rescue StandardError => error
       Audit.emit(
         "auth.oauth_callback_rejected",
         outcome: "denied",
-        provider: "google",
+        provider: "github",
         operation: "callback",
         reason_code: safe_reason_code(error)
       )
@@ -49,7 +48,7 @@ module Identity
     private
 
     def validate_transaction!(transaction, current_session)
-      raise InvalidOauthTransaction unless transaction.provider == "google"
+      raise InvalidOauthTransaction unless transaction.provider == "github"
 
       if transaction.link_intent?
         valid = current_session && transaction.link_session_id == current_session.id &&
@@ -62,12 +61,11 @@ module Identity
     end
 
     def validate_exchange!(exchange)
-      valid = exchange.is_a?(CallbackExchange) && exchange.provider == "google" &&
-        exchange.oidc_claims&.subject == exchange.identity.subject
+      valid = exchange.is_a?(CallbackExchange) && exchange.provider == "github" && exchange.oidc_claims.nil?
       raise ProviderError.new(
         category: "malformed_response",
         operation: "callback_exchange",
-        reason_code: "google_exchange_invalid"
+        reason_code: "github_exchange_invalid"
       ) unless valid
     end
 

@@ -39,7 +39,7 @@ class IdentityProviderConfigurationTest < ActiveSupport::TestCase
     assert_equal URI("https://github.com/login/oauth/authorize"), github.authorization_endpoint
     assert_equal URI("https://github.com/login/oauth/access_token"), github.token_endpoint
     assert_equal URI("https://api.github.com/user"), github.user_endpoint
-    assert_equal URI("https://api.github.com/user/emails"), github.emails_endpoint
+    assert_equal URI("https://api.github.com/user/emails?per_page=100&page=1"), github.emails_endpoint
     assert_equal URI("https://searchops.example/auth/github/callback"), github.redirect_uri
   end
 

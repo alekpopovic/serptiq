@@ -22,9 +22,17 @@
           Google sign-in is not configured for this environment.
         </p>
       <% end %>
-      <p class="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-        GitHub sign-in is not available yet.
-      </p>
+      <% if @github_sign_in_enabled %>
+        <%= button_to "Continue with GitHub",
+          github_oauth_authorization_path,
+          params: { return_to: @return_to },
+          method: :post,
+          class: "so-button so-button-secondary w-full" %>
+      <% else %>
+        <p class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
+          GitHub sign-in is not configured for this environment.
+        </p>
+      <% end %>
     </div>
     <p class="mt-5 text-xs leading-5 text-slate-500">SearchOps never asks for or stores your provider password.</p>
   </div>

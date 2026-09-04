@@ -1,0 +1,25 @@
+{
+  "prompt_id": "019",
+  "title": "Implement the GitHub OAuth sign-in adapter",
+  "status": "completed",
+  "started_at": "2026-09-04T04:54:22Z",
+  "finished_at": "2026-09-04T05:05:52Z",
+  "summary": "Implemented the GitHub OAuth sign-in adapter with exact PKCE authorization and callback contracts, bounded GitHub API access, stable numeric subject identity, verified-primary-email policy, shared provider-neutral account transition, collision-safe explicit linking, UI/fakes, audit-safe errors, and documentation.",
+  "tests": [
+    {
+      "command": "Focused OAuth/config/redaction suite: 46 runs, 573 assertions, 0 failures, 0 errors. Full Rails suite: 217 runs, 1904 assertions, 0 failures, 0 errors. Full system suite: 4 runs, 17 assertions, 0 failures, 0 errors. bin/quality: 12 checks passed (205 Ruby files, 0 offenses; ERB/JS/YAML/JSON/policies/contracts/boundaries/assets/audits clean; Brakeman 0 warnings). rails zeitwerk:check: passed. git diff --check, secret-pattern scan, and tracker validation: passed.",
+      "outcome": "passed",
+      "notes": "Recorded through legacy --tests option."
+    }
+  ],
+  "files_changed": [],
+  "migrations": [],
+  "decisions": [],
+  "risks": [
+    "none reported"
+  ],
+  "next_steps": [
+    "follow the dependency graph"
+  ],
+  "commit": null
+}

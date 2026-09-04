@@ -15,7 +15,7 @@ GitHub login names and email addresses are not lookup keys. Two distinct
 subjects may therefore report the same normalized email and remain attached to
 different users. Automatic email-based merging is prohibited.
 
-Google callback account creation runs only after cryptographic validation. A
+Provider callback account creation runs only after protocol validation. A
 new user's primary email is populated only from `email_verified=true`; an
 unverified address may remain on the provider identity as an observation but
 is never promoted to account authority. Verified collisions require the
@@ -23,6 +23,11 @@ explicit recent-authenticated link transaction. Linking never reassigns an
 identity already owned by another user, while repeated authentication of an
 existing stable subject only refreshes its bounded observations and
 `last_authenticated_at`.
+
+For GitHub, the decimal provider user `id` is the stable subject. Mutable login,
+name and avatar values are profile observations only. Private/public email is
+verified only from the authorized primary email-list record; the transient
+access token and complete provider responses never enter these tables.
 
 The provider allowlist is `google` and `github` in both model and database
 constraints. An identity may omit email when the provider supplies no usable
@@ -64,8 +69,8 @@ secret intentionally invalidates any outstanding short-lived transaction; an
 operator should either drain that window or accept that users must restart
 sign-in.
 
-The Google callback consumes state before its one-shot provider exchange. Code,
-access token and ID token stay transient. Stable-subject and verified-email
+Provider callbacks consume state before their one-shot provider exchange. Code,
+access token and Google ID token stay transient. Stable-subject and verified-email
 account transitions use PostgreSQL transaction advisory locks; existing
 identity and link-session rows are additionally locked before mutation.
 

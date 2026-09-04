@@ -33,6 +33,8 @@ module Shared
       :screenshot,
       :page_body,
       :raw_body,
+      :provider_response,
+      :provider_payload,
       :userinfo,
       /api[-_]?key/i,
       /client[-_]?secret/i,

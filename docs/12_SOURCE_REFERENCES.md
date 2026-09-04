@@ -24,6 +24,8 @@ Checked on **2026-09-04** unless an item states otherwise. These sources provide
 - JSON Web Token, RFC 7519: <https://www.rfc-editor.org/rfc/rfc7519>
 - JSON Web Key, RFC 7517: <https://www.rfc-editor.org/rfc/rfc7517>
 - GitHub OAuth application authorization: <https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps>
+- GitHub authenticated user endpoint: <https://docs.github.com/en/rest/users/users#get-the-authenticated-user>
+- GitHub authenticated email endpoints: <https://docs.github.com/en/rest/users/emails#list-email-addresses-for-the-authenticated-user>
 
 ## Billing
 

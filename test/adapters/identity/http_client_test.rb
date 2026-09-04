@@ -55,6 +55,29 @@ class IdentityHttpClientTest < ActiveSupport::TestCase
     end
   end
 
+  test "accepts only bounded arrays of JSON objects when explicitly requested" do
+    transport = ScriptedTransport.new(response(body: '[{"email":"one@example.test"}]'))
+    result = build_client(transport).get_json_array(
+      uri: allowed_endpoint,
+      operation: "email_lookup",
+      max_items: 2
+    )
+
+    assert_equal [ { "email" => "one@example.test" } ], result
+    assert_predicate result, :frozen?
+    assert_predicate result.first, :frozen?
+
+    excessive = ScriptedTransport.new(response(body: "[{},{}]"))
+    assert_raises(Identity::ProviderError) do
+      build_client(excessive).get_json_array(uri: allowed_endpoint, operation: "email_lookup", max_items: 1)
+    end
+    assert_raises(ArgumentError) do
+      build_client(ScriptedTransport.new).get_json_array(
+        uri: allowed_endpoint, operation: "email_lookup", max_items: 101
+      )
+    end
+  end
+
   test "maps timeout response bounds provider denial and revoked credentials to safe categories" do
     cases = {
       Timeout::Error.new(sensitive_token) => "timeout",
@@ -62,6 +85,8 @@ class IdentityHttpClientTest < ActiveSupport::TestCase
       response(status: 400, body: token_body) => "access_denied",
       response(status: 401, body: token_body) => "credentials_revoked",
       response(status: 403, body: token_body) => "credentials_revoked",
+      response(status: 403, body: token_body,
+        headers: json_headers.merge("x-ratelimit-remaining" => "0")) => "rate_limited",
       response(status: 429, body: token_body, headers: json_headers.merge("retry-after" => "30")) => "rate_limited",
       response(status: 503, body: token_body) => "unavailable"
     }

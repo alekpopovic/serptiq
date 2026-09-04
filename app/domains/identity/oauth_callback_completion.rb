@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 module Identity
-  class GoogleCallbackCompletion
+  class OauthCallbackCompletion
     attr_reader :user, :return_to, :operation
 
     def initialize(user:, return_to:, operation:)

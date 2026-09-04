@@ -3,6 +3,8 @@ Rails.application.routes.draw do
   get "sign-in", to: "public_pages#sign_in", as: :sign_in
   post "auth/google", to: "identity/google_oauth#create", as: :google_oauth_authorization
   get "auth/google/callback", to: "identity/google_oauth#callback", as: :google_oauth_callback
+  post "auth/github", to: "identity/github_oauth#create", as: :github_oauth_authorization
+  get "auth/github/callback", to: "identity/github_oauth#callback", as: :github_oauth_callback
   delete "logout", to: "identity/sessions#destroy", as: :logout
   get "dashboard", to: "dashboard#index", as: :dashboard
 

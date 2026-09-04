@@ -107,7 +107,7 @@ Validate state, nonce, PKCE transaction, discovery metadata allowlist, issuer, a
 
 ### GitHub OAuth
 
-Validate state and exact callback, exchange the code server-to-server, fetch the stable provider user ID, and query verified email information only when needed and authorized. Do not key identities by mutable login name.
+Validate one-time state, S256 PKCE and the exact callback; exchange the code server-to-server once; fetch the stable numeric provider user ID; and query the bounded primary email list only with granted `user:email`. Access tokens remain transient. Do not key identities by mutable login name or treat a public/unverified email as account authority.
 
 ### Account linking
 

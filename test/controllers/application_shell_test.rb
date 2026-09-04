@@ -22,7 +22,7 @@ class ApplicationShellRequestTest < ActionDispatch::IntegrationTest
     assert_response :success
     assert_select "h1", "Sign in to SearchOps"
     assert_select "p", /Google sign-in is not configured/
-    assert_select "p", /GitHub sign-in is not available yet/
+    assert_select "p", /GitHub sign-in is not configured/
     assert_select "input[type='password']", count: 0
     assert_not_includes response.body, "attacker.example"
   end

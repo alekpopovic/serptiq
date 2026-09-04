@@ -58,5 +58,18 @@ module Identity
     def complete_google_callback!(callback:, current_session:)
       GoogleCallbackCompleter.from_settings.call(callback: callback, current_session: current_session)
     end
+
+    def start_github_authorization!(return_to:, link_intent:, current_session:, initiator_digest:)
+      GithubAuthorizationStarter.from_settings.call(
+        return_to: return_to,
+        link_intent: link_intent,
+        current_session: current_session,
+        initiator_digest: initiator_digest
+      )
+    end
+
+    def complete_github_callback!(callback:, current_session:)
+      GithubCallbackCompleter.from_settings.call(callback: callback, current_session: current_session)
+    end
   end
 end

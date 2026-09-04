@@ -33,7 +33,7 @@ module Identity
         "https://github.com/login/oauth/access_token",
         nil,
         "https://api.github.com/user",
-        "https://api.github.com/user/emails",
+        "https://api.github.com/user/emails?per_page=100&page=1",
         "/auth/github/callback"
       )
     }.freeze
@@ -133,11 +133,12 @@ module Identity
     def validate_exact_uri!(name, actual, expected)
       expected_uri = parse_optional_uri(expected)
       raise_configuration("provider_#{name}_mismatch") unless actual == expected_uri
-      validate_https_uri!(actual) if actual
+      validate_https_uri!(actual, allow_query: expected_uri&.query.present?) if actual
     end
 
-    def validate_https_uri!(uri)
-      valid = uri.scheme == "https" && uri.host.present? && uri.userinfo.nil? && uri.query.nil? && uri.fragment.nil?
+    def validate_https_uri!(uri, allow_query: false)
+      valid = uri.scheme == "https" && uri.host.present? && uri.userinfo.nil? &&
+        (allow_query || uri.query.nil?) && uri.fragment.nil?
       raise_configuration("provider_endpoint_unsafe") unless valid
     end
 

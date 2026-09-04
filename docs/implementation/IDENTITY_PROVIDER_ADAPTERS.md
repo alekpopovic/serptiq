@@ -32,7 +32,7 @@ cannot replace any endpoint.
 | Token | `https://oauth2.googleapis.com/token` | `https://github.com/login/oauth/access_token` |
 | JWKS | `https://www.googleapis.com/oauth2/v3/certs` | not applicable |
 | User | `https://openidconnect.googleapis.com/v1/userinfo` | `https://api.github.com/user` |
-| Verified email lookup | part of verified OIDC/user information policy | `https://api.github.com/user/emails` when needed and authorized |
+| Verified email lookup | part of verified OIDC/user information policy | exact first page `https://api.github.com/user/emails?per_page=100&page=1` when needed and authorized |
 | Callback | exact configured origin plus `/auth/google/callback` | exact configured origin plus `/auth/github/callback` |
 
 Both protocols require an authorization-code flow, exact callback and PKCE.
@@ -46,9 +46,9 @@ implemented by its following provider-specific prompt.
 The provider HTTP client accepts only the configuration object's exact HTTPS
 endpoint strings. It does not follow redirects. The production transport uses
 peer-verified TLS, explicit open/read timeouts and streaming response limits.
-Successful responses must be a bounded JSON object with an
-`application/json` or `application/*+json` content type and a maximum nesting
-depth.
+Successful responses must be a bounded JSON object, or an explicitly requested
+bounded array of objects for GitHub email lookup, with an `application/json` or
+`application/*+json` content type and a maximum nesting depth.
 
 Only idempotent GET requests labelled `discovery` or `jwks` may retry timeout,
 rate-limit or availability failures. Retries are capped by configuration (zero
@@ -174,3 +174,31 @@ Callback events contain outcome, provider, operation and stable reason code
 only. Rails parameter filtering covers code, state, token, provider error
 description and error URI fields; callback responses retain the same no-store,
 no-referrer and framing headers as authorization start.
+
+## GitHub authorization and callback
+
+`POST /auth/github` generates the same 256-bit state and 512-bit PKCE verifier
+as Google initiation but correctly omits OIDC nonce. The exact GitHub request
+uses `read:user user:email`, the configured callback, the derived challenge and
+`S256`; the database transaction stores no nonce for this OAuth-only provider.
+The callback applies the same one-time state, safe-return, rate and explicit
+recent-session link policy as Google.
+
+Code exchange sends the exact configured client/callback and recovered verifier
+once to GitHub with JSON requested. The returned access token is held only in a
+method-local value, used to request the authenticated `/user` and, only when
+the granted scopes include `user:email`, the bounded 100-item email page. It is
+never persisted or logged. Requests send the documented media type and pinned
+`X-GitHub-Api-Version: 2026-03-10`. HTTP 401/credential failures, GitHub's JSON
+token errors, 429 responses and 403 responses carrying rate-limit evidence map
+to stable provider categories without response payloads.
+
+The positive decimal GitHub `id` is the sole provider subject. `login`, name
+and avatar URL are bounded display observations, so a login rename updates the
+profile without changing the local identity. A unique primary email is accepted
+as verified only when `/user/emails` reports both `primary=true` and
+`verified=true`, including private primary addresses. An absent scope/address,
+missing primary entry or public profile address remains absent or unverified
+and is never promoted to `users.primary_email`. The shared account transition
+therefore applies exactly the Google collision/link rules without importing
+issuer, JWKS, ID-token or nonce semantics into GitHub OAuth.

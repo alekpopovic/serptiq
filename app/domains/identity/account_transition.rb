@@ -3,22 +3,24 @@
 require "digest"
 
 module Identity
-  class GoogleAccountTransition
-    LOCK_NAMESPACE = "searchops:identity:google-account:v1"
+  class AccountTransition
+    LOCK_NAMESPACE = "searchops:identity:account:v1"
 
     def initialize(clock: -> { Time.current })
       @clock = clock
     end
 
     def call(normalized_identity:, link_session: nil)
-      raise ArgumentError, "Google identity is required" unless normalized_identity.is_a?(NormalizedIdentity) &&
-        normalized_identity.provider == "google"
+      raise ArgumentError, "provider identity is required" unless normalized_identity.is_a?(NormalizedIdentity)
 
       ProviderIdentity.transaction do
         now = @clock.call
         locked_session = lock_and_validate_session(link_session, now)
-        advisory_lock("subject:#{normalized_identity.subject}")
-        stored = ProviderIdentity.lock.find_by(provider: "google", provider_subject: normalized_identity.subject)
+        advisory_lock("#{normalized_identity.provider}:subject:#{normalized_identity.subject}")
+        stored = ProviderIdentity.lock.find_by(
+          provider: normalized_identity.provider,
+          provider_subject: normalized_identity.subject
+        )
 
         if locked_session
           link_identity(stored, normalized_identity, locked_session.user, now)
@@ -49,7 +51,11 @@ module Identity
       end
       raise RevokedProviderIdentity if stored && !stored.active?
 
-      record = stored || ProviderIdentity.new(user: user, provider: "google", provider_subject: observed.subject)
+      record = stored || ProviderIdentity.new(
+        user: user,
+        provider: observed.provider,
+        provider_subject: observed.subject
+      )
       persist_observation(record, observed, now)
       user
     end
@@ -67,12 +73,16 @@ module Identity
 
       user = User.create!(
         primary_email: observed.email_verified? ? observed.email : nil,
-        display_name: observed.profile["name"],
+        display_name: observed.profile["name"] || observed.profile["login"],
         avatar_url: observed.profile["avatar_url"],
         locale: observed.profile["locale"].presence || "en"
       )
       persist_observation(
-        ProviderIdentity.new(user: user, provider: "google", provider_subject: observed.subject),
+        ProviderIdentity.new(
+          user: user,
+          provider: observed.provider,
+          provider_subject: observed.subject
+        ),
         observed,
         now
       )
@@ -102,7 +112,7 @@ module Identity
       )
       ActiveRecord::Base.connection.exec_query(
         "SELECT pg_advisory_xact_lock($1::bigint)::text AS locked",
-        "Google account advisory lock",
+        "Provider account advisory lock",
         [ bind ]
       )
     end
