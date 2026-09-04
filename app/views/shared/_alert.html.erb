@@ -1,0 +1,7 @@
+<% alert_class = { "success" => "so-alert-success", "danger" => "so-alert-danger", "info" => "so-alert-info" }.fetch(kind, "so-alert-info") %>
+<div class="so-alert <%= alert_class %>">
+  <div>
+    <p class="font-semibold"><%= title %></p>
+    <p class="mt-1 text-sm"><%= message %></p>
+  </div>
+</div>

@@ -27,5 +27,7 @@ Do not pre-populate these reports with fictional implementation or test results.
   identifiers, setup and readiness behavior.
 - [`SOLID_STACK.md`](./SOLID_STACK.md) defines queue isolation, retries,
   recurring ownership, disposable cache/cable bounds and worker operations.
+- [`FRONTEND.md`](./FRONTEND.md) defines server-rendered UI, accessibility,
+  reusable component, Hotwire and future charting conventions.
 - [`../../tracking/README.md`](../../tracking/README.md) defines prompt evidence,
   recovery and state integrity.

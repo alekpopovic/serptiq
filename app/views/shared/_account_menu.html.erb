@@ -1,0 +1,11 @@
+<details class="group relative">
+  <summary class="so-button so-button-secondary so-button-small list-none [&::-webkit-details-marker]:hidden">
+    <span class="grid size-6 place-items-center rounded-full bg-slate-200 text-xs font-bold text-slate-700" aria-hidden="true">A</span>
+    <span><%= label %></span>
+    <span class="text-slate-400 transition group-open:rotate-180 motion-reduce:transition-none" aria-hidden="true">⌄</span>
+  </summary>
+  <div class="absolute right-0 top-12 z-30 w-64 rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
+    <p class="px-3 py-2 text-xs leading-5 text-slate-500">Account actions arrive with authentication. No user data is shown in this scaffold.</p>
+    <%= link_to "Public home", root_path, class: "so-menu-link" %>
+  </div>
+</details>

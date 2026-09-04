@@ -1,0 +1,10 @@
+<meta charset="utf-8">
+<title><%= title == "SearchOps" ? title : "#{title} · SearchOps" %></title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="application-name" content="SearchOps">
+<meta name="theme-color" content="#0f172a">
+<%= csrf_meta_tags %>
+<%= csp_meta_tag %>
+<%= content_for(:head) %>
+<%= stylesheet_link_tag :app, "data-turbo-track": "reload" %>
+<%= javascript_importmap_tags %>

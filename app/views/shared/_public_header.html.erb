@@ -1,0 +1,11 @@
+<header class="border-b border-slate-200 bg-white" aria-label="Public header">
+  <div class="so-container flex min-h-16 items-center justify-between gap-4">
+    <%= render "shared/brand", compact: false, inverted: false %>
+    <nav aria-label="Primary">
+      <ul class="flex items-center gap-1">
+        <li><%= link_to "Home", root_path, class: "so-nav-link", aria: { current: current_path == root_path ? "page" : nil } %></li>
+        <li><%= link_to "Sign in", sign_in_path, class: "so-button so-button-primary so-button-small", aria: { current: current_path == sign_in_path ? "page" : nil } %></li>
+      </ul>
+    </nav>
+  </div>
+</header>

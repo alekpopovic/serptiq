@@ -1,0 +1,19 @@
+<% if model.errors.any? %>
+  <div class="so-alert so-alert-danger" role="alert" tabindex="-1" autofocus data-controller="focus">
+    <div>
+      <h2 class="font-semibold"><%= title %></h2>
+      <ul class="mt-2 list-disc space-y-1 pl-5 text-sm">
+        <% model.errors.each do |error| %>
+          <li>
+            <% target_id = field_ids[error.attribute] %>
+            <% if target_id.present? %>
+              <a class="underline decoration-2 underline-offset-2" href="#<%= target_id %>"><%= error.full_message %></a>
+            <% else %>
+              <%= error.full_message %>
+            <% end %>
+          </li>
+        <% end %>
+      </ul>
+    </div>
+  </div>
+<% end %>

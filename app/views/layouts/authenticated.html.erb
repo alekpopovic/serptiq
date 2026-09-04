@@ -1,0 +1,45 @@
+<% content_for :body_class, "bg-slate-100 text-slate-950" %>
+<% navigation_items = [{ label: "Dashboard", path: dashboard_path }] %>
+<% content_for :shell do %>
+  <div class="min-h-screen lg:grid lg:grid-cols-[17rem_minmax(0,1fr)]">
+    <aside class="hidden border-r border-slate-200 bg-slate-950 text-white lg:flex lg:min-h-screen lg:flex-col" aria-label="Workspace">
+      <div class="border-b border-white/10 px-6 py-5">
+        <%= render "shared/brand", compact: false, inverted: true %>
+      </div>
+      <%= render "shared/app_navigation", items: navigation_items, current_path: request.path, mobile: false %>
+      <p class="mt-auto px-6 py-5 text-xs leading-5 text-slate-400">Workspace navigation is scaffolded for the tenancy flows added in later prompts.</p>
+    </aside>
+
+    <div class="min-w-0">
+      <header class="sticky top-0 z-20 border-b border-slate-200 bg-white/95 backdrop-blur">
+        <div class="flex min-h-16 items-center gap-3 px-4 sm:px-6 lg:px-8">
+          <details class="group relative lg:hidden">
+            <summary class="so-icon-button list-none [&::-webkit-details-marker]:hidden" aria-label="Open workspace navigation">
+              <span aria-hidden="true">☰</span>
+            </summary>
+            <div class="absolute left-0 top-12 z-30 w-72 rounded-xl border border-slate-200 bg-slate-950 p-3 text-white shadow-xl">
+              <%= render "shared/app_navigation", items: navigation_items, current_path: request.path, mobile: true %>
+            </div>
+          </details>
+
+          <div class="lg:hidden">
+            <%= render "shared/brand", compact: true, inverted: false %>
+          </div>
+
+          <div class="min-w-0 flex-1">
+            <p class="truncate text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Workspace scaffold</p>
+          </div>
+
+          <%= render "shared/account_menu", label: "Account" %>
+        </div>
+      </header>
+
+      <%= render "shared/flash_region", flash_messages: flash %>
+
+      <main id="main-content" class="px-4 py-8 sm:px-6 lg:px-8" tabindex="-1">
+        <%= yield %>
+      </main>
+    </div>
+  </div>
+<% end %>
+<%= render template: "layouts/application" %>

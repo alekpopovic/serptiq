@@ -1,0 +1,9 @@
+<div id="flash-region" class="so-container empty:hidden" role="status" aria-live="polite" aria-atomic="true">
+  <% { notice: ["Success", "success"], alert: ["Attention", "danger"] }.each do |key, (title, kind)| %>
+    <% if flash_messages[key].present? %>
+      <div class="py-3">
+        <%= render "shared/alert", kind: kind, title: title, message: flash_messages[key] %>
+      </div>
+    <% end %>
+  <% end %>
+</div>

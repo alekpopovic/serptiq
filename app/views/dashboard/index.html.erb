@@ -1,0 +1,33 @@
+<% content_for :title, "Dashboard scaffold" %>
+
+<div class="mx-auto max-w-7xl">
+  <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div>
+      <p class="so-eyebrow">Authenticated shell preview</p>
+      <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950">Dashboard</h1>
+      <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">No organization, project or account is fabricated here. Authentication and tenancy guards replace this public scaffold route in later prompts.</p>
+    </div>
+    <span class="so-badge so-badge-warning">Scaffold only</span>
+  </div>
+
+  <%= turbo_frame_tag "dashboard-shell" do %>
+    <div class="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
+      <div class="so-card p-6 sm:p-8">
+        <%= render "shared/empty_state",
+          heading_id: "workspace-empty-title",
+          title: "No workspace context yet",
+          body: "Organization creation, switching and project onboarding are implemented by their own secured workflows. This shell deliberately contains no sample customer data.",
+          action: link_to("Return to public home", root_path, class: "so-button so-button-secondary") %>
+      </div>
+
+      <aside class="so-card p-6" aria-labelledby="shell-status-title">
+        <h2 id="shell-status-title" class="font-bold text-slate-950">Shell status</h2>
+        <ul class="mt-4 space-y-3 text-sm text-slate-600">
+          <li class="flex gap-2"><span class="text-teal-700" aria-hidden="true">●</span><span>Semantic landmarks active</span></li>
+          <li class="flex gap-2"><span class="text-teal-700" aria-hidden="true">●</span><span>Responsive navigation active</span></li>
+          <li class="flex gap-2"><span class="text-teal-700" aria-hidden="true">●</span><span>Tenant data intentionally absent</span></li>
+        </ul>
+      </aside>
+    </div>
+  <% end %>
+</div>

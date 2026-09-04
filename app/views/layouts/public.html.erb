@@ -1,0 +1,14 @@
+<% content_for :body_class, "bg-slate-50 text-slate-950" %>
+<% content_for :shell do %>
+  <div class="flex min-h-screen flex-col">
+    <%= render "shared/public_header", current_path: request.path %>
+    <%= render "shared/flash_region", flash_messages: flash %>
+
+    <main id="main-content" class="flex-1" tabindex="-1">
+      <%= yield %>
+    </main>
+
+    <%= render "shared/footer" %>
+  </div>
+<% end %>
+<%= render template: "layouts/application" %>

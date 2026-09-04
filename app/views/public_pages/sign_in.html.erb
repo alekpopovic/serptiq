@@ -1,0 +1,42 @@
+<% content_for :title, "Sign in scaffold" %>
+
+<section class="so-container grid gap-10 py-12 lg:grid-cols-[minmax(0,1fr)_28rem] lg:items-start lg:py-20">
+  <div class="max-w-2xl pt-4">
+    <span class="so-badge so-badge-neutral">Implementation scaffold</span>
+    <h1 class="mt-5 text-4xl font-black tracking-tight text-slate-950">Sign in to SearchOps</h1>
+    <p class="mt-4 text-lg leading-8 text-slate-600">This preview validates the server-rendered form and error behavior only. Google and GitHub connections are implemented by the dedicated identity prompts; this page does not send credentials to a provider yet.</p>
+    <p class="mt-5 text-sm leading-6 text-slate-500">No password field is shown because SearchOps uses application-owned sessions with external identity providers, not a placeholder password flow.</p>
+  </div>
+
+  <div class="so-card p-6 sm:p-8">
+    <%= render "shared/error_summary",
+      model: @sign_in_form,
+      title: "Review the sign-in preview",
+      field_ids: { provider: "shell_sign_in_form_provider_google" } %>
+
+    <%= form_with model: @sign_in_form, url: sign_in_path, class: "mt-6 space-y-6" do |form| %>
+      <fieldset aria-describedby="provider-hint<%= ' provider-error' if @sign_in_form.errors[:provider].any? %>">
+        <legend class="so-label">Identity provider</legend>
+        <p id="provider-hint" class="so-hint">Choose a provider to exercise validation. No OAuth request is made.</p>
+        <% if @sign_in_form.errors[:provider].any? %>
+          <p id="provider-error" class="so-field-error"><%= @sign_in_form.errors.full_messages_for(:provider).to_sentence %></p>
+        <% end %>
+
+        <div class="mt-4 grid gap-3">
+          <% Shell::SignInForm::PROVIDERS.each do |provider| %>
+            <label class="so-choice" for="shell_sign_in_form_provider_<%= provider %>">
+              <%= form.radio_button :provider, provider, class: "so-radio" %>
+              <span>
+                <span class="block font-semibold text-slate-900"><%= provider.titleize %></span>
+                <span class="mt-0.5 block text-sm text-slate-500">Connection follows in the <%= provider.titleize %> identity prompt.</span>
+              </span>
+            </label>
+          <% end %>
+        </div>
+      </fieldset>
+
+      <%= form.submit "Validate preview", class: "so-button so-button-primary w-full" %>
+      <p class="text-center text-xs leading-5 text-slate-500">Submitting always returns to this scaffold with an implementation notice.</p>
+    <% end %>
+  </div>
+</section>

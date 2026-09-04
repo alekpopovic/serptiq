@@ -1,0 +1,120 @@
+{
+  "prompt_id": "008",
+  "title": "Build the Hotwire and Tailwind application shell",
+  "status": "completed",
+  "started_at": "2026-09-04T01:57:08Z",
+  "finished_at": "2026-09-04T02:10:31Z",
+  "summary": "Built accessible public and authenticated Rails shells with responsive native navigation, reusable explicit-local partials, Tailwind component tokens, an honest home/sign-in/dashboard scaffold, server-rendered validation, Turbo frame enhancement, focused error handling, reduced motion and frontend guidance.",
+  "tests": [
+    {
+      "command": "RAILS_ENV=test ... bundle exec rails test",
+      "outcome": "passed",
+      "notes": "43 runs, 323 assertions, 0 failures, 0 errors, 0 skips against four PostgreSQL databases"
+    },
+    {
+      "command": "RAILS_ENV=test ... bundle exec rails test:system",
+      "outcome": "passed",
+      "notes": "3 runs, 11 assertions, 0 failures, 0 errors, 0 skips in headless Chrome"
+    },
+    {
+      "command": "mise exec ruby@3.4.10 -- bundle exec rails tailwindcss:build",
+      "outcome": "passed",
+      "notes": "Tailwind CSS 4.3.3 compiled successfully"
+    },
+    {
+      "command": "mise exec ruby@3.4.10 -- bundle exec rubocop",
+      "outcome": "passed",
+      "notes": "56 files inspected with no offenses"
+    },
+    {
+      "command": "mise exec ruby@3.4.10 -- bundle exec brakeman --quiet --no-pager --exit-on-warn --exit-on-error",
+      "outcome": "passed",
+      "notes": "0 security warnings and 0 scanner errors"
+    },
+    {
+      "command": "mise exec ruby@3.4.10 -- bundle exec bundler-audit check --update",
+      "outcome": "passed",
+      "notes": "advisory database updated and no vulnerabilities found"
+    },
+    {
+      "command": "mise exec ruby@3.4.10 -- bin/importmap audit",
+      "outcome": "passed",
+      "notes": "no vulnerable packages found"
+    },
+    {
+      "command": "RAILS_ENV=test ... bundle exec rails zeitwerk:check",
+      "outcome": "passed",
+      "notes": "application eager loaded successfully"
+    },
+    {
+      "command": "ruby script/check_architecture",
+      "outcome": "passed",
+      "notes": "architecture boundaries passed"
+    },
+    {
+      "command": "ruby script/check_adr_index",
+      "outcome": "passed",
+      "notes": "ADR index passed"
+    },
+    {
+      "command": "ruby tracking/scripts/test_prompt_tracker.rb",
+      "outcome": "passed",
+      "notes": "12 runs, 122 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "ruby tracking/scripts/validate_blueprint.rb",
+      "outcome": "passed",
+      "notes": "blueprint valid with 120 prompts and 10 ADRs"
+    },
+    {
+      "command": "ruby tracking/scripts/prompt_tracker.rb validate",
+      "outcome": "passed",
+      "notes": "120 prompts and state were consistent before completion"
+    }
+  ],
+  "files_changed": [
+    "README.md",
+    "app/assets/tailwind/application.css",
+    "app/controllers/dashboard_controller.rb",
+    "app/controllers/public_pages_controller.rb",
+    "app/forms/shell/sign_in_form.rb",
+    "app/javascript/controllers/focus_controller.js",
+    "app/javascript/controllers/hello_controller.js",
+    "app/views/dashboard/index.html.erb",
+    "app/views/layouts/application.html.erb",
+    "app/views/layouts/authenticated.html.erb",
+    "app/views/layouts/public.html.erb",
+    "app/views/public_pages/home.html.erb",
+    "app/views/public_pages/sign_in.html.erb",
+    "app/views/shared/_account_menu.html.erb",
+    "app/views/shared/_alert.html.erb",
+    "app/views/shared/_app_navigation.html.erb",
+    "app/views/shared/_brand.html.erb",
+    "app/views/shared/_document_head.html.erb",
+    "app/views/shared/_empty_state.html.erb",
+    "app/views/shared/_error_summary.html.erb",
+    "app/views/shared/_flash_region.html.erb",
+    "app/views/shared/_footer.html.erb",
+    "app/views/shared/_public_header.html.erb",
+    "config/routes.rb",
+    "docs/implementation/FRONTEND.md",
+    "docs/implementation/README.md",
+    "test/application_system_test_case.rb",
+    "test/controllers/application_shell_test.rb",
+    "test/system/application_shell_test.rb",
+    "tracking/state.json",
+    "tracking/EXECUTION_LOG.md",
+    "tracking/execution_log.jsonl"
+  ],
+  "migrations": [],
+  "decisions": [
+    "Keep the shell server rendered and use native details controls plus one focus-only Stimulus controller; defer charting until a real metrics surface has an accessible fallback"
+  ],
+  "risks": [
+    "No automated WCAG scanner is installed yet; coverage is targeted semantic keyboard focus responsive and no-JavaScript behavior. Stale ignored public/assets were moved to /tmp so system tests consume the current Tailwind build. Initial system and RuboCop failures were diagnosed and fixed; an incorrect bundle exec importmap invocation was replaced by the repository bin/importmap command."
+  ],
+  "next_steps": [
+    "Prompt 009"
+  ],
+  "commit": null
+}

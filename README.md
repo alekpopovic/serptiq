@@ -46,6 +46,10 @@ Queue routing, isolated worker roles, retries, recurring ownership and the
 disposable Solid Cache/Cable contract are documented in
 [`docs/implementation/SOLID_STACK.md`](./docs/implementation/SOLID_STACK.md).
 
+Frontend layout, component, accessibility and progressive-enhancement rules
+are documented in
+[`docs/implementation/FRONTEND.md`](./docs/implementation/FRONTEND.md).
+
 The initial Rails scaffold was generated outside the repository and merged without overwriting the blueprint:
 
 ```bash
