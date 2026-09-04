@@ -152,13 +152,13 @@ class GoogleOauthAuthorizationRequestTest < ActionDispatch::IntegrationTest
     assert_equal 0, Identity::OauthTransaction.count
   end
 
-  test "callback placeholder carries sensitive-response headers and never renders query secrets" do
+  test "invalid callback carries sensitive-response headers and never renders query secrets" do
     code = "callback-authorization-code-that-is-private"
     state = "callback-state-that-is-private-and-long-enough"
 
     get google_oauth_callback_path, params: { code: code, state: state }
 
-    assert_response :bad_gateway
+    assert_response :unauthorized
     assert_sensitive_headers
     refute_includes response.body, code
     refute_includes response.body, state

@@ -5,6 +5,18 @@ module Identity
     class_attribute :authorization_starter_factory,
       instance_accessor: false,
       default: -> { GoogleAuthorizationStarter.from_settings }
+    class_attribute :callback_completer_factory,
+      instance_accessor: false,
+      default: -> { default_callback_completer }
+
+    class << self
+      def default_callback_completer
+        @callback_completer_mutex ||= Mutex.new
+        @callback_completer_mutex.synchronize do
+          @default_callback_completer ||= GoogleCallbackCompleter.from_settings
+        end
+      end
+    end
 
     before_action :set_sensitive_response_headers
 
@@ -23,11 +35,13 @@ module Identity
     end
 
     def callback
-      raise ProviderError.new(
-        category: "configuration",
-        operation: "callback_exchange",
-        reason_code: "google_callback_not_implemented"
+      callback = GoogleCallbackParameters.from_query_string(request.query_string)
+      completion = self.class.callback_completer_factory.call.call(
+        callback: callback,
+        current_session: Current.session
       )
+      establish_identity_session!(completion.user)
+      redirect_to completion.return_to, status: :see_other, allow_other_host: false
     end
 
     private

@@ -39,6 +39,8 @@ module Shared
       /(?:oauth|authorization)[-_]?code/i,
       /\Acode\z/i,
       /\Astate\z/i,
+      /\Aerror_description\z/i,
+      /\Aerror_uri\z/i,
       /\Aotp\z/i,
       /\Acvv\z/i,
       /\Acvc\z/i

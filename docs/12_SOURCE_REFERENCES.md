@@ -21,6 +21,8 @@ Checked on **2026-09-04** unless an item states otherwise. These sources provide
 - OAuth 2.0 Security Best Current Practice, RFC 9700: <https://www.rfc-editor.org/rfc/rfc9700>
 - PKCE, RFC 7636: <https://www.rfc-editor.org/rfc/rfc7636>
 - Google OpenID Connect: <https://developers.google.com/identity/openid-connect/openid-connect>
+- JSON Web Token, RFC 7519: <https://www.rfc-editor.org/rfc/rfc7519>
+- JSON Web Key, RFC 7517: <https://www.rfc-editor.org/rfc/rfc7517>
 - GitHub OAuth application authorization: <https://docs.github.com/en/apps/oauth-apps/building-oauth-apps/authorizing-oauth-apps>
 
 ## Billing

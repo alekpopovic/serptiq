@@ -23,6 +23,10 @@ shared:
   oauth_http_read_timeout: 5s
   oauth_http_max_response_bytes: 262144
   oauth_http_safe_retries: 2
+  oauth_jwks_cache_ttl: 5m
+  oauth_jwks_max_keys: 16
+  oauth_oidc_clock_skew: 60s
+  oauth_oidc_max_token_lifetime: 2h
   oauth_transaction_ttl: 10m
   oauth_transaction_retention: 24h
   oauth_start_rate_window: 5m

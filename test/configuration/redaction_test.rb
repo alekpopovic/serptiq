@@ -51,6 +51,8 @@ class SharedRedactionTest < ActiveSupport::TestCase
 
     assert_equal "[FILTERED]", filter.filter("oauth_code" => "secret").fetch("oauth_code")
     assert_equal "[FILTERED]", filter.filter("pkce_verifier" => "secret").fetch("pkce_verifier")
+    assert_equal "[FILTERED]", filter.filter("error_description" => "secret").fetch("error_description")
+    assert_equal "[FILTERED]", filter.filter("error_uri" => "secret").fetch("error_uri")
     assert_equal "[FILTERED]", filter.filter("X-Api-Key" => "secret").fetch("X-Api-Key")
   end
 

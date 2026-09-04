@@ -3,10 +3,9 @@
 module Identity
   class GoogleAuthorizationStarter
     def self.from_settings(settings: Rails.application.config.x.searchops)
-      configuration = ProviderConfiguration.from_settings(provider: "google", settings: settings)
       policy = OauthInitiationPolicy.from_settings(settings: settings)
       new(
-        adapter: GoogleProviderAdapter.new(configuration: configuration),
+        adapter: GoogleProviderAdapter.from_settings(settings: settings),
         limiter: OauthInitiationLimiter.new(policy: policy),
         policy: policy
       )

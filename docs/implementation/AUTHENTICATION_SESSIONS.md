@@ -1,8 +1,9 @@
 # Native authentication and session foundation
 
-SearchOps owns its authentication boundary. Google and GitHub adapters resolve
-an application user in later prompts; they do not own browser sessions. The
-public domain boundary is `Identity::Public`:
+SearchOps owns its authentication boundary. Provider adapters return verified
+identity observations but do not own browser sessions. The Google callback
+domain transition now resolves its local user explicitly; GitHub follows in
+its provider prompt. The public domain boundary is `Identity::Public`:
 
 - `issue_session` creates the first session after successful authentication;
 - `authenticate_session!` resolves an opaque browser token from PostgreSQL;
@@ -57,6 +58,9 @@ Logout is a `DELETE` request protected by Rails CSRF behavior. It revokes the
 server record and expires the browser cookie. Authentication completion and
 future privilege-sensitive operations call the protected controller helpers,
 which always issue or rotate the token to prevent session fixation.
+Google sign-in issues a fresh opaque session only after state/nonce/ID-token
+validation and account resolution. Explicit Google linking rotates the exact
+bound recent session after the identity mutation succeeds.
 
 ## Security events and operations
 

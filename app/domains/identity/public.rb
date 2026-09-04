@@ -54,5 +54,9 @@ module Identity
         initiator_digest: initiator_digest
       )
     end
+
+    def complete_google_callback!(callback:, current_session:)
+      GoogleCallbackCompleter.from_settings.call(callback: callback, current_session: current_session)
+    end
   end
 end

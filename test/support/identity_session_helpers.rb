@@ -45,8 +45,8 @@ module TestSupport
     def create_oauth_transaction(provider: "google", state: nil, nonce: :default, pkce_verifier: nil,
       return_to: "/dashboard", expires_at: 10.minutes.from_now, initiator_digest: "a" * 64, link_session: nil)
       secrets = {
-        state: state || "state-#{SecureRandom.urlsafe_base64(32, false)}",
-        nonce: nonce == :default ? "nonce-#{SecureRandom.urlsafe_base64(32, false)}" : nonce,
+        state: state || SecureRandom.urlsafe_base64(32, false),
+        nonce: nonce == :default ? SecureRandom.urlsafe_base64(32, false) : nonce,
         pkce_verifier: pkce_verifier || SecureRandom.urlsafe_base64(32, false)
       }
       transaction = Identity::Public.create_oauth_transaction!(

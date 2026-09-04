@@ -53,7 +53,7 @@ secret-management workflow; do not copy literal documentation values.
 | Application URLs | application name and exact application origin | Rails master key and secret key base |
 | Database roles | process database role, four bounded pool sizes, process count, connection budget and SQL timeout bounds | PostgreSQL URLs for primary, queue, cache and cable, or one shared host/user/password credential set |
 | Object storage | service, private bucket, region and optional endpoint origin | access key ID/secret when workload identity is unavailable |
-| OAuth providers | enable flags, client IDs, bounded HTTP timeouts/response size, safe discovery/JWKS retries, transaction lifetime/retention, start windows and per-IP/session outstanding caps | client secrets; later token records use database encryption |
+| OAuth providers | enable flags, client IDs, bounded HTTP timeouts/response size, safe discovery/JWKS retries, JWKS TTL/key count, OIDC clock skew/token lifetime, transaction lifetime/retention, start windows and per-IP/session outstanding caps | client secrets; callback tokens are transient and later persistent integration tokens use database encryption |
 | Billing | provider and store ID | API key and webhook verification secret |
 | Encryption | active key version identifier | primary key ring, deterministic key and derivation salt |
 | Crawler limits | URL, byte, redirect, concurrency and connect/read duration bounds | none |
@@ -84,7 +84,7 @@ preferred for object storage, so static storage access keys are not mandatory.
 
 `Shared::Redaction` applies the same case-insensitive sensitive-name policy to
 Rails parameters, request headers, URL query pairs and structured event hashes.
-It covers passwords, OAuth codes/state/tokens, API and encryption keys,
+It covers passwords, OAuth codes/state/tokens and provider error detail fields, API and encryption keys,
 Authorization/Cookie headers, webhook signatures, provider credentials and page
 credentials/bodies. URL userinfo is removed. Invalid URLs become
 `[FILTERED_URL]`; callers must log the sanitized return value, never the input.

@@ -38,8 +38,8 @@ cannot replace any endpoint.
 Both protocols require an authorization-code flow, exact callback and PKCE.
 Google additionally requires nonce and validated OIDC claims. GitHub is OAuth,
 not OIDC, and must not fabricate issuer, JWKS, nonce, ID-token, or OIDC-claim
-semantics. Full Google signature/claim verification and GitHub response mapping
-are implemented by the following provider-specific prompts.
+semantics. Google callback validation is complete; GitHub response mapping is
+implemented by its following provider-specific prompt.
 
 ## HTTP boundary
 
@@ -132,6 +132,45 @@ runtime configuration, and every denial returns the same public `rate_limited`
 response. Expired or consumed transaction records older than the configured
 24-hour retention are opportunistically deleted under the same lock.
 
-The callback route exists so the configured URI is exact, but its protocol
-exchange intentionally remains closed until Prompt 018 implements state,
-nonce, PKCE and ID-token validation.
+## Google callback and account transition
+
+`GET /auth/google/callback` accepts one bounded `state` and exactly one of
+`code` or an allowlisted provider `error`. Duplicate critical query keys,
+oversized queries, missing/expired state and already consumed transactions are
+rejected before provider exchange. Every found callback attempt is recorded,
+and PostgreSQL row locking marks a valid transaction consumed before the
+one-shot code exchange. An ambiguous or failed exchange is never retried; the
+user starts a fresh authorization instead.
+
+The server posts the code, configured client ID and secret, exact configured
+redirect URI, `authorization_code` grant type and recovered PKCE verifier only
+to the immutable Google token endpoint. The bounded HTTP client accepts a JSON
+object and the adapter keeps access, refresh and ID tokens transient: none is
+stored in an application table, rendered, added to an exception or emitted as
+an event.
+
+ID tokens must be a canonical three-part compact JWS signed with `RS256` by an
+RSA key from the exact configured Google JWKS endpoint. Embedded/remote key
+headers are rejected. The validator checks key ID, signature, the single
+allowlisted issuer `https://accounts.google.com`, audience, multi-audience
+authorized party, subject, expiry, not-before, issued-at relative to the OAuth
+start, bounded token lifetime and the keyed digest of the original nonce.
+Unknown signing keys cause one forced JWKS refresh; refresh and safe HTTP
+retries remain bounded. The in-process public-key cache defaults to five
+minutes and at most 16 keys.
+
+Google `sub`, never email, is the account key. `email_verified=true` is
+accepted only with a syntactically valid email; otherwise email remains a
+non-authoritative observation and is not copied to `users.primary_email`.
+Verified email collision without link intent returns an explicit-link-required
+conflict and never merges records. A link callback must still carry the exact
+active session bound at start and that session must remain within the 15-minute
+recent-auth window. It cannot transfer a subject already owned by another
+user. Subject and verified-email account transitions use PostgreSQL advisory
+and row locks, after which the browser session is issued or rotated and only
+the stored safe local return path is used.
+
+Callback events contain outcome, provider, operation and stable reason code
+only. Rails parameter filtering covers code, state, token, provider error
+description and error URI fields; callback responses retain the same no-store,
+no-referrer and framing headers as authorization start.
