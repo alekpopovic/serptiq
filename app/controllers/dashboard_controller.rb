@@ -13,6 +13,7 @@ class DashboardController < ApplicationController
   before_action :establish_current_organization!, if: :organization_route?
   before_action :redirect_alias_to_canonical_slug, if: :organization_route?
   permission_required "organization.read", only: :index, if: :organization_route?
+  permission_hint "projects.create", only: :index, if: :organization_route?
   before_action :route_first_run
 
   def index

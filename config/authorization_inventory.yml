@@ -57,6 +57,18 @@ controllers:
     source: app/controllers/entitlements/diagnostics_controller.rb
     actions:
       show: { kind: permission, permission: plans.read }
+  Projects::ProjectsController:
+    source: app/controllers/projects/projects_controller.rb
+    actions:
+      index: { kind: exempt, reason: scope_filtered_project_directory }
+      new: &create_projects { kind: permission, permission: projects.create }
+      create: *create_projects
+      show: { kind: permission, permission: projects.read }
+      edit: &update_projects { kind: permission, permission: projects.update }
+      update: *update_projects
+      archive: &archive_projects { kind: permission, permission: projects.archive }
+      reactivate: *archive_projects
+      destroy: { kind: permission, permission: projects.delete }
   Tenancy::InvitationAcceptancesController:
     source: app/controllers/tenancy/invitation_acceptances_controller.rb
     actions:
@@ -184,10 +196,25 @@ domain_operations:
   Tenancy::Public.ownership_consistency_issues: { kind: system, reason: operator_diagnostic }
   Authorization::Public.assign_role: { kind: permission, permission: roles.assign }
   Authorization::Public.revoke_role: { kind: permission, permission: roles.assign }
+  Authorization::Public.visible_project_scopes:
+    kind: context
+    reason: scope_filtered_project_visibility_projection
   Authorization::Public.access_decision: { kind: context, reason: unified_permission_entitlement_resource_quota_decision }
   Authorization::Public.authorize_access!: { kind: context, reason: enforced_unified_access_decision }
   Authorization::Public.with_access: { kind: context, reason: enforced_access_with_pre_enqueue_release }
   Authorization::Public.authorize_job_access!: { kind: context, reason: reauthorized_user_tenant_job_access }
+  Projects::Public.create_project: { kind: permission, permission: projects.create }
+  Projects::Public.update_project: { kind: permission, permission: projects.update }
+  Projects::Public.transition_project:
+    kind: context
+    reason: operation_maps_to_projects_archive_or_projects_delete
+  Projects::Public.project_page:
+    kind: context
+    reason: filters_every_result_through_project_scope_visibility
+  Projects::Public.project_details: { kind: permission, permission: projects.read }
+  Projects::Public.reference:
+    kind: context
+    reason: explicit_tenant_project_projection_for_downstream_modules
   Billing::Public.create_subscription_reference:
     kind: context
     reason: explicit_tenant_and_published_plan_projection

@@ -15,7 +15,8 @@ module Tenancy
         organization_id: organization_id, membership_id: record.id, ended_at: nil
       ).exists?
       AuthorizationMembership.new(
-        id: record.id, organization_id: record.organization_id, status: record.status, owner: owner
+        id: record.id, organization_id: record.organization_id, user_id: record.user_id,
+        status: record.status, owner: owner
       )
     end
 

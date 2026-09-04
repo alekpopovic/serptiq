@@ -340,7 +340,7 @@ class BillingWebhookProjectionTest < ActiveSupport::TestCase
       billing_customer_id: @customer.id,
       provider: "lemon_squeezy", environment: "test", currency: "EUR", billing_interval: "monthly",
       state: "ready", idempotency_digest: "a" * 64, provider_checkout_id: "checkout-001",
-      expires_at: @now + 1.hour, ready_at: @now
+      expires_at: @now + 1.hour, ready_at: @now, created_at: @now
     )
   end
 

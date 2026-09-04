@@ -363,6 +363,25 @@ END;
 $$;
 
 
+--
+-- Name: protect_project_stable_identity(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.protect_project_stable_identity() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF NEW.organization_id <> OLD.organization_id
+    OR NEW.slug <> OLD.slug
+    OR NEW.external_release_key <> OLD.external_release_key
+    OR NEW.authorization_scope_type <> OLD.authorization_scope_type THEN
+    RAISE EXCEPTION 'project stable identity cannot be changed';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
@@ -1153,6 +1172,37 @@ CREATE TABLE public.plans (
 
 
 --
+-- Name: projects; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.projects (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    slug public.citext NOT NULL,
+    name character varying(160) NOT NULL,
+    description text DEFAULT ''::text NOT NULL,
+    status character varying(32) DEFAULT 'active'::character varying NOT NULL,
+    default_locale character varying(16) DEFAULT 'en'::character varying NOT NULL,
+    time_zone character varying(64) DEFAULT 'UTC'::character varying NOT NULL,
+    external_release_key character varying(40) NOT NULL,
+    authorization_scope_type character varying(24) DEFAULT 'Project'::character varying NOT NULL,
+    archived_at timestamp(6) with time zone,
+    deletion_requested_at timestamp(6) with time zone,
+    lock_version integer DEFAULT 0 NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT projects_authorization_scope_type CHECK (((authorization_scope_type)::text = 'Project'::text)),
+    CONSTRAINT projects_description_bounded CHECK ((char_length(description) <= 2000)),
+    CONSTRAINT projects_external_release_key_format CHECK (((external_release_key)::text ~ '^prj_[0-9a-f]{32}$'::text)),
+    CONSTRAINT projects_lifecycle_consistency CHECK (((((status)::text = 'active'::text) AND (archived_at IS NULL) AND (deletion_requested_at IS NULL)) OR (((status)::text = 'archived'::text) AND (archived_at IS NOT NULL) AND (deletion_requested_at IS NULL)) OR (((status)::text = 'pending_deletion'::text) AND (archived_at IS NOT NULL) AND (deletion_requested_at IS NOT NULL) AND (deletion_requested_at >= archived_at)))),
+    CONSTRAINT projects_locale_format CHECK (((default_locale)::text ~ '^[a-z]{2}(?:-[A-Z]{2})?$'::text)),
+    CONSTRAINT projects_name_format CHECK ((((char_length((name)::text) >= 2) AND (char_length((name)::text) <= 160)) AND ((name)::text = btrim((name)::text)))),
+    CONSTRAINT projects_slug_format CHECK (((slug)::text ~ '^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$'::text)),
+    CONSTRAINT projects_time_zone_format CHECK ((((char_length((time_zone)::text) >= 1) AND (char_length((time_zone)::text) <= 64)) AND ((time_zone)::text = btrim((time_zone)::text))))
+);
+
+
+--
 -- Name: role_assignments; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1845,6 +1895,14 @@ ALTER TABLE ONLY public.plan_versions
 
 ALTER TABLE ONLY public.plans
     ADD CONSTRAINT plans_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: projects projects_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.projects
+    ADD CONSTRAINT projects_pkey PRIMARY KEY (id);
 
 
 --
@@ -2556,6 +2614,34 @@ CREATE UNIQUE INDEX index_plans_on_key ON public.plans USING btree (key);
 
 
 --
+-- Name: index_projects_on_external_release_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_projects_on_external_release_key ON public.projects USING btree (external_release_key);
+
+
+--
+-- Name: index_projects_on_org_status_name; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_projects_on_org_status_name ON public.projects USING btree (organization_id, status, name, id);
+
+
+--
+-- Name: index_projects_on_organization_and_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_projects_on_organization_and_id ON public.projects USING btree (organization_id, id);
+
+
+--
+-- Name: index_projects_on_organization_and_slug; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_projects_on_organization_and_slug ON public.projects USING btree (organization_id, slug);
+
+
+--
 -- Name: index_role_assignments_on_active_grant; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2983,6 +3069,13 @@ CREATE TRIGGER plans_prevent_deletion BEFORE DELETE ON public.plans FOR EACH ROW
 
 
 --
+-- Name: projects projects_protect_stable_identity; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER projects_protect_stable_identity BEFORE UPDATE ON public.projects FOR EACH ROW EXECUTE FUNCTION public.protect_project_stable_identity();
+
+
+--
 -- Name: usage_events usage_events_immutable_and_consistent; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -3166,6 +3259,14 @@ ALTER TABLE ONLY public.organization_ownerships
 
 ALTER TABLE ONLY public.plan_entitlements
     ADD CONSTRAINT fk_plan_entitlements_definition_type FOREIGN KEY (entitlement_definition_id, value_type) REFERENCES public.entitlement_definitions(id, value_type) ON DELETE RESTRICT;
+
+
+--
+-- Name: projects fk_projects_same_org_authorization_scope; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.projects
+    ADD CONSTRAINT fk_projects_same_org_authorization_scope FOREIGN KEY (organization_id, id, authorization_scope_type) REFERENCES public.authorization_scope_references(organization_id, id, scope_type) ON DELETE RESTRICT;
 
 
 --
@@ -3374,6 +3475,14 @@ ALTER TABLE ONLY public.entitlement_subscription_contexts
 
 ALTER TABLE ONLY public.memberships
     ADD CONSTRAINT fk_rails_99326fb65d FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: projects fk_rails_9aee26923d; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.projects
+    ADD CONSTRAINT fk_rails_9aee26923d FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE RESTRICT;
 
 
 --
@@ -3751,6 +3860,7 @@ ALTER TABLE ONLY public.usage_windows
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904130000'),
 ('20260904123000'),
 ('20260904102000'),
 ('20260904101000'),

@@ -1,0 +1,141 @@
+# frozen_string_literal: true
+
+module Projects
+  class ProjectsController < ApplicationController
+    include Identity::LoginRequired
+    include Tenancy::CurrentOrganization
+
+    layout "authenticated"
+
+    before_action :establish_current_organization!
+    before_action :redirect_alias_to_canonical_slug
+    before_action :load_project!, only: %i[show edit update archive reactivate destroy]
+
+    authorization_exempt :index, reason: "scope_filtered_project_directory"
+    permission_required "projects.create", only: %i[new create]
+    permission_required "projects.read", only: :show, scope: -> { { project: @project } }
+    permission_required "projects.update", only: %i[edit update], scope: -> { { project: @project } }
+    permission_required "projects.archive", only: %i[archive reactivate], scope: -> { { project: @project } }
+    permission_required "projects.delete", only: :destroy, scope: -> { { project: @project } }
+
+    permission_hint "projects.create", only: :index
+    permission_hint "projects.update", only: :show, scope: -> { { project: @project } }
+    permission_hint "projects.archive", only: :show, scope: -> { { project: @project } }
+    permission_hint "projects.delete", only: :show, scope: -> { { project: @project } }
+
+    def index
+      @project_page = Public.project_page(
+        actor_membership: Current.membership,
+        number: params[:page],
+        query: params[:q]
+      )
+    end
+
+    def new
+      @project = Project.new(
+        default_locale: Current.organization.default_locale,
+        time_zone: Current.organization.time_zone
+      )
+      prepare_form
+    end
+
+    def create
+      project = Public.create_project(
+        actor_membership: Current.membership,
+        **project_params.to_h.symbolize_keys
+      )
+      redirect_to organization_project_path(Current.organization.slug, project.slug),
+        notice: "Project created.", status: :see_other
+    rescue ActiveRecord::RecordInvalid => error
+      @project = error.record
+      prepare_form
+      render :new, status: :unprocessable_content
+    end
+
+    def show
+      @project_summary = Public.project_details(
+        actor_membership: Current.membership, project_id: @project.id
+      )
+    end
+
+    def edit
+      prepare_form
+    end
+
+    def update
+      project = Public.update_project(
+        actor_membership: Current.membership,
+        project_id: @project.id,
+        **editable_project_params.to_h.symbolize_keys
+      )
+      redirect_to organization_project_path(Current.organization.slug, project.slug),
+        notice: "Project settings were updated.", status: :see_other
+    rescue ActiveRecord::RecordInvalid => error
+      @project = error.record
+      prepare_form
+      render :edit, status: :unprocessable_content
+    end
+
+    def archive
+      Public.transition_project(
+        actor_membership: Current.membership, project_id: @project.id, operation: "archive"
+      )
+      redirect_to organization_projects_path(Current.organization.slug),
+        notice: "Project archived. New scans are disabled.", status: :see_other
+    end
+
+    def reactivate
+      Public.transition_project(
+        actor_membership: Current.membership, project_id: @project.id, operation: "reactivate"
+      )
+      redirect_to organization_project_path(Current.organization.slug, @project.slug),
+        notice: "Project reactivated.", status: :see_other
+    end
+
+    def destroy
+      Public.transition_project(
+        actor_membership: Current.membership,
+        project_id: @project.id,
+        operation: "request_deletion",
+        current_session: Current.session,
+        user_id: Current.user.id
+      )
+      redirect_to organization_projects_path(Current.organization.slug),
+        notice: "Project deletion requested. Its retained history is read-only.", status: :see_other
+    end
+
+    private
+
+    def load_project!
+      @project = Project.find_by(
+        organization_id: Current.organization.id,
+        slug: params[:project_slug]
+      )
+      raise ProjectAccessDenied unless @project
+    end
+
+    def project_params
+      params.expect(project: %i[name slug description default_locale time_zone])
+    end
+
+    def editable_project_params
+      params.expect(project: %i[name description default_locale time_zone])
+    end
+
+    def prepare_form
+      @locales = I18n.available_locales.map { |locale| [ locale.to_s, locale.to_s ] }.freeze
+      @time_zones = ActiveSupport::TimeZone.all.map(&:name).freeze
+    end
+
+    def redirect_alias_to_canonical_slug
+      return if organization_slug_is_canonical?
+
+      destination = if params[:project_slug].present?
+        organization_project_path(Current.organization.slug, params[:project_slug])
+      else
+        organization_projects_path(Current.organization.slug)
+      end
+      redirect_to destination, status: :moved_permanently
+    end
+  end
+end

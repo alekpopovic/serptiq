@@ -24,6 +24,10 @@ module Authorization
       EffectivePermissionQuery.new.call(**attributes)
     end
 
+    def visible_project_scopes(**attributes)
+      VisibleProjectScopes.new.call(**attributes)
+    end
+
     def assign_role(**attributes)
       AssignRole.new.call(**attributes)
     end

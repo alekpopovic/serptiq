@@ -36,7 +36,7 @@ modules:
     allowed_dependencies: [plans, entitlements, auditing, shared]
   projects:
     namespace: Projects
-    allowed_dependencies: [tenancy, authorization, entitlements, usage, shared]
+    allowed_dependencies: [identity, tenancy, authorization, entitlements, usage, auditing, shared]
   properties:
     namespace: Properties
     allowed_dependencies: [projects, authorization, entitlements, usage, shared]

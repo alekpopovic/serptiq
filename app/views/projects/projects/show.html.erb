@@ -1,0 +1,52 @@
+<% content_for :title, @project_summary.name %>
+
+<div class="mx-auto max-w-6xl">
+  <%= render "shared/breadcrumbs", items: [
+    { label: "Projects", path: organization_projects_path(Current.organization.slug) },
+    { label: @project_summary.name, path: nil }
+  ] %>
+  <div class="mt-6 flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <p class="so-eyebrow">Project</p>
+      <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950"><%= @project_summary.name %></h1>
+      <% if @project_summary.description.present? %><p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600"><%= @project_summary.description %></p><% end %>
+    </div>
+    <span class="so-badge <%= @project_summary.active? ? "so-badge-success" : "so-badge-neutral" %>"><%= @project_summary.status.humanize %></span>
+  </div>
+
+  <% unless @project_summary.active? %>
+    <div class="so-alert so-alert-warning mt-7"><p>This project is read-only. New scans and schedules are disabled while it is <%= @project_summary.status.humanize.downcase %>.</p></div>
+  <% end %>
+
+  <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+    <section class="so-card p-5"><p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Health</p><p class="mt-2 font-bold text-slate-950">Not observed</p><p class="mt-1 text-xs text-slate-500">No scan evidence exists yet.</p></section>
+    <section class="so-card p-5"><p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Properties</p><p class="mt-2 text-2xl font-black text-slate-950"><%= @project_summary.property_count %></p></section>
+    <section class="so-card p-5"><p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Latest scan</p><p class="mt-2 font-bold text-slate-950"><%= @project_summary.latest_scan_at ? l(@project_summary.latest_scan_at) : "No observation" %></p></section>
+    <section class="so-card p-5"><p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Defaults</p><p class="mt-2 font-bold text-slate-950"><%= @project_summary.default_locale %></p><p class="mt-1 text-xs text-slate-500"><%= @project_summary.time_zone %></p></section>
+  </div>
+
+  <section class="so-card mt-8 p-6" aria-labelledby="project-identifiers-title">
+    <h2 id="project-identifiers-title" class="font-bold text-slate-950">Stable identifiers</h2>
+    <dl class="mt-4 grid gap-4 text-sm sm:grid-cols-2">
+      <div><dt class="text-slate-500">Project slug</dt><dd class="mt-1 font-mono text-slate-900"><%= @project_summary.slug %></dd></div>
+      <div><dt class="text-slate-500">External release key</dt><dd class="mt-1 break-all font-mono text-slate-900"><%= @project_summary.external_release_key %></dd></div>
+    </dl>
+    <p class="mt-4 text-xs leading-5 text-slate-500">The release key identifies this project to future deployment integrations; it is not an authentication secret.</p>
+  </section>
+
+  <div class="mt-8 flex flex-wrap gap-3">
+    <% if @project_summary.active? && allowed_to?("projects.update", project: @project) %>
+      <%= link_to "Edit project", edit_organization_project_path(Current.organization.slug, @project_summary.slug), class: "so-button so-button-primary" %>
+    <% end %>
+    <% if @project_summary.active? && allowed_to?("projects.archive", project: @project) %>
+      <%= button_to "Archive project", archive_organization_project_path(Current.organization.slug, @project_summary.slug), method: :patch, class: "so-button so-button-secondary", form: { data: { turbo_confirm: "Archive this project and disable new scans?" } } %>
+    <% elsif @project_summary.archived? && allowed_to?("projects.archive", project: @project) %>
+      <%= button_to "Reactivate project", reactivate_organization_project_path(Current.organization.slug, @project_summary.slug), method: :patch, class: "so-button so-button-primary" %>
+    <% end %>
+    <% unless @project_summary.pending_deletion? %>
+      <% if allowed_to?("projects.delete", project: @project) %>
+        <%= button_to "Request deletion", organization_project_path(Current.organization.slug, @project_summary.slug), method: :delete, class: "so-button so-button-danger", form: { data: { turbo_confirm: "Request deletion for this project? Retained history becomes read-only." } } %>
+      <% end %>
+    <% end %>
+  </div>
+</div>

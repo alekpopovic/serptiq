@@ -24,6 +24,11 @@ There is intentionally no decision cache: privilege and lifecycle changes affect
 the same request and across processes without an invalidation race. Representative multi-team resolution
 has a bounded query test and uses the joined effective-permission query from prompt 030.
 
+Project creation registers the durable Project scope without creating a role assignment. Active
+organization grants flow into it through the ordinary hierarchy. Once archived, project-scoped grants are
+inactive; only current organization-scope grants can read retained history, restore the project, or request
+deletion. All other operations fail with `resource_unavailable`.
+
 `Authorization::PolicyAdapter` is the UI/job/domain adapter. It returns decisions for capability hints and
 raises `Authorization::AccessDenied` for enforcement. `Authorization::ControllerPolicy` exposes private
 controller helpers and is included globally. Tenant controllers declare every public action with

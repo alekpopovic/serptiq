@@ -626,20 +626,28 @@ compatible meter windows in the same pool and exact period.
 
 ### `projects`
 
-| Column | Type |
-|---|---|
-| id | uuid |
-| organization_id | uuid |
-| name | string |
-| slug | citext |
-| status | string |
-| description | text |
-| default_environment | string |
-| settings | jsonb |
-| archived_at | timestamptz |
-| deletion_requested_at | timestamptz |
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid | PK and matching Authorization project-scope identity |
+| organization_id | uuid | immutable tenant boundary |
+| slug | citext | immutable normalized route key |
+| name | string | trimmed display name |
+| description | text | bounded customer context |
+| status | string | active, archived, pending_deletion |
+| default_locale | string | supported locale identifier |
+| time_zone | string | supported Rails/IANA display zone |
+| external_release_key | string | globally unique public integration identifier; not a secret |
+| authorization_scope_type | string | fixed `Project` composite-FK marker |
+| archived_at | timestamptz | required outside active state |
+| deletion_requested_at | timestamptz | required only while pending deletion |
+| lock_version | integer | optimistic lifecycle locking |
 
-Unique active `(organization_id, slug)`.
+Unique `(organization_id, slug)` across retained history and globally unique
+`external_release_key`. A composite foreign key requires the project UUID and tenant to match a registered
+Authorization project scope. Stable tenant/slug/release identities are protected by a PostgreSQL trigger.
+Archiving immediately marks the authorization scope unavailable and disables new scans; retained history
+remains visible only through qualifying organization-scope grants. Final retention/deletion orchestration is
+defined by the later lifecycle workflow.
 
 ### `properties`
 
@@ -860,6 +868,8 @@ targets for orphaned and cross-tenant references.
 13. An API key stores no recoverable raw secret.
 14. A one-time invitation or OAuth transaction cannot be consumed twice.
 15. Object artifacts cannot be accessed without an authorized parent relation.
+16. Every project has a same-organization Authorization project scope, and its stable routing/integration
+    identity cannot be reassigned.
 
 ## 12. Retention classes
 

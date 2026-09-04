@@ -1,0 +1,40 @@
+<%= render "shared/error_summary", model: project, title: "Check the project details", field_ids: {
+  name: "project_name", slug: "project_slug", description: "project_description",
+  default_locale: "project_default_locale", time_zone: "project_time_zone"
+} %>
+
+<div>
+  <%= form.label :name, "Project name", class: "so-label" %>
+  <%= form.text_field :name, required: true, maxlength: 160, autocomplete: "organization", class: "so-input" %>
+</div>
+
+<% if project.new_record? %>
+  <div>
+    <%= form.label :slug, "Project slug", class: "so-label" %>
+    <%= form.text_field :slug, required: true, maxlength: 63, autocapitalize: "none", spellcheck: false, class: "so-input", aria: { describedby: "project-slug-hint" } %>
+    <p id="project-slug-hint" class="so-help">This stable route key cannot be changed after creation.</p>
+  </div>
+<% else %>
+  <div>
+    <span class="so-label">Project slug</span>
+    <p class="mt-2 font-mono text-sm text-slate-700"><%= project.slug %></p>
+    <p class="so-help">The stable route key is retained for integrations and history.</p>
+  </div>
+<% end %>
+
+<div>
+  <%= form.label :description, "Description", class: "so-label" %>
+  <%= form.text_area :description, maxlength: 2000, rows: 5, class: "so-input", aria: { describedby: "project-description-hint" } %>
+  <p id="project-description-hint" class="so-help">Optional context for this product or client engagement.</p>
+</div>
+
+<div class="grid gap-5 sm:grid-cols-2">
+  <div>
+    <%= form.label :default_locale, "Default locale", class: "so-label" %>
+    <%= form.select :default_locale, locales, {}, class: "so-select" %>
+  </div>
+  <div>
+    <%= form.label :time_zone, "Time zone", class: "so-label" %>
+    <%= form.select :time_zone, time_zones, {}, class: "so-select" %>
+  </div>
+</div>

@@ -1,0 +1,21 @@
+<% content_for :title, "Create project" %>
+
+<div class="mx-auto max-w-3xl">
+  <%= render "shared/breadcrumbs", items: [
+    { label: "Projects", path: organization_projects_path(Current.organization.slug) },
+    { label: "Create project", path: nil }
+  ] %>
+  <div class="mt-6">
+    <p class="so-eyebrow">Project setup</p>
+    <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950">Create project</h1>
+    <p class="mt-2 text-sm leading-6 text-slate-600">A project is the authorization and reporting boundary for related web and mobile properties.</p>
+  </div>
+
+  <%= form_with model: @project, scope: :project, url: organization_projects_path(Current.organization.slug), class: "so-card mt-8 space-y-6 p-6 sm:p-8" do |form| %>
+    <%= render "form", form: form, project: @project, locales: @locales, time_zones: @time_zones %>
+    <div class="flex flex-wrap gap-3">
+      <%= form.submit "Create project", class: "so-button so-button-primary" %>
+      <%= link_to "Cancel", organization_projects_path(Current.organization.slug), class: "so-button so-button-secondary" %>
+    </div>
+  <% end %>
+</div>

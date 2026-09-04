@@ -119,6 +119,30 @@ Rails.application.routes.draw do
   delete "dashboard/organizations/:organization_slug/teams/:id/members/:membership_id",
     to: "tenancy/teams#remove_member",
     as: :organization_team_member
+  get "dashboard/organizations/:organization_slug/projects",
+    to: "projects/projects#index",
+    as: :organization_projects
+  get "dashboard/organizations/:organization_slug/projects/new",
+    to: "projects/projects#new",
+    as: :new_organization_project
+  post "dashboard/organizations/:organization_slug/projects",
+    to: "projects/projects#create"
+  get "dashboard/organizations/:organization_slug/projects/:project_slug",
+    to: "projects/projects#show",
+    as: :organization_project
+  get "dashboard/organizations/:organization_slug/projects/:project_slug/edit",
+    to: "projects/projects#edit",
+    as: :edit_organization_project
+  patch "dashboard/organizations/:organization_slug/projects/:project_slug",
+    to: "projects/projects#update"
+  patch "dashboard/organizations/:organization_slug/projects/:project_slug/archive",
+    to: "projects/projects#archive",
+    as: :archive_organization_project
+  patch "dashboard/organizations/:organization_slug/projects/:project_slug/reactivate",
+    to: "projects/projects#reactivate",
+    as: :reactivate_organization_project
+  delete "dashboard/organizations/:organization_slug/projects/:project_slug",
+    to: "projects/projects#destroy"
   get "dashboard/organizations/:organization_slug", to: "dashboard#index", as: :organization_dashboard
   get "onboarding", to: "onboarding#show", as: :onboarding
   get "dashboard/invitations/review",

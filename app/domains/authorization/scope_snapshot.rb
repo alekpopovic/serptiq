@@ -16,5 +16,9 @@ module Authorization
     def active?
       status == "active"
     end
+
+    def archived?
+      status == "archived"
+    end
   end
 end

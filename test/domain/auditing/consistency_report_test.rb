@@ -45,4 +45,21 @@ class AuditConsistencyReportTest < ActiveSupport::TestCase
     assert_includes issues,
       Auditing::ConsistencyIssue.new(audit_event_id: orphan.id, reason_code: "target_orphan")
   end
+
+  test "reports a project target from another tenant" do
+    Authorization::Public.sync_catalog
+    enable_project_limit(@foreign)
+    project = create_project_for(@foreign, slug: "foreign-audit-project")
+    event = Auditing::Public.record!(
+      organization_id: @owner.organization.id,
+      actor_membership_id: @owner.membership.id,
+      action: "project.reviewed",
+      target_type: "Project",
+      target_id: project.id,
+      result: "denied"
+    )
+
+    assert_includes Auditing::Public.consistency_issues,
+      Auditing::ConsistencyIssue.new(audit_event_id: event.id, reason_code: "target_cross_tenant")
+  end
 end

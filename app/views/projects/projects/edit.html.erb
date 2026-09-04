@@ -1,0 +1,21 @@
+<% content_for :title, "Edit project" %>
+
+<div class="mx-auto max-w-3xl">
+  <%= render "shared/breadcrumbs", items: [
+    { label: "Projects", path: organization_projects_path(Current.organization.slug) },
+    { label: @project.name, path: organization_project_path(Current.organization.slug, @project.slug) },
+    { label: "Edit", path: nil }
+  ] %>
+  <div class="mt-6">
+    <p class="so-eyebrow">Project settings</p>
+    <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950">Edit project</h1>
+  </div>
+
+  <%= form_with model: @project, scope: :project, url: organization_project_path(Current.organization.slug, @project.slug), method: :patch, class: "so-card mt-8 space-y-6 p-6 sm:p-8" do |form| %>
+    <%= render "form", form: form, project: @project, locales: @locales, time_zones: @time_zones %>
+    <div class="flex flex-wrap gap-3">
+      <%= form.submit "Save project settings", class: "so-button so-button-primary" %>
+      <%= link_to "Cancel", organization_project_path(Current.organization.slug, @project.slug), class: "so-button so-button-secondary" %>
+    </div>
+  <% end %>
+</div>

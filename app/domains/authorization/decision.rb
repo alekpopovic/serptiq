@@ -3,6 +3,7 @@
 module Authorization
   class Decision
     OWNER_ONLY_PERMISSIONS = %w[organization.transfer organization.delete].freeze
+    ARCHIVED_PROJECT_PERMISSIONS = %w[projects.read projects.archive projects.delete].freeze
 
     def self.call(request = nil, validate_resource: true, **attributes)
       request ||= AccessRequest.new(**attributes)
@@ -51,7 +52,8 @@ module Authorization
       )
       return denied(request, "scope_mismatch") if chain.empty?
       return denied(request, "scope_mismatch") unless requested_project_matches?(request, chain)
-      return denied(request, "resource_unavailable") unless chain.all?(&:active?)
+      archived_project = archived_project_access?(permission, chain)
+      return denied(request, "resource_unavailable") unless chain.all?(&:active?) || archived_project
       return denied(request, "scope_mismatch") unless permission_matches_scope?(permission, request)
       if validate_resource
         return denied(request, "scope_mismatch") unless resource_matches_scope?(request)
@@ -61,13 +63,10 @@ module Authorization
         return denied(request, "owner_permission_required")
       end
 
-      effective = @effective_permissions.call(
-        organization_id: request.organization_id,
-        membership_id: request.actor_membership_id,
-        scope_type: request.scope_type,
-        scope_id: request.scope_id
-      )
-      return denied(request, "permission_missing") unless effective.include?(permission.key)
+      effective = effective_permissions(request, archived_project: archived_project)
+      unless effective.include?(permission.key)
+        return denied(request, archived_project ? "resource_unavailable" : "permission_missing")
+      end
 
       sources = effective.owner? ? [ "organization_ownership" ] : effective.sources_for(permission.key)
       DecisionResult.new(
@@ -112,6 +111,31 @@ module Authorization
 
       resource.organization_id == request.organization_id &&
         resource.scope_type == request.scope_type && resource.scope_id == request.scope_id
+    end
+
+    def archived_project_access?(permission, chain)
+      organization, project = chain
+      chain.length == 2 && organization&.active? && project&.type == "Project" && project.archived? &&
+        ARCHIVED_PROJECT_PERMISSIONS.include?(permission.key)
+    end
+
+    def effective_permissions(request, archived_project:)
+      if archived_project
+        @effective_permissions.call(
+          organization_id: request.organization_id,
+          membership_id: request.actor_membership_id,
+          scope_type: "Organization",
+          scope_id: request.organization_id,
+          all_permission_scopes: true
+        )
+      else
+        @effective_permissions.call(
+          organization_id: request.organization_id,
+          membership_id: request.actor_membership_id,
+          scope_type: request.scope_type,
+          scope_id: request.scope_id
+        )
+      end
     end
   end
 end

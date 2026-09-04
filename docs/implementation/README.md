@@ -77,6 +77,8 @@ Do not pre-populate these reports with fictional implementation or test results.
   visibility and tenant-safe usage presentation contract.
 - [`ACCESS_BOUNDARY.md`](./ACCESS_BOUNDARY.md) defines the stable permission-entitlement-resource-quota
   evaluation order, integration APIs, reservation cleanup and feature-operation key registry.
+- [`PROJECTS.md`](./PROJECTS.md) defines stable project identity, tenant/scope linkage, lifecycle,
+  active-project capacity, audit/outbox history and bulk placeholder read models.
 - [`BILLING_PROVIDER_CONTRACT.md`](./BILLING_PROVIDER_CONTRACT.md) defines normalized billing values,
   adapter operations/errors, transport policies, canonical lifecycle and second-provider requirements.
 - [`LEMON_SQUEEZY_ADAPTER.md`](./LEMON_SQUEEZY_ADAPTER.md) defines the first production adapter's exact

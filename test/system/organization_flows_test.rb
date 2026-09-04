@@ -14,7 +14,7 @@ class OrganizationFlowsSystemTest < ApplicationSystemTestCase
 
     assert_current_path organization_dashboard_path("north-star-studio")
     assert_text "Verified organization: North Star Studio"
-    assert_text "Project setup not available yet"
+    assert_link "Create project"
   end
 
   test "switches between only the user's active organizations" do

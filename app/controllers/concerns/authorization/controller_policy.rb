@@ -12,17 +12,17 @@ module Authorization
     end
 
     class_methods do
-      def permission_required(permission_key, only:, **conditions)
+      def permission_required(permission_key, only:, scope: nil, **conditions)
         declare_authorization(permission_key, only, :required)
         before_action(only: Array(only), **conditions) do
-          authorize_permission!(permission_key)
+          authorize_permission!(permission_key, **authorization_scope_attributes(scope))
         end
       end
 
-      def permission_hint(permission_key, only:, **conditions)
+      def permission_hint(permission_key, only:, scope: nil, **conditions)
         declare_authorization(permission_key, only, :hint)
         before_action(only: Array(only), **conditions) do
-          remember_authorization_decision(permission_key)
+          remember_authorization_decision(permission_key, **authorization_scope_attributes(scope))
         end
       end
 
@@ -47,6 +47,15 @@ module Authorization
     end
 
     private
+
+    def authorization_scope_attributes(scope)
+      return {} unless scope
+
+      attributes = scope.respond_to?(:call) ? instance_exec(&scope) : scope
+      raise ArgumentError, "authorization scope must be a hash" unless attributes.is_a?(Hash)
+
+      attributes
+    end
 
     def authorization_policy
       PolicyAdapter.new(actor_membership: Current.membership, organization: Current.organization)

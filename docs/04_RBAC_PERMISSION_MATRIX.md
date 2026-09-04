@@ -157,6 +157,9 @@ Legend: **✓** default grant, **—** not granted. Owners receive every custome
     properties, and property grants apply only to that exact property. Grants are unioned; no scope flows upward.
 12. Suspended/removed memberships, archived teams, archived target scopes, expired assignments and revoked
     assignments contribute no permissions. An archived parent project also disables property grants.
+    To preserve reviewable project history, `projects.read`, `projects.archive` (restore), and
+    `projects.delete` may be evaluated against an archived project using current organization-scope grants
+    only; assignments scoped to that archived project remain ineffective.
 13. Generic role assignment cannot grant `Owner`; ownership changes use the dedicated transfer operation.
 14. Accepted invitation role intent passes through the same assignment authority and tenant checks; membership
     activation and the initial grant commit atomically.

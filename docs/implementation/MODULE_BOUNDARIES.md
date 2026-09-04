@@ -138,6 +138,12 @@ come from `Entitlements::Public`. Billing exposes only tenant subscription summa
 availability; provider variant identifiers are never presentation data. Organization usage pages call the
 `Usage::Public` dashboard with a matching organization-scoped `billing.read` authorization proof.
 
+Projects owns project identity, lifecycle and project-list read models. It resolves tenant subjects through
+`Tenancy::Public`, permissions and scope visibility through `Authorization::Public`, active-project limits
+through `Entitlements::Public`, recent destructive-action authentication through `Identity::Public`, and
+append-only history through `Auditing::Public` plus the Shared outbox. Project creation registers a scope but
+never creates an implicit role assignment.
+
 ## Shared primitives
 
 `app/domains/shared/` is owned platform domain code, not a general utilities
