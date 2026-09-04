@@ -17,6 +17,13 @@ class SearchopsConfigurationTest < ActiveSupport::TestCase
     assert_equal 5.0, configuration.fetch(:oauth_http_read_timeout)
     assert_equal 262_144, configuration.fetch(:oauth_http_max_response_bytes)
     assert_equal 2, configuration.fetch(:oauth_http_safe_retries)
+    assert_equal 600.0, configuration.fetch(:oauth_transaction_ttl)
+    assert_equal 86_400.0, configuration.fetch(:oauth_transaction_retention)
+    assert_equal 300.0, configuration.fetch(:oauth_start_rate_window)
+    assert_equal 20, configuration.fetch(:oauth_start_max_per_ip)
+    assert_equal 10, configuration.fetch(:oauth_start_max_per_session)
+    assert_equal 5, configuration.fetch(:oauth_start_max_open_per_ip)
+    assert_equal 2, configuration.fetch(:oauth_start_max_open_per_session)
   end
 
   test "environment overrides public config and credentials for secrets" do
@@ -44,6 +51,8 @@ class SearchopsConfigurationTest < ActiveSupport::TestCase
       "SEARCHOPS_OAUTH_HTTP_OPEN_TIMEOUT" => "0ms",
       "SEARCHOPS_OAUTH_HTTP_MAX_RESPONSE_BYTES" => "100",
       "SEARCHOPS_OAUTH_HTTP_SAFE_RETRIES" => "4",
+      "SEARCHOPS_OAUTH_TRANSACTION_TTL" => "16m",
+      "SEARCHOPS_OAUTH_START_MAX_OPEN_PER_IP" => "0",
       "SEARCHOPS_SLACK_ENABLED" => "sometimes",
       "SEARCHOPS_BROWSER_TIMEOUT" => "45",
       "SEARCHOPS_PROCESS_ROLE" => "root",

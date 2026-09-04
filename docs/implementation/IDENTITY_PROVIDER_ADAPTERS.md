@@ -98,3 +98,40 @@ Every provider addition requires all of the following in one reviewed change:
 
 Default tests use only deterministic fakes and sanitized synthetic payloads;
 they never contact Google or GitHub.
+
+## Google authorization initiation
+
+`POST /auth/google` is the only Google sign-in initiation endpoint. Keeping the
+state-changing start behind a POST preserves Rails CSRF protection. It creates
+independent 256-bit state and nonce values plus a 512-bit PKCE verifier, derives
+the S256 challenge, and returns a `303 See Other` to the immutable Google
+authorization endpoint. The query contains the exact configured client ID and
+callback, `response_type=code`, `scope=openid email profile`, state, nonce,
+challenge and `code_challenge_method=S256`. A caller-supplied callback is never
+read.
+
+The PostgreSQL transaction stores keyed state/nonce/verifier digests and an
+authenticated verifier ciphertext; only state, nonce and the derived challenge
+leave in the Google authorization URL. Raw values, the raw initiator address
+and the complete authorization URL are excluded from pages and structured
+events. OAuth responses set `Cache-Control: no-store`, `Pragma: no-cache`, an
+expired `Expires`, `Referrer-Policy: no-referrer`, `nosniff` and frame denial.
+
+`return_to` passes the shared local `/dashboard` allowlist. `link=1` is an
+explicit intent and is accepted only with an active local session authenticated
+in the last 15 minutes; the transaction stores a restrictive foreign key to that
+exact session. An authenticated request without explicit link intent is
+rejected rather than silently switching accounts. The callback implementation
+must revalidate this binding before any identity mutation.
+
+Initiations are serialized with PostgreSQL transaction advisory locks and
+bounded by keyed canonical-IP and, for linking, session dimensions. Defaults
+allow 20 starts per IP and 10 per link session within five minutes, with at
+most five open attempts per IP and two per link session. These values are
+runtime configuration, and every denial returns the same public `rate_limited`
+response. Expired or consumed transaction records older than the configured
+24-hour retention are opportunistically deleted under the same lock.
+
+The callback route exists so the configured URI is exact, but its protocol
+exchange intentionally remains closed until Prompt 018 implements state,
+nonce, PKCE and ID-token validation.

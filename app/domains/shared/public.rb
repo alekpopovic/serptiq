@@ -4,6 +4,8 @@ module Shared
   module Public
     AuthenticationError = Errors::AuthenticationError
     ExternalProviderError = Errors::ExternalProviderError
+    RateLimitError = Errors::RateLimitError
+    ValidationError = Errors::ValidationError
 
     module_function
 

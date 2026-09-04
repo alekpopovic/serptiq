@@ -17,14 +17,20 @@ module Identity
       foreign_key: :rotated_from_id,
       inverse_of: :rotated_from,
       dependent: :restrict_with_exception
+    has_many :link_oauth_transactions,
+      class_name: "Identity::OauthTransaction",
+      foreign_key: :link_session_id,
+      inverse_of: :link_session,
+      dependent: :restrict_with_exception
 
     validates :token_digest, presence: true, uniqueness: true, format: { with: DIGEST_PATTERN }
     validates :ip_address_digest, :user_agent_digest,
       format: { with: DIGEST_PATTERN }, allow_nil: true
-    validates :last_seen_at, :expires_at, presence: true
+    validates :authenticated_at, :last_seen_at, :expires_at, presence: true
     validates :revoke_reason, inclusion: { in: REVOKE_REASONS }, allow_nil: true
     validate :expiry_follows_last_seen
     validate :revocation_fields_are_consistent
+    validate :authentication_precedes_last_seen
 
     def status_at(now, idle_timeout: SessionPolicy::IDLE_TIMEOUT)
       return :revoked if revoked_at?
@@ -47,6 +53,12 @@ module Identity
       return if revoked_at.present? == revoke_reason.present?
 
       errors.add(:revoked_at, "and revoke reason must be set together")
+    end
+
+    def authentication_precedes_last_seen
+      return if authenticated_at.blank? || last_seen_at.blank? || authenticated_at <= last_seen_at
+
+      errors.add(:authenticated_at, "must be at or before last seen")
     end
   end
 end

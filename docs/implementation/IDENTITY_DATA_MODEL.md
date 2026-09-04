@@ -34,10 +34,13 @@ reassigned as a side effect of email changes.
 - keyed SHA-256 digests of state, nonce, and the PKCE verifier;
 - an AES-256-GCM authenticated ciphertext of the PKCE verifier, because the
   callback must recover it for the authorization-code exchange;
+- a keyed canonical initiator-address digest used only for abuse controls;
+- explicit link intent with a restrictive foreign key to the exact recent
+  authenticated session, or neither field for ordinary sign-in;
 - an allowlisted local return path, expiry, consumption time, and attempt
   count/time metadata.
 
-Raw state and nonce are never persisted. The verifier ciphertext uses a
+Raw state, nonce and initiator address are never persisted. The verifier ciphertext uses a
 purpose-specific key derived from the application secret, and its stored digest
 is checked after decryption. No access token, refresh token, authorization code,
 ID token, or provider credential column exists in these identity tables.
@@ -82,3 +85,10 @@ deployment must measure that conversion and schedule it before release.
 Rollback removes the two new tables, returns the user email to `varchar`, and
 removes `citext`. It is safe only before provider identities/OAuth attempts are
 real; after launch, use a reviewed forward migration.
+
+Prompt 017 adds initiation and link-binding columns to the pre-launch OAuth
+table. The migration uses a non-secret sentinel digest only to backfill any
+development rows, immediately removes that default, adds bounded indexes and
+validates link consistency in PostgreSQL. Adding the session foreign key and
+indexes scans/locks this still-small table; a populated deployment must measure
+the migration and schedule it before rollout.

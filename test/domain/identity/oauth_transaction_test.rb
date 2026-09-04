@@ -24,6 +24,9 @@ class IdentityOauthTransactionTest < ActiveSupport::TestCase
     refute_includes transaction.attributes.values.map(&:to_s), material.fetch(:state)
     refute_includes Identity::OauthTransaction.column_names, "access_token"
     refute_includes Identity::OauthTransaction.column_names, "refresh_token"
+    assert_match Identity::OauthTransaction::DIGEST_PATTERN, transaction.initiator_digest
+    refute transaction.link_intent?
+    assert_nil transaction.link_session
   end
 
   test "stores a sanitized allowlisted return path and supports provider flows without nonce" do
@@ -127,5 +130,26 @@ class IdentityOauthTransactionTest < ActiveSupport::TestCase
       end
     end
     assert_kind_of PG::CheckViolation, nonce_error.cause
+  end
+
+  test "model and database require explicit link intent to match its session binding" do
+    issued = issue_identity_session
+    linked = create_oauth_transaction(link_session: issued.session).fetch(:transaction)
+
+    assert linked.link_intent?
+    assert_equal issued.session, linked.link_session
+
+    linked.link_intent = false
+    refute linked.valid?
+    assert_includes linked.errors[:link_session], "must match explicit link intent"
+
+    database_error = assert_raises(ActiveRecord::StatementInvalid) do
+      Identity::OauthTransaction.transaction(requires_new: true) do
+        linked.save!(validate: false)
+      end
+    end
+    assert_kind_of PG::CheckViolation, database_error.cause
+  ensure
+    linked&.reload
   end
 end

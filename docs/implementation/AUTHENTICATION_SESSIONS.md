@@ -23,6 +23,9 @@ digests, so the session table cannot reproduce those request values.
 Sessions have a 30-day absolute lifetime and a 24-hour idle timeout. Last-seen
 and metadata writes are limited to once every five minutes. Prompt 021 owns the
 later device-management UI and any product-level timeout configuration.
+`authenticated_at` records credential-backed session issuance/rotation
+separately from database creation time, allowing explicit link flows to enforce
+a deterministic 15-minute recent-authentication window.
 
 `Current.user` and `Current.session` are populated only after a live session and
 active user are resolved. The controller wrapper resets both before and after

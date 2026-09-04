@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_04_034000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_04_042000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -44,7 +44,10 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_034000) do
     t.datetime "consumed_at"
     t.datetime "created_at", null: false
     t.datetime "expires_at", null: false
+    t.string "initiator_digest", limit: 64, null: false
     t.datetime "last_attempted_at"
+    t.boolean "link_intent", default: false, null: false
+    t.uuid "link_session_id"
     t.string "nonce_digest", limit: 64
     t.text "pkce_verifier_ciphertext", null: false
     t.string "pkce_verifier_digest", limit: 64, null: false
@@ -53,14 +56,19 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_034000) do
     t.string "state_digest", limit: 64, null: false
     t.datetime "updated_at", null: false
     t.index ["expires_at"], name: "index_oauth_transactions_on_open_expiry", where: "(consumed_at IS NULL)"
+    t.index ["initiator_digest", "created_at"], name: "index_oauth_transactions_on_initiator_and_created"
+    t.index ["initiator_digest", "expires_at"], name: "index_oauth_transactions_on_open_initiator", where: "(consumed_at IS NULL)"
+    t.index ["link_session_id", "created_at"], name: "index_oauth_transactions_on_link_session", where: "link_intent"
     t.index ["nonce_digest"], name: "index_oauth_transactions_on_nonce_digest", unique: true, where: "(nonce_digest IS NOT NULL)"
     t.index ["pkce_verifier_digest"], name: "index_oauth_transactions_on_pkce_verifier_digest", unique: true
     t.index ["state_digest"], name: "index_oauth_transactions_on_state_digest", unique: true
+    t.check_constraint "NOT link_intent AND link_session_id IS NULL OR link_intent AND link_session_id IS NOT NULL", name: "oauth_transactions_link_binding"
     t.check_constraint "attempt_count = 0 AND last_attempted_at IS NULL OR attempt_count > 0 AND last_attempted_at IS NOT NULL", name: "oauth_transactions_attempt_metadata"
     t.check_constraint "attempt_count >= 0", name: "oauth_transactions_attempt_count_nonnegative"
     t.check_constraint "char_length(pkce_verifier_ciphertext) >= 32 AND char_length(pkce_verifier_ciphertext) <= 4096", name: "oauth_transactions_pkce_ciphertext_length"
     t.check_constraint "consumed_at IS NULL OR last_attempted_at IS NOT NULL AND consumed_at <= last_attempted_at", name: "oauth_transactions_consumption_metadata"
     t.check_constraint "expires_at > created_at AND expires_at <= (created_at + 'PT15M'::interval)", name: "oauth_transactions_bounded_expiry"
+    t.check_constraint "initiator_digest::text ~ '^[0-9a-f]{64}$'::text", name: "oauth_transactions_initiator_digest_format"
     t.check_constraint "nonce_digest IS NULL OR nonce_digest::text ~ '^[0-9a-f]{64}$'::text", name: "oauth_transactions_nonce_digest_format"
     t.check_constraint "pkce_verifier_digest::text ~ '^[0-9a-f]{64}$'::text", name: "oauth_transactions_pkce_digest_format"
     t.check_constraint "provider::text <> 'google'::text OR nonce_digest IS NOT NULL", name: "oauth_transactions_google_nonce_required"
@@ -70,6 +78,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_034000) do
   end
 
   create_table "sessions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "authenticated_at", null: false
     t.datetime "created_at", null: false
     t.datetime "expires_at", null: false
     t.string "ip_address_digest", limit: 64
@@ -86,6 +95,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_034000) do
     t.index ["token_digest"], name: "index_sessions_on_token_digest", unique: true
     t.index ["user_id", "expires_at"], name: "index_sessions_on_user_id_and_expires_at"
     t.index ["user_id"], name: "index_sessions_on_user_id"
+    t.check_constraint "authenticated_at <= last_seen_at", name: "sessions_authentication_before_last_seen"
     t.check_constraint "expires_at > last_seen_at", name: "sessions_expiry_after_last_seen"
     t.check_constraint "ip_address_digest IS NULL OR ip_address_digest::text ~ '^[0-9a-f]{64}$'::text", name: "sessions_ip_digest_format"
     t.check_constraint "revoke_reason IS NULL OR (revoke_reason::text = ANY (ARRAY['logout'::character varying, 'rotated'::character varying, 'privilege_changed'::character varying, 'user_inactive'::character varying, 'administrative'::character varying]::text[]))", name: "sessions_revoke_reason_allowlist"
@@ -112,6 +122,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_034000) do
   end
 
   add_foreign_key "identities", "users", on_delete: :restrict
+  add_foreign_key "oauth_transactions", "sessions", column: "link_session_id", on_delete: :restrict
   add_foreign_key "sessions", "sessions", column: "rotated_from_id", on_delete: :restrict
   add_foreign_key "sessions", "users", on_delete: :restrict
 end

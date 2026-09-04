@@ -16,6 +16,7 @@ class IdentitySessionLifecycleTest < ActiveSupport::TestCase
     refute_equal issued.token, persisted.token_digest
     assert_equal 64, persisted.ip_address_digest.length
     assert_equal 64, persisted.user_agent_digest.length
+    assert_equal persisted.last_seen_at, persisted.authenticated_at
     refute_includes persisted.attributes.values.compact.map(&:to_s), raw_ip
     refute_includes persisted.attributes.values.compact.map(&:to_s), raw_agent
     assert_includes issued.inspect, "token=[FILTERED]"
@@ -111,6 +112,20 @@ class IdentitySessionLifecycleTest < ActiveSupport::TestCase
     assert_raises(Identity::InactiveUser) do
       Identity::Public.authenticate_session!(token: issued.token)
     end
+  end
+
+  test "model and database reject authentication timestamps after last seen" do
+    session = issue_identity_session.session
+    session.authenticated_at = session.last_seen_at + 1.second
+
+    refute session.valid?
+    assert_includes session.errors[:authenticated_at], "must be at or before last seen"
+    error = assert_raises(ActiveRecord::StatementInvalid) do
+      Identity::Session.transaction(requires_new: true) { session.save!(validate: false) }
+    end
+    assert_kind_of PG::CheckViolation, error.cause
+  ensure
+    session&.reload
   end
 
   test "security events never contain the raw token or request metadata" do

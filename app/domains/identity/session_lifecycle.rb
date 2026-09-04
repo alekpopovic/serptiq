@@ -16,6 +16,7 @@ module Identity
         token_digest: TokenDigest.call(token),
         ip_address_digest: metadata.ip_address_digest,
         user_agent_digest: metadata.user_agent_digest,
+        authenticated_at: now,
         last_seen_at: now,
         expires_at: now + SessionPolicy::ABSOLUTE_LIFETIME,
         rotated_from: rotated_from

@@ -16,25 +16,15 @@ class ApplicationShellRequestTest < ActionDispatch::IntegrationTest
     assert_select ".so-badge", text: "Foundation scaffold"
   end
 
-  test "sign in validation is server rendered and associates its summary and field error" do
-    post sign_in_path, params: { shell_sign_in_form: { provider: "" } }
+  test "sign in page reports provider readiness without collecting a password" do
+    get sign_in_path, params: { return_to: "https://attacker.example/phish" }
 
-    assert_response :unprocessable_content
-    assert_select "[role='alert'][tabindex='-1'][data-controller='focus']"
-    assert_select "[role='alert'] a[href='#shell_sign_in_form_provider_google']", /Provider/
-    assert_select "fieldset[aria-describedby~='provider-error']"
-    assert_select "#provider-error", /Choose Google or GitHub/
-    assert_select "form[action='#{sign_in_path}'][method='post']"
-  end
-
-  test "hostile provider input is rejected and not reflected" do
-    hostile_provider = %(<script>alert("unsafe")</script>)
-
-    post sign_in_path, params: { shell_sign_in_form: { provider: hostile_provider } }
-
-    assert_response :unprocessable_content
-    assert_select "#provider-error", /Choose Google or GitHub/
-    assert_not_includes response.body, hostile_provider
+    assert_response :success
+    assert_select "h1", "Sign in to SearchOps"
+    assert_select "p", /Google sign-in is not configured/
+    assert_select "p", /GitHub sign-in is not available yet/
+    assert_select "input[type='password']", count: 0
+    assert_not_includes response.body, "attacker.example"
   end
 
   test "dashboard uses authenticated shell scaffolding without tenant fixtures" do

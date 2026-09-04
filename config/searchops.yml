@@ -23,6 +23,13 @@ shared:
   oauth_http_read_timeout: 5s
   oauth_http_max_response_bytes: 262144
   oauth_http_safe_retries: 2
+  oauth_transaction_ttl: 10m
+  oauth_transaction_retention: 24h
+  oauth_start_rate_window: 5m
+  oauth_start_max_per_ip: 20
+  oauth_start_max_per_session: 10
+  oauth_start_max_open_per_ip: 5
+  oauth_start_max_open_per_session: 2
   billing_provider: disabled
   encryption_key_version: v1
   crawler_max_urls_per_scan: 10000

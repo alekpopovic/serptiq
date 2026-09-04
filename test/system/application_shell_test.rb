@@ -17,14 +17,13 @@ class ApplicationShellSystemTest < ApplicationSystemTestCase
     assert_equal "#main-content", page.evaluate_script("window.location.hash")
   end
 
-  test "server validation focuses the accessible error summary" do
+  test "sign in page exposes provider readiness without collecting a password" do
     visit sign_in_path
 
-    click_button "Validate preview"
-
-    assert_text "Review the sign-in preview"
-    assert_text "Choose Google or GitHub"
-    assert_equal "alert", page.evaluate_script("document.activeElement.getAttribute('role')")
+    assert_text "Sign in to SearchOps"
+    assert_text "Google sign-in is not configured"
+    assert_text "GitHub sign-in is not available yet"
+    assert_no_selector "input[type='password']"
   end
 
   test "workspace navigation adapts to a narrow viewport" do

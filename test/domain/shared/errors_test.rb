@@ -9,6 +9,7 @@ class SharedErrorsTest < ActiveSupport::TestCase
     Shared::Errors::AuthorizationError => [ "authorization", "authorization_denied", 403 ],
     Shared::Errors::EntitlementError => [ "entitlement", "entitlement_required", 403 ],
     Shared::Errors::QuotaError => [ "quota", "quota_exceeded", 429 ],
+    Shared::Errors::RateLimitError => [ "rate_limit", "rate_limited", 429 ],
     Shared::Errors::ConflictError => [ "conflict", "resource_conflict", 409 ],
     Shared::Errors::ExternalProviderError => [ "external_provider", "external_provider_failed", 502 ],
     Shared::Errors::TransientInfrastructureError =>

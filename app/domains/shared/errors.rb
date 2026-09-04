@@ -16,6 +16,8 @@ module Shared
         "This feature is not enabled for this organization.", false),
       quota: Definition.new("quota", "quota_exceeded", 429,
         "The available usage limit has been reached.", false),
+      rate_limit: Definition.new("rate_limit", "rate_limited", 429,
+        "Too many requests. Please try again later.", true),
       conflict: Definition.new("conflict", "resource_conflict", 409,
         "The request conflicts with the current resource state.", false),
       external_provider: Definition.new("external_provider", "external_provider_failed", 502,
@@ -82,6 +84,10 @@ module Shared
 
     class QuotaError < Base
       error_category :quota
+    end
+
+    class RateLimitError < Base
+      error_category :rate_limit
     end
 
     class ConflictError < Base

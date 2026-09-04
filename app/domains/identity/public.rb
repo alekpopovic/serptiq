@@ -20,12 +20,15 @@ module Identity
       SessionLifecycle.new(clock: clock).revoke(session: session, reason: reason)
     end
 
-    def create_oauth_transaction!(provider:, state:, nonce:, pkce_verifier:, return_to:, expires_at:)
+    def create_oauth_transaction!(provider:, state:, nonce:, pkce_verifier:, return_to:, expires_at:,
+      initiator_digest:, link_session: nil)
       OauthTransaction.create_protected!(
         provider: provider,
         state: state,
         nonce: nonce,
         pkce_verifier: pkce_verifier,
+        initiator_digest: initiator_digest,
+        link_session: link_session,
         return_to: return_to,
         expires_at: expires_at
       )
@@ -41,6 +44,15 @@ module Identity
 
     def resolve_account(normalized_identity:)
       AccountResolver.new.call(normalized_identity: normalized_identity)
+    end
+
+    def start_google_authorization!(return_to:, link_intent:, current_session:, initiator_digest:)
+      GoogleAuthorizationStarter.from_settings.call(
+        return_to: return_to,
+        link_intent: link_intent,
+        current_session: current_session,
+        initiator_digest: initiator_digest
+      )
     end
   end
 end
