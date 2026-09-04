@@ -52,4 +52,68 @@ class BillingCheckoutFlowsSystemTest < ApplicationSystemTestCase
     assert_equal @starter.id, subscription.plan_version_id
     assert_equal 1, Billing::Subscription.where(organization_id: @owner.organization.id).count
   end
+
+  test "past-due status explains grace and provider remediation without claiming payment facts" do
+    subscription = current_subscription
+    subscription.update!(
+      status: "past_due",
+      access_state: "grace",
+      grace_ends_at: Time.current + 2.days
+    )
+
+    visit organization_plan_comparison_path(@owner.organization.slug)
+
+    assert_text "Payment needs attention"
+    assert_text "temporarily available during the local grace policy"
+    assert_text "billing provider portal"
+    assert_text "provider portal is authoritative for payment, tax and invoice details"
+  end
+
+  test "scheduled cancellation shows the exact local effective time and preserved access" do
+    subscription = current_subscription
+    effective_at = Time.current.change(usec: 0) + 5.days
+    subscription.update!(
+      status: "canceled",
+      access_state: "full",
+      cancel_at_period_end: true,
+      canceled_at: Time.current,
+      access_expires_at: effective_at
+    )
+
+    visit organization_plan_comparison_path(@owner.organization.slug)
+
+    assert_text "Cancellation scheduled"
+    assert_text "Current access remains available until the confirmed effective end"
+    assert_selector "time[datetime='#{effective_at.iso8601}']"
+  end
+
+  test "reactivated billing removes cancellation messaging after confirmed correction" do
+    subscription = current_subscription
+    subscription.update!(
+      status: "canceled",
+      access_state: "full",
+      cancel_at_period_end: true,
+      canceled_at: Time.current,
+      access_expires_at: Time.current + 5.days
+    )
+    subscription.update!(
+      status: "active",
+      access_state: "full",
+      cancel_at_period_end: false,
+      canceled_at: nil,
+      access_expires_at: nil
+    )
+
+    visit organization_plan_comparison_path(@owner.organization.slug)
+
+    assert_text "Billing active"
+    assert_no_text "Cancellation scheduled"
+    assert_no_text "reverse or update the cancellation"
+  end
+
+  private
+
+  def current_subscription
+    Billing::Subscription.current.find_by!(organization_id: @owner.organization.id)
+  end
 end

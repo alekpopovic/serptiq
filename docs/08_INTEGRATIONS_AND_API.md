@@ -143,6 +143,16 @@ replay. Order and subscription-invoice events are correlated observations; the a
 object remains the authoritative lifecycle snapshot. See `docs/implementation/BILLING_WEBHOOK_INGRESS.md` and
 `docs/implementation/BILLING_WEBHOOK_PROJECTION.md`.
 
+Canonical projection also evaluates an explicit lifecycle transition matrix. Past-due access receives a
+seven-day deadline, canceled access uses the exact provider end timestamp, and both are re-evaluated for each
+protected request so an old browser session cannot extend access. Impossible transitions are dead-lettered
+rather than guessed. Subscription, entitlement context and bounded outbox event update atomically.
+
+Customer plan changes are two-phase. An authorized request persists an immediate-upgrade or period-end-
+downgrade intent and dispatches a provider mutation job with explicit tenant and change identifiers. Canonical
+plan/access state remains unchanged until a later signed, correlated provider event confirms the target.
+Existing usage reservations continue under their captured plan/version/limit snapshot.
+
 Only subscribe to required event types. Retain enough raw data for troubleshooting under the declared retention policy.
 
 The production client uses the fixed Lemon Squeezy HTTPS API origin and JSON:API media type. It validates the

@@ -103,7 +103,8 @@ module Billing
           status: "canceled",
           access_state: at_period_end ? "full" : "read_only",
           cancel_at_period_end: at_period_end,
-          canceled_at: @clock.call
+          canceled_at: @clock.call,
+          access_expires_at: at_period_end ? @clock.call.next_month.beginning_of_month : @clock.call
         )
       end
     end
@@ -242,7 +243,7 @@ module Billing
     end
 
     def subscription_snapshot(reference:, variant_reference: "variant-001", status: "active",
-      access_state: "full", cancel_at_period_end: false, canceled_at: nil)
+      access_state: "full", cancel_at_period_end: false, canceled_at: nil, access_expires_at: nil)
       SubscriptionSnapshot.new(
         provider: provider_key,
         customer_reference: "customer-001",
@@ -256,6 +257,7 @@ module Billing
         current_period_ends_at: @clock.call.next_month.beginning_of_month,
         cancel_at_period_end: cancel_at_period_end,
         canceled_at: canceled_at,
+        access_expires_at: access_expires_at,
         provider_updated_at: @clock.call,
         metadata: { "raw_status" => status }
       )

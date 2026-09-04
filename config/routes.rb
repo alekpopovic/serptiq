@@ -50,6 +50,9 @@ Rails.application.routes.draw do
   post "dashboard/organizations/:organization_slug/billing/portal",
     to: "billing/portals#create",
     as: :organization_billing_portal
+  post "dashboard/organizations/:organization_slug/billing/plan-change",
+    to: "billing/plan_changes#create",
+    as: :organization_billing_plan_change
   get "dashboard/organizations/:organization_slug/usage",
     to: "usage/dashboards#show",
     as: :organization_usage

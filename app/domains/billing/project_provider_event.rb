@@ -5,19 +5,22 @@ require "digest"
 module Billing
   class ProjectProviderEvent
     SUBSCRIPTION_PRECEDENCE = {
-      "trialing" => 40, "active" => 40, "pending" => 50, "canceled" => 60,
+      "trialing" => 40, "active" => 40, "pending" => 50, "incomplete" => 50, "canceled" => 60,
       "paused" => 70, "past_due" => 80, "expired" => 100
     }.freeze
     CORRELATION_KEYS = %w[organization_id plan_version_id checkout_session_id correlation].freeze
     ENTITLEMENT_FIELDS = %w[
       plan_version_id status access_state billing_interval current_period_starts_at
-      current_period_ends_at trial_ends_at cancel_at_period_end ended_at
+      current_period_ends_at trial_ends_at cancel_at_period_end grace_ends_at
+      access_expires_at ended_at
     ].freeze
 
-    def initialize(auditor:, clock: -> { Time.current }, correlation: CheckoutCorrelation.new)
+    def initialize(auditor:, clock: -> { Time.current }, correlation: CheckoutCorrelation.new,
+      outbox: Shared::Public)
       @clock = clock
       @correlation = correlation
       @auditor = auditor
+      @outbox = outbox
     end
 
     def call(webhook_event:, provider_event:)
@@ -92,26 +95,51 @@ module Billing
       end
 
       new_record = subscription.new_record?
+      transition = SubscriptionLifecycle.transition(
+        from: new_record ? nil : subscription.status,
+        snapshot: snapshot,
+        at: @clock.call
+      )
+      change = pending_plan_change(subscription, mapping, snapshot)
       subscription.assign_attributes(subscription_attributes(
-        webhook_event, provider_event, snapshot, customer, mapping, plan, precedence
+        webhook_event, provider_event, snapshot, transition, customer, mapping, plan, precedence
       ))
       entitlement_changed = new_record || (subscription.changes.keys & ENTITLEMENT_FIELDS).any?
       subscription.save!
+      outbox_event_ids = []
+      if change
+        apply_plan_change(change, snapshot)
+        outbox_event_ids << record_plan_change_outbox(change)
+      elsif snapshot.status == "expired"
+        cancel_pending_plan_change(subscription)
+      end
       if entitlement_changed
         Entitlements::Public.bind_subscription(
           organization_id: subscription.organization_id,
           subscription_id: subscription.id,
           plan_version_id: subscription.plan_version_id,
           subscription_revision: subscription.lock_version,
-          active: snapshot.current?
+          subscription_status: subscription.status,
+          access_state: subscription.access_state,
+          grace_ends_at: subscription.grace_ends_at,
+          access_expires_at: subscription.access_expires_at,
+          active: true
         )
+        outbox_event_ids << record_lifecycle_outbox(subscription, webhook_event)
       end
       audit(webhook_event, subscription, "succeeded", "applied")
-      outcome("applied", subscription, changed: entitlement_changed)
+      outcome(
+        "applied", subscription, changed: entitlement_changed,
+        outbox_event_ids: outbox_event_ids
+      )
     rescue ActiveRecord::RecordNotUnique
       failure!("subscription_identity_conflict", retryable: true)
-    rescue ActiveRecord::RecordInvalid, ActiveRecord::InvalidForeignKey
-      failure!("subscription_projection_invalid", retryable: false)
+    rescue ActiveRecord::RecordInvalid, ActiveRecord::InvalidForeignKey => error
+      raise WebhookProjectionFailure.new(
+        category: "subscription_projection_invalid", retryable: false
+      ), cause: error
+    rescue SubscriptionTransitionInvalid
+      failure!("subscription_transition_invalid", retryable: false)
     rescue Shared::Public::ConflictError, ActiveRecord::RecordNotFound
       failure!("plan_mapping_invalid", retryable: false)
     end
@@ -145,7 +173,7 @@ module Billing
       event_time == subscription.provider_updated_at && precedence <= subscription.provider_event_precedence
     end
 
-    def subscription_attributes(webhook_event, provider_event, snapshot, customer, mapping, plan, precedence)
+    def subscription_attributes(webhook_event, provider_event, snapshot, transition, customer, mapping, plan, precedence)
       {
         billing_customer_id: customer.id,
         plan_version_id: plan.id,
@@ -156,10 +184,12 @@ module Billing
         pricing_kind_snapshot: plan.pricing_kind,
         price_cents_snapshot: plan.price_for(mapping.billing_interval),
         billing_interval: mapping.billing_interval,
-        status: snapshot.status,
-        access_state: snapshot.access_state,
+        status: transition.status,
+        access_state: transition.access_state,
         started_at: snapshot.started_at,
-        ended_at: snapshot.ended_at,
+        grace_ends_at: transition.grace_ends_at,
+        access_expires_at: transition.access_expires_at,
+        ended_at: transition.ended_at,
         current_period_starts_at: snapshot.current_period_starts_at,
         current_period_ends_at: snapshot.current_period_ends_at,
         trial_ends_at: snapshot.trial_ends_at,
@@ -193,13 +223,83 @@ module Billing
       )
     end
 
-    def outcome(result, subscription, changed:)
+    def outcome(result, subscription, changed:, outbox_event_ids: [])
       WebhookProjectionOutcome.new(
         result: result,
         organization_id: subscription.organization_id,
         subscription_id: subscription.id,
-        canonical_changed: changed
+        canonical_changed: changed,
+        outbox_event_ids: outbox_event_ids
       )
+    end
+
+    def pending_plan_change(subscription, mapping, snapshot)
+      return if subscription.new_record?
+
+      change = SubscriptionChange.active.lock.find_by(subscription_id: subscription.id)
+      return unless change && change.target_plan_version_id == mapping.plan_version_id
+      if change.effective_policy == "period_end" && snapshot.provider_updated_at < change.effective_at
+        failure!("scheduled_plan_change_early", retryable: true)
+      end
+      change
+    end
+
+    def apply_plan_change(change, snapshot)
+      applied_at = @clock.call
+      change.update!(
+        state: "applied",
+        submitted_at: change.submitted_at || snapshot.provider_updated_at,
+        applied_at: applied_at,
+        updated_at: applied_at
+      )
+      @auditor.record!(
+        organization_id: change.organization_id,
+        action: "billing.subscription_plan_change_applied",
+        target_type: "BillingPlanChange",
+        target_id: change.id,
+        result: "succeeded",
+        metadata: { direction: change.direction, effective_policy: change.effective_policy }
+      )
+    end
+
+    def cancel_pending_plan_change(subscription)
+      change = SubscriptionChange.active.lock.find_by(subscription_id: subscription.id)
+      change&.update!(state: "canceled", updated_at: @clock.call)
+    end
+
+    def record_plan_change_outbox(change)
+      @outbox.record_outbox_event!(
+        organization_id: change.organization_id,
+        aggregate_type: "BillingPlanChange",
+        aggregate_id: change.id,
+        event_type: "billing.subscription_plan_change_applied",
+        event_version: 1,
+        payload: {
+          "subscription_change_id" => change.id,
+          "direction" => change.direction,
+          "phase" => "applied"
+        },
+        idempotency_source: "billing-plan-change:#{change.id}:applied",
+        occurred_at: @clock.call
+      ).id
+    end
+
+    def record_lifecycle_outbox(subscription, webhook_event)
+      @outbox.record_outbox_event!(
+        organization_id: subscription.organization_id,
+        aggregate_type: "BillingSubscription",
+        aggregate_id: subscription.id,
+        event_type: "billing.subscription_access_changed",
+        event_version: 1,
+        payload: {
+          "subscription_id" => subscription.id,
+          "status" => subscription.status,
+          "access_state" => subscription.access_state,
+          "plan_version_id" => subscription.plan_version_id
+        },
+        idempotency_source: "billing-subscription:#{subscription.id}:webhook:#{webhook_event.id}",
+        occurred_at: @clock.call
+      ).id
     end
 
     def audit(webhook_event, subscription, result, projection_result, organization_id: nil)

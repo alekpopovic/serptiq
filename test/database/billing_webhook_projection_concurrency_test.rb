@@ -59,7 +59,9 @@ class BillingWebhookProjectionConcurrencyTest < ActiveSupport::TestCase
     assert_equal 100, subscription.provider_event_precedence
     assert_includes [ %w[applied applied], %w[applied stale] ], outcomes.map(&:result).sort
     assert Billing::WebhookEvent.where(state: "processed").count == 2
-    assert_nil Entitlements::SubscriptionContext.active.find_by(organization_id: subscription.organization_id)
+    context = Entitlements::SubscriptionContext.active.find_by!(organization_id: subscription.organization_id)
+    assert_equal "expired", context.subscription_status
+    assert_equal "read_only", context.access_state
 
     assert_raises(ActiveRecord::StatementInvalid) do
       Billing::WebhookEvent.transaction(requires_new: true) do

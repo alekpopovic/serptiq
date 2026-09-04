@@ -3,6 +3,7 @@
 module TestSupport
   module UsageHelpers
     def sync_usage_catalog
+      Authorization::Public.sync_catalog
       Plans::Public.sync_catalog
       Entitlements::Public.sync_catalog
       Usage::Public.sync_catalog

@@ -23,6 +23,7 @@ module Plans
 
     def show
       @subscription = Billing::Public.active_subscription(organization_id: Current.organization.id)
+      @billing_status = Billing::Public.subscription_status(organization_id: Current.organization.id)
       @offers = Public.current_offers(current_plan_version_id: @subscription&.plan_version_id)
       @current_offer = @offers.find(&:current?)
       @entitlement_definitions = Entitlements::Public.catalog_entries

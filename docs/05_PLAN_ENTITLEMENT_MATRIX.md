@@ -119,19 +119,28 @@ override revision, so a changed subscription or override cannot reuse the old de
 
 | Provider/business state | Application behavior |
 |---|---|
+| Pending/incomplete | Billing and remediation only; no reads, integrations or billable work |
 | Trialing/active | Full effective plan access |
-| Payment failed, early grace | Existing data remains readable; bounded writes may continue per policy |
+| Payment failed, first 7 days | Existing data and interactive entitled work remain available; scheduled work pauses |
 | Past due after grace | Read-only except billing, export, and remediation required for account access |
+| Paused | Read-only or suspended according to confirmed state; billing/remediation stays reachable |
 | Canceled at period end | Full access until effective end; display exact date |
 | Expired | Fall back to retention-safe read-only/free behavior; no silent data deletion |
 | Fraud/security suspension | Block privileged actions; preserve audited support path |
 
 Provider status and application `access_state` are separate fields.
 
+Prompt 048 implements this matrix with a seven-day past-due grace deadline and exact cancellation deadline.
+Deadlines are evaluated on every protected request, scheduled work pauses during grace, and retention-safe
+reads remain available where specified. Immediate upgrades and period-end downgrades are durable, idempotent
+intents; only mapped, validated provider events apply them. Entitlement projection changes, audit records and
+outbox events share the canonical transaction, while existing quota reservations keep their admission snapshot.
+
 ## 7. Upgrade and downgrade rules
 
 - Upgrade may become effective immediately after a verified provider event.
 - Downgrade normally becomes effective at period end.
+- A durable plan-change request does not change canonical access by itself; a mapped provider event confirms it.
 - A running scan uses an entitlement and pricing snapshot taken when its quota reservation succeeds.
 - Downgrade never truncates or silently deletes data immediately.
 - Resources above the new limit become read-only/archived candidates; users choose what to archive.

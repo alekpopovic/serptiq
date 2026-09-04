@@ -42,12 +42,45 @@ class BillingWebhookProjectionTest < ActiveSupport::TestCase
     audit = Auditing::AuditEvent.find_by!(action: "billing.subscription_projected")
     assert_equal @owner.organization.id, audit.organization_id
     refute_includes audit.metadata.to_json, "4001"
+    outbox = Shared::Events::OutboxEvent.find_by!(event_type: "billing.subscription_access_changed")
+    assert_equal subscription.id, outbox.aggregate_id
+    assert_equal "active", outbox.payload.fetch("status")
 
     revision = subscription.lock_version
     replay = process(event)
     assert_equal "applied", replay.result
     assert_equal revision, subscription.reload.lock_version
     assert_equal 1, event.reload.attempt_count
+  end
+
+
+  test "past due grace expires deterministically and a newer recovery clears delinquency timing" do
+    process(ingest(subscription_body(event: "subscription_created", status: "active", updated_at: at(12))))
+    overdue = ingest(subscription_body(event: "subscription_updated", status: "past_due", updated_at: at(13)))
+
+    assert_equal "applied", process(overdue).result
+    subscription = Billing::Subscription.sole
+    assert_equal [ "past_due", "grace", at(13) + 7.days ],
+      [ subscription.status, subscription.access_state, subscription.grace_ends_at ]
+    context = Entitlements::SubscriptionContext.active.sole
+    assert_equal subscription.grace_ends_at, context.grace_ends_at
+
+    recovered = ingest(subscription_body(event: "subscription_resumed", status: "active", updated_at: at(14)))
+    assert_equal "applied", process(recovered).result
+    assert_equal [ "active", "full", nil ],
+      [ subscription.reload.status, subscription.access_state, subscription.grace_ends_at ]
+  end
+
+  test "impossible newer lifecycle transition dead-letters without changing canonical access" do
+    process(ingest(subscription_body(event: "subscription_created", status: "active", updated_at: at(12))))
+    invalid = ingest(subscription_body(event: "subscription_updated", status: "on_trial", updated_at: at(13)))
+
+    result = process(invalid)
+
+    assert_instance_of Billing::WebhookEventSummary, result
+    assert_equal "dead_letter", invalid.reload.state
+    assert_equal "subscription_transition_invalid", invalid.last_error_category
+    assert_equal [ "active", "full" ], Billing::Subscription.sole.reload.values_at("status", "access_state")
   end
 
   test "older snapshot cannot downgrade newer canonical subscription or invalidate its entitlement revision" do
@@ -77,7 +110,8 @@ class BillingWebhookProjectionTest < ActiveSupport::TestCase
     subscription = Billing::Subscription.sole
     assert_equal "expired", subscription.status
     assert_equal "read_only", subscription.access_state
-    assert_nil Entitlements::SubscriptionContext.active.find_by(organization_id: @owner.organization.id)
+    context = Entitlements::SubscriptionContext.active.find_by!(organization_id: @owner.organization.id)
+    assert_equal [ "expired", "read_only" ], [ context.subscription_status, context.access_state ]
   end
 
   test "event arriving before customer mapping retries and later converges without guessing a tenant" do
@@ -257,11 +291,12 @@ class BillingWebhookProjectionTest < ActiveSupport::TestCase
   end
 
   def subscription_body(event:, status:, updated_at:, custom_data: nil, customer_id: 5001)
-    cancelled = %w[cancelled expired].include?(status)
-    pause = status == "paused" ? { "mode" => "void", "resumes_at" => nil } : nil
+    raw_status = status == "on_trial" ? "on_trial" : status
+    cancelled = %w[cancelled expired].include?(raw_status)
+    pause = raw_status == "paused" ? { "mode" => "void", "resumes_at" => nil } : nil
     payload(event: event, type: "subscriptions", custom_data: custom_data, attributes: {
       "store_id" => 1001, "customer_id" => customer_id, "product_id" => 2001, "variant_id" => 3001,
-      "status" => status, "pause" => pause, "cancelled" => cancelled,
+      "status" => raw_status, "pause" => pause, "cancelled" => cancelled,
       "trial_ends_at" => nil, "ends_at" => cancelled ? updated_at.iso8601 : nil,
       "created_at" => at(10).iso8601, "updated_at" => updated_at.iso8601, "test_mode" => true
     })

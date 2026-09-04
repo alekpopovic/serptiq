@@ -2,6 +2,8 @@
 
 module Plans
   module Public
+    CatalogTargetUnavailable = Plans::CatalogTargetUnavailable
+
     module_function
 
     def validate_catalog(path: Catalog::DEFAULT_PATH)

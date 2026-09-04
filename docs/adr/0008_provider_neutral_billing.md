@@ -40,3 +40,10 @@ revalidated, canonical subscription rows are locked, provider timestamps plus a 
 tie-break prevent stale downgrade, and entitlement context changes only with canonical access inputs. Order
 and subscription-invoice events are observations because Lemon Squeezy also emits an authoritative
 `subscription_updated` snapshot for lifecycle changes.
+
+The canonical lifecycle is an explicit transition matrix rather than a direct provider-status assignment.
+Billing records exact provider periods and cancellation deadlines, applies a seven-day local delinquency grace
+policy, and evaluates deadline expiry at request time. Plan changes are durable local intents submitted
+asynchronously, but only a validated provider event may switch the immutable plan version. Subscription and
+entitlement context move atomically, usage reservations retain their admission snapshot, and durable lifecycle
+notifications use the shared PostgreSQL outbox.

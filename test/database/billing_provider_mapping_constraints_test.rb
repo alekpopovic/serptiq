@@ -39,26 +39,33 @@ class BillingProviderMappingConstraintsTest < ActiveSupport::TestCase
 
     assert_database_rejects(status: "active", access_state: "read_only")
     assert_database_rejects(provider_metadata: {})
+    assert_database_rejects(status: "incomplete", access_state: "full")
+    assert_database_rejects(status: "past_due", access_state: "grace", grace_ends_at: nil)
+    assert_database_rejects(status: "canceled", access_state: "full", access_expires_at: nil)
     assert_database_rejects(
       current_period_starts_at: @now + 1.month,
       current_period_ends_at: @now
     )
 
     @subscription.update!(status: "past_due", access_state: "grace",
+      grace_ends_at: @now + 7.days,
       provider_metadata: { "raw_status" => "past_due" })
     @subscription.update!(status: "paused", access_state: "read_only",
+      grace_ends_at: nil,
       provider_metadata: { "raw_status" => "paused" })
     @subscription.update!(
       status: "canceled",
       access_state: "full",
       cancel_at_period_end: true,
       canceled_at: @now,
+      access_expires_at: @now + 1.month,
       provider_metadata: { "raw_status" => "cancelled" }
     )
     @subscription.update!(
       status: "expired",
       access_state: "read_only",
       ended_at: @now + 1.month,
+      access_expires_at: nil,
       provider_metadata: { "raw_status" => "expired" }
     )
 

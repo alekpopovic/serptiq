@@ -36,7 +36,11 @@ module Billing
           organization_id: subscription.organization_id,
           subscription_id: subscription.id,
           plan_version_id: subscription.plan_version_id,
-          subscription_revision: subscription.lock_version
+          subscription_revision: subscription.lock_version,
+          subscription_status: subscription.status,
+          access_state: subscription.access_state,
+          grace_ends_at: subscription.grace_ends_at,
+          access_expires_at: subscription.access_expires_at
         )
         subscription
       end

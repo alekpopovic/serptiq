@@ -25,6 +25,35 @@
     <% end %>
   </div>
 
+  <% if @billing_status %>
+    <section class="so-card mt-6 p-5" aria-labelledby="billing-status-title" role="status">
+      <div class="flex flex-wrap items-center gap-3">
+        <h2 id="billing-status-title" class="font-bold text-slate-950"><%= @billing_status.label %></h2>
+        <span class="so-badge <%= @billing_status.access_state == "full" ? "so-badge-success" : "so-badge-warning" %>">
+          <%= @billing_status.access_state.humanize %> access
+        </span>
+      </div>
+      <p class="mt-2 text-sm leading-6 text-slate-700"><%= @billing_status.message %></p>
+      <% if @billing_status.effective_at %>
+        <p class="mt-1 text-sm text-slate-600">
+          Effective time recorded locally: <time datetime="<%= @billing_status.effective_at.iso8601 %>"><%= l(@billing_status.effective_at, format: :long) %></time>.
+        </p>
+      <% end %>
+      <% if @billing_status.remediation %>
+        <p class="mt-2 text-sm font-medium text-slate-800"><%= @billing_status.remediation %></p>
+      <% end %>
+      <% if @billing_status.plan_change %>
+        <p class="mt-2 text-sm text-slate-700">
+          A <%= @billing_status.plan_change.direction %> is <%= @billing_status.plan_change.state %> and remains
+          on the current plan until confirmed by a provider event.
+        </p>
+      <% end %>
+      <p class="mt-2 text-xs text-slate-500">
+        This is the latest confirmed local billing observation; the provider portal is authoritative for payment, tax and invoice details.
+      </p>
+    </section>
+  <% end %>
+
   <% if @active_checkout %>
     <div class="so-card mt-6 border-amber-200 bg-amber-50 p-5" role="status">
       <h2 class="font-bold text-amber-950">A hosted checkout is already in progress</h2>
@@ -41,17 +70,34 @@
       </p>
       <% if @selected_interval && allowed_to?("billing.manage") && !@active_checkout &&
           @checkout_availability.fetch(@selected_offer.id).fetch(@selected_interval) %>
-        <%= button_to "Continue to secure #{@selected_interval} checkout",
-          organization_billing_checkout_path(Current.organization.slug),
-          method: :post,
-          params: {
-            checkout: {
-              plan_version_id: @selected_offer.id,
-              currency: @selected_offer.currency,
-              billing_interval: @selected_interval
-            }
-          },
-          class: "so-button so-button-primary mt-4" %>
+        <% if @subscription&.provider_backed? %>
+          <% unless @billing_status&.plan_change %>
+            <%= button_to "Request #{@selected_offer.direction_from(@current_offer)}",
+              organization_billing_plan_change_path(Current.organization.slug),
+              method: :post,
+              params: {
+                plan_change: {
+                  target_plan_key: @selected_offer.plan_key,
+                  target_plan_version_id: @selected_offer.id,
+                  currency: @selected_offer.currency,
+                  billing_interval: @selected_interval
+                }
+              },
+              class: "so-button so-button-primary mt-4" %>
+          <% end %>
+        <% else %>
+          <%= button_to "Continue to secure #{@selected_interval} checkout",
+            organization_billing_checkout_path(Current.organization.slug),
+            method: :post,
+            params: {
+              checkout: {
+                plan_version_id: @selected_offer.id,
+                currency: @selected_offer.currency,
+                billing_interval: @selected_interval
+              }
+            },
+            class: "so-button so-button-primary mt-4" %>
+        <% end %>
       <% end %>
     </div>
   <% end %>

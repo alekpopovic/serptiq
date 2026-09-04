@@ -5,11 +5,14 @@ require "digest"
 module Authorization
   class AccessBoundary
     def initialize(authorization: nil, entitlement_resolver: nil, quota_reserver: nil,
-      quota_releaser: nil, instrumentation: AccessInstrumentation.new)
+      quota_releaser: nil, subscription_access: nil, instrumentation: AccessInstrumentation.new)
       @authorization = authorization || ->(request) { Decision.new.call(request, validate_resource: false) }
       @entitlement_resolver = entitlement_resolver || ->(**attributes) { Entitlements::Public.resolve(**attributes) }
       @quota_reserver = quota_reserver || ->(**attributes) { Usage::Public.reserve(**attributes) }
       @quota_releaser = quota_releaser || ->(**attributes) { Usage::Public.release_reservation(**attributes) }
+      @subscription_access = subscription_access || ->(**attributes) {
+        Entitlements::Public.subscription_access(**attributes)
+      }
       @instrumentation = instrumentation
     end
 
@@ -17,6 +20,11 @@ module Authorization
       validate_request!(request)
       authorization = @authorization.call(request)
       return emit(authorization_denial(request, authorization), request) if authorization.deny?
+
+      subscription = resolve_subscription_access(request)
+      if subscription.deny?
+        return emit(subscription_denial(authorization, subscription), request)
+      end
 
       entitlement = resolve_entitlement(request)
       if entitlement && !entitlement.enabled?
@@ -69,6 +77,15 @@ module Authorization
       )
     end
 
+    def resolve_subscription_access(request)
+      @subscription_access.call(
+        organization_id: request.organization_id,
+        permission_key: request.permission_key,
+        entitlement_key: request.entitlement_key,
+        at: request.evaluated_at || Time.current
+      )
+    end
+
     def resource_denial_reason(request)
       resource = request.resource
       return unless resource
@@ -106,6 +123,19 @@ module Authorization
         public_error_code: "entitlement_required", authorization: authorization,
         entitlement: entitlement,
         provenance: authorization_provenance(authorization).merge(entitlement: entitlement.provenance)
+      )
+    end
+
+    def subscription_denial(authorization, subscription)
+      denied(
+        stage: "subscription",
+        reason_code: subscription.reason_code,
+        public_error_code: "entitlement_required",
+        authorization: authorization,
+        provenance: authorization_provenance(authorization).merge(
+          subscription: [ subscription.subscription_status, subscription.access_state ],
+          subscription_action: subscription.action_class
+        )
       )
     end
 

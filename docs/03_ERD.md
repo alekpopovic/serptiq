@@ -475,10 +475,12 @@ leaves draft.
 
 ### `entitlement_subscription_contexts`
 
-Tenant-safe projection of the active Billing subscription used by the resolver. It carries organization,
-subscription, immutable plan version and non-negative subscription revision. A three-column FK proves that
-organization, subscription and plan version came from the same Billing row. Only one active context exists
-per organization.
+Tenant-safe projection of the Billing subscription used by the resolver and request-time access policy. It
+carries organization, subscription, immutable plan version, non-negative subscription revision, canonical
+status/access state and exact grace/cancellation deadlines. A deferred three-column FK proves that organization,
+subscription and plan version came from the same Billing row while allowing a confirmed plan change to update
+the subscription and context atomically. Only one current context exists per organization; delinquent and
+expired contexts remain materialized for retention-safe reads.
 
 ### `organization_entitlement_overrides`
 
@@ -506,7 +508,7 @@ foreign key from subscriptions, preventing a customer reference from crossing te
 | currency_snapshot | string | historical pricing currency |
 | pricing_kind_snapshot | string | fixed or custom |
 | price_cents_snapshot | bigint | selected interval price; null for custom |
-| status | string | pending, trialing, active, past_due, paused, canceled, expired |
+| status | string | pending, incomplete, trialing, active, past_due, paused, canceled, expired |
 | access_state | string | pending, full, grace, read_only, suspended |
 | billing_interval | string | monthly, annual, custom |
 | started_at | timestamptz | |
@@ -517,6 +519,8 @@ foreign key from subscriptions, preventing a customer reference from crossing te
 | provider_metadata | jsonb | bounded facts including raw provider status; never raw payload |
 | current_period_starts_at / current_period_ends_at | timestamptz nullable | exact provider period |
 | trial_ends_at / canceled_at | timestamptz nullable | provider lifecycle observations |
+| grace_ends_at | timestamptz nullable | required only for past-due access; local policy deadline |
+| access_expires_at | timestamptz nullable | required only for canceled access; provider-derived end |
 | cancel_at_period_end | boolean | scheduled cancellation intent |
 | provider_updated_at / last_synced_at | timestamptz nullable | ordering and freshness |
 | provider_event_precedence | integer | deterministic equal-timestamp tie-break |
@@ -525,6 +529,15 @@ foreign key from subscriptions, preventing a customer reference from crossing te
 Exactly one row with no `ended_at` exists per organization, including scheduled cancellation. Canonical status
 and application access state are separate. Provider-backed rows require a complete same-tenant customer and
 provider identity; provider identifiers and bounded raw status metadata remain owned by Billing.
+
+### `billing_subscription_changes`
+
+Tenant-bound, idempotent plan-change intent. It records immutable source/target plan versions, requester,
+interval, direction, immediate/period-end policy, exact effective time and dispatch/submission/application or
+failure timestamps. A partial unique index permits one pending, scheduled or submitted change per subscription.
+Provider submission does not change canonical access; only a later validated provider event can update the
+subscription and entitlement context. Existing usage windows and reservations retain their original plan
+snapshot through independent tenant/subscription and plan-version foreign keys.
 
 ### `billing_webhook_events`
 
@@ -802,7 +815,9 @@ Endpoint URL, encrypted signing secret, subscribed events, active state; deliver
 
 ### `outbox_events`
 
-Append-only domain event envelope with aggregate, event type/version, payload, occurred/published timestamps and idempotency ID.
+Tenant-owned durable event envelope with aggregate, event type/version, bounded payload, occurred/published
+timestamps, hashed idempotency identity and bounded attempt evidence. Publishers lock each row and no-op after
+`published_at`; Billing writes lifecycle and plan-change events in the same transaction as canonical state.
 
 ### `audit_events`
 

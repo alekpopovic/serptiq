@@ -5,7 +5,7 @@ module Billing
     :provider, :customer_reference, :subscription_reference, :variant_reference,
     :status, :access_state, :billing_interval, :currency, :current_period_starts_at,
     :current_period_ends_at, :trial_ends_at, :started_at, :cancel_at_period_end, :canceled_at,
-    :ended_at, :provider_updated_at, :invoice_link, :metadata
+    :access_expires_at, :ended_at, :provider_updated_at, :invoice_link, :metadata
   ) do
     BILLING_INTERVALS = %w[monthly annual custom].freeze
 
@@ -13,7 +13,7 @@ module Billing
       status:, access_state:, billing_interval:, currency:, provider_updated_at:,
       current_period_starts_at: nil, current_period_ends_at: nil, trial_ends_at: nil,
       started_at: nil, cancel_at_period_end: false, canceled_at: nil, ended_at: nil, invoice_link: nil,
-      metadata:)
+      access_expires_at: nil, metadata:)
       normalized_status = status.to_s
       normalized_access = access_state.to_s
       raise ArgumentError, "subscription lifecycle is invalid" unless
@@ -25,7 +25,8 @@ module Billing
         current_period_starts_at, name: "period start", optional: true
       )
       period_end = ValueNormalization.time!(current_period_ends_at, name: "period end", optional: true)
-      unless (period_start.nil? && period_end.nil?) || (period_start && period_end && period_end > period_start)
+      unless (period_start.nil? && period_end.nil?) ||
+          (period_end && (period_start.nil? || period_end > period_start))
         raise ArgumentError, "subscription period is invalid"
       end
       ending = ValueNormalization.time!(ended_at, name: "subscription end", optional: true)
@@ -34,6 +35,12 @@ module Billing
       end
       raise ArgumentError, "cancel_at_period_end must be boolean" unless [ true, false ].include?(cancel_at_period_end)
       cancellation = ValueNormalization.time!(canceled_at, name: "cancellation time", optional: true)
+      access_expiration = ValueNormalization.time!(
+        access_expires_at, name: "access expiration", optional: true
+      )
+      unless (normalized_status == "canceled") == access_expiration.present?
+        raise ArgumentError, "access expiration does not match subscription state"
+      end
       cancellation_required = cancel_at_period_end || normalized_status == "canceled"
       if cancellation_required != cancellation.present? && normalized_status != "expired"
         raise ArgumentError, "cancellation time does not match subscription state"
@@ -59,6 +66,7 @@ module Billing
         started_at: ValueNormalization.time!(started_at || provider_updated_at, name: "subscription start"),
         cancel_at_period_end: cancel_at_period_end,
         canceled_at: cancellation,
+        access_expires_at: access_expiration,
         ended_at: ending,
         provider_updated_at: ValueNormalization.time!(provider_updated_at, name: "provider update time"),
         invoice_link: invoice_link,
@@ -87,6 +95,7 @@ module Billing
         started_at: started_at,
         cancel_at_period_end: cancel_at_period_end,
         canceled_at: canceled_at,
+        access_expires_at: access_expires_at,
         ended_at: ended_at,
         provider_updated_at: provider_updated_at,
         invoice_link: invoice_link&.as_json

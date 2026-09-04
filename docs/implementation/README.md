@@ -65,6 +65,8 @@ Do not pre-populate these reports with fictional implementation or test results.
   subscription/override precedence, request caching and tenant-safe diagnostics.
 - [`BILLING_WEBHOOK_PROJECTION.md`](./BILLING_WEBHOOK_PROJECTION.md) defines mapping-authenticated,
   stale-safe canonical billing projection, retry/dead-letter behavior and controlled replay.
+- [`BILLING_SUBSCRIPTION_LIFECYCLE.md`](./BILLING_SUBSCRIPTION_LIFECYCLE.md) defines canonical transitions,
+  request-time access, provider-confirmed plan changes, immutable reservations and durable outbox delivery.
 - [`USAGE_LEDGER.md`](./USAGE_LEDGER.md) defines immutable weighted usage events, explicit metering
   windows, corrections, read models, retention and partitioning policy.
 - [`USAGE_QUOTAS.md`](./USAGE_QUOTAS.md) defines atomic quota admission, immutable limit snapshots,

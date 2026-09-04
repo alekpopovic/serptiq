@@ -33,6 +33,10 @@ module Entitlements
       Resolver.new.call(**attributes)
     end
 
+    def subscription_access(**attributes)
+      SubscriptionAccessPolicy.new.call(**attributes)
+    end
+
     def set_organization_override(**attributes)
       SetOrganizationOverride.new.call(**attributes)
     end

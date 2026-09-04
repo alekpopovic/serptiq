@@ -120,6 +120,7 @@ module Billing
         )
         updated_at = timestamp(attributes, "updated_at")
         provider_ends_at = optional_timestamp(attributes, "ends_at")
+        renewal_at = optional_timestamp(attributes, "renews_at")
         canceled = raw_status == "cancelled"
         raw_cancelled = attributes.fetch("cancelled")
         raise ArgumentError, "subscription cancellation flag is invalid" unless [ true, false ].include?(raw_cancelled)
@@ -147,8 +148,10 @@ module Billing
           currency: mapping.currency,
           started_at: timestamp(attributes, "created_at"),
           trial_ends_at: optional_timestamp(attributes, "trial_ends_at"),
+          current_period_ends_at: canceled ? provider_ends_at : renewal_at,
           cancel_at_period_end: canceled,
           canceled_at: canceled ? updated_at : nil,
+          access_expires_at: canceled ? provider_ends_at : nil,
           ended_at: ended_at,
           provider_updated_at: updated_at,
           metadata: metadata

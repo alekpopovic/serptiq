@@ -22,7 +22,8 @@ module Billing
         started_at: subscription.started_at,
         ended_at: subscription.ended_at,
         current_period_ends_at: subscription.current_period_ends_at,
-        cancel_at_period_end: subscription.cancel_at_period_end
+        cancel_at_period_end: subscription.cancel_at_period_end,
+        provider_backed: subscription.provider_backed?
       )
     end
   end

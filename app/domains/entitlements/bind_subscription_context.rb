@@ -2,7 +2,9 @@
 
 module Entitlements
   class BindSubscriptionContext
-    def call(organization_id:, subscription_id:, plan_version_id:, subscription_revision:, active: true)
+    def call(organization_id:, subscription_id:, plan_version_id:, subscription_revision:,
+      subscription_status: "active", access_state: "full", grace_ends_at: nil,
+      access_expires_at: nil, active: true)
       validate_identifiers!(organization_id, subscription_id, plan_version_id)
       revision = Integer(subscription_revision)
       raise ArgumentError, "subscription revision is invalid" if revision.negative?
@@ -12,8 +14,12 @@ module Entitlements
         if !active
           deactivate(current)
         else
-          replace_current(current, organization_id, subscription_id, plan_version_id, revision)
+          replace_current(
+            current, organization_id, subscription_id, plan_version_id, revision,
+            subscription_status, access_state, grace_ends_at, access_expires_at
+          )
         end
+        verify_subscription_identity!
       end
       Current.entitlement_cache&.clear
       context
@@ -35,9 +41,25 @@ module Entitlements
       context
     end
 
-    def replace_current(current, organization_id, subscription_id, plan_version_id, revision)
+    def verify_subscription_identity!
+      connection = SubscriptionContext.connection
+      connection.execute("SET CONSTRAINTS fk_entitlement_contexts_subscription_identity IMMEDIATE")
+      connection.execute("SET CONSTRAINTS fk_entitlement_contexts_subscription_identity DEFERRED")
+    end
+
+    def replace_current(current, organization_id, subscription_id, plan_version_id, revision,
+      subscription_status, access_state, grace_ends_at, access_expires_at)
+      projection = {
+        plan_version_id: plan_version_id,
+        subscription_revision: revision,
+        subscription_status: subscription_status,
+        access_state: access_state,
+        grace_ends_at: grace_ends_at,
+        access_expires_at: access_expires_at,
+        active: true
+      }
       if current&.subscription_id == subscription_id.to_s
-        current.update!(plan_version_id: plan_version_id, subscription_revision: revision, active: true)
+        current.update!(projection)
         return current
       end
 
@@ -45,9 +67,7 @@ module Entitlements
       replacement = SubscriptionContext.find_or_initialize_by(subscription_id: subscription_id)
       replacement.assign_attributes(
         organization_id: organization_id,
-        plan_version_id: plan_version_id,
-        subscription_revision: revision,
-        active: true
+        **projection
       )
       replacement.save!
       replacement

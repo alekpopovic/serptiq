@@ -6,14 +6,17 @@ module Billing
     MAX_ATTEMPTS = 5
     RETRY_DELAYS = [ 1.minute, 5.minutes, 30.minutes, 2.hours ].freeze
 
-    def initialize(projector:, clock: -> { Time.current }, provider_lookup: nil)
+    def initialize(projector:, clock: -> { Time.current }, provider_lookup: nil,
+      outbox_enqueue: ->(id) { Shared::Public.enqueue_outbox_event!(outbox_event_id: id) })
       @clock = clock
       @provider_lookup = provider_lookup || ->(key) { Public.provider(provider_key: key) }
       @projector = projector
+      @outbox_enqueue = outbox_enqueue
     end
 
     def call(webhook_event_id:)
       outcome = process(webhook_event_id)
+      enqueue_outbox(outcome)
       instrument(outcome.result, "projection_complete")
       outcome
     rescue WebhookProjectionFailure => error
@@ -129,6 +132,13 @@ module Billing
     def safe_id(value)
       candidate = value.to_s
       Shared::Public.application_uuid?(candidate) ? candidate : nil
+    end
+
+    def enqueue_outbox(outcome)
+      outcome.outbox_event_ids.each { |id| @outbox_enqueue.call(id) }
+    rescue StandardError => error
+      Rails.error.report(error, handled: true, severity: :error,
+        context: { "operation" => "billing_outbox_enqueue" })
     end
   end
 end

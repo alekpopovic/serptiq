@@ -24,6 +24,10 @@ module Billing
       ActiveSubscriptionQuery.new.call(organization_id: organization_id)
     end
 
+    def subscription_status(organization_id:, at: Time.current)
+      SubscriptionStatusQuery.new.call(organization_id: organization_id, at: at)
+    end
+
     def checkout_available?(**attributes)
       CheckoutAvailability.new.call(**attributes)
     end
@@ -45,6 +49,10 @@ module Billing
     end
 
     def create_customer_portal(command:, **attributes)
+      command.call(**attributes)
+    end
+
+    def request_plan_change(command:, **attributes)
       command.call(**attributes)
     end
 

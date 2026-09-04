@@ -56,5 +56,25 @@ module Shared
     def with_authorization_decision(**attributes, &block)
       Observability::Context.with_authorization_decision(**attributes, &block)
     end
+
+    def record_outbox_event!(**attributes)
+      Events::Public.record!(**attributes)
+    end
+
+    def publish_outbox_event!(**attributes)
+      Events::Public.publish!(**attributes)
+    end
+
+    def enqueue_outbox_event!(outbox_event_id:)
+      Events::OutboxPublishJob.perform_later(outbox_event_id: outbox_event_id)
+    end
+
+    def unpublished_outbox_event_id(aggregate_type:, aggregate_id:, event_type:)
+      Events::OutboxEvent.unpublished.find_by(
+        aggregate_type: aggregate_type,
+        aggregate_id: aggregate_id,
+        event_type: event_type
+      )&.id
+    end
   end
 end

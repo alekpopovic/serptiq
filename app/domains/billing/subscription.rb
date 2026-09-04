@@ -35,6 +35,7 @@ module Billing
     validate :provider_metadata_shape
     validate :period_shape
     validate :cancellation_shape
+    validate :access_timing_shape
 
     scope :current, -> { where(ended_at: nil) }
 
@@ -44,6 +45,16 @@ module Billing
 
     def provider_backed?
       provider.present?
+    end
+
+    def effective_access_state(at: Time.current)
+      SubscriptionLifecycle.effective_access(
+        status: status,
+        access_state: access_state,
+        grace_ends_at: grace_ends_at,
+        access_expires_at: access_expires_at,
+        at: at
+      )
     end
 
     private
@@ -92,12 +103,9 @@ module Billing
     end
 
     def period_shape
-      valid = if current_period_starts_at.nil? && current_period_ends_at.nil?
-        true
-      else
-        current_period_starts_at && current_period_ends_at &&
-          current_period_ends_at > current_period_starts_at
-      end
+      valid = (current_period_starts_at.nil? && current_period_ends_at.nil?) ||
+        (current_period_ends_at &&
+          (current_period_starts_at.nil? || current_period_ends_at > current_period_starts_at))
       valid &&= trial_ends_at.nil? || trial_ends_at >= started_at
       valid &&= last_synced_at.nil? || provider_updated_at.nil? || last_synced_at >= provider_updated_at
       errors.add(:current_period_ends_at, "has invalid provider timing") unless valid
@@ -112,6 +120,12 @@ module Billing
         canceled_at.nil?
       end
       errors.add(:canceled_at, "does not match cancellation state") unless valid
+    end
+
+    def access_timing_shape
+      valid = (status == "past_due") == grace_ends_at.present?
+      valid &&= (status == "canceled") == access_expires_at.present?
+      errors.add(:access_state, "does not match access timing") unless valid
     end
   end
 end
