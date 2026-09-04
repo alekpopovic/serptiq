@@ -12,6 +12,8 @@ module Verification
       dns_transient_failure dns_multiple_records dns_response_limit dns_cname_limit dns_delegation_limit
       http_dns_failure http_timeout http_transport_failure http_redirect_rejected http_redirect_limit
       http_response_too_large http_content_type_rejected duplicate_meta
+      provider_scope_revoked provider_property_inaccessible provider_outage provider_ambiguous_match
+      provider_no_match provider_insufficient_permission provider_connection_changed
     ].freeze
     DIGEST_PATTERN = /\A[0-9a-f]{64}\z/
 
@@ -31,6 +33,7 @@ module Verification
     validate :lifecycle_shape
     validate :evidence_shape
     validate :stable_binding_is_immutable, on: :update
+    validate :search_console_binding_shape
 
     scope :current, -> { where(state: %w[pending verified]) }
 
@@ -72,9 +75,24 @@ module Verification
 
     def stable_binding_is_immutable
       %i[id organization_id project_id property_id environment_id issued_by_membership_id method
-        challenge_digest expected_location bound_origin created_at].each do |attribute|
+        challenge_digest expected_location bound_origin integration_connection_id
+        provider_property_identifier provider_property_type connection_revision created_at].each do |attribute|
         errors.add(attribute, "cannot be changed") if will_save_change_to_attribute?(attribute)
       end
+    end
+
+    def search_console_binding_shape
+      values = [ integration_connection_id, provider_property_identifier, provider_property_type,
+        provider_permission_level, provider_checked_at, connection_revision ]
+      if method == "search_console"
+        valid = values.all?(&:present?) && provider_property_identifier.to_s.bytesize <= 2048 &&
+          provider_property_type.in?(%w[url_prefix domain]) &&
+          provider_permission_level.in?(Integrations::Public::SEARCH_CONSOLE_PERMISSION_LEVELS) &&
+          connection_revision.to_i.positive?
+      else
+        valid = values.all?(&:nil?)
+      end
+      errors.add(:integration_connection_id, "does not match verification method") unless valid
     end
   end
 end

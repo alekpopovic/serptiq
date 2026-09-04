@@ -4,7 +4,8 @@ require "test_helper"
 
 class VerificationAdapterContractTest < ActiveSupport::TestCase
   ChallengeStub = Struct.new(
-    :expected_location, :bound_origin, :challenge_digest, :created_at, keyword_init: true
+    :expected_location, :bound_origin, :challenge_digest, :created_at, :organization_id,
+    :integration_connection_id, :provider_property_identifier, :connection_revision, keyword_init: true
   )
 
   test "DNS adapter compares TXT proof without retaining record values" do
@@ -87,16 +88,30 @@ class VerificationAdapterContractTest < ActiveSupport::TestCase
   end
 
   test "Search Console adapter requires an exact verified property observation" do
-    client = Object.new
-    client.define_singleton_method(:verified_property?) { |origin:| origin == "https://example.com" }
+    resolver = Object.new
+    resolver.define_singleton_method(:call) do |**|
+      Verification::SearchConsoleSelection.new(
+        connection_id: SecureRandom.uuid,
+        external_property_identifier: "https://example.com/",
+        property_type: "url_prefix",
+        permission_level: "siteOwner",
+        checked_at: Time.current,
+        connection_revision: 1
+      )
+    end
     challenge = stub_challenge("unused", location: "https://example.com")
 
-    result = Verification::Adapters::SearchConsole.new(client: client).verify(
+    result = Verification::Adapters::SearchConsole.new(client: nil, resolver: resolver).verify(
       challenge: challenge, expected_value: "unused"
     )
 
     assert result.verified?
-    assert_equal({ "provider_property_match" => true }, result.evidence)
+    assert_equal({
+      "provider_property_match" => true,
+      "provider_permission_owner" => true,
+      "connection_revision_match" => true
+    }, result.evidence)
+    assert_equal "siteOwner", result.provider_observation.permission_level
   end
 
   private
@@ -106,7 +121,11 @@ class VerificationAdapterContractTest < ActiveSupport::TestCase
       expected_location: location,
       bound_origin: "https://example.com",
       challenge_digest: Verification::ChallengeToken.digest(value),
-      created_at: 1.day.ago
+      created_at: 1.day.ago,
+      organization_id: SecureRandom.uuid,
+      integration_connection_id: SecureRandom.uuid,
+      provider_property_identifier: "https://example.com/",
+      connection_revision: 1
     )
   end
 end

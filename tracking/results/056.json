@@ -1,0 +1,67 @@
+{
+  "prompt_id": "056",
+  "title": "Implement Search Console ownership verification",
+  "status": "completed",
+  "started_at": "2026-09-04T22:13:35Z",
+  "finished_at": "2026-09-04T22:43:55Z",
+  "summary": "Implemented separately consented Search Console ownership verification with tenant-scoped connection metadata, exact URL-prefix and domain-property matching, ephemeral signed selections, owner-permission rechecks, provider-safe failure handling, automatic revocation on connection changes, UI guidance, documentation, and regression coverage.",
+  "tests": [
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test test/domain/integrations/search_console_connection_test.rb test/domain/verification test/requests/domain_verifications_test.rb test/services/verification_factory_test.rb test/database/domain_verification_constraints_test.rb test/database/search_console_verification_constraints_test.rb",
+      "outcome": "passed",
+      "notes": "61 runs, 386 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails db:migrate:down VERSION=20260904143000",
+      "outcome": "passed",
+      "notes": "Migration rollback completed in 0.032 seconds"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails db:migrate:up VERSION=20260904143000",
+      "outcome": "passed",
+      "notes": "Migration reapply completed in 0.043 seconds"
+    },
+    {
+      "command": "mise exec -- bin/quality",
+      "outcome": "passed",
+      "notes": "14 checks passed; 968 Ruby files, architecture/access/authorization contracts, Brakeman 0 warnings, advisory audits clean"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test",
+      "outcome": "passed",
+      "notes": "749 runs, 5734 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test:system",
+      "outcome": "passed",
+      "notes": "34 runs, 162 assertions, 0 failures, 0 errors, 0 skips"
+    }
+  ],
+  "files_changed": [
+    "app/domains/integrations",
+    "app/domains/verification",
+    "app/controllers/verification/challenges_controller.rb",
+    "app/views/verification/challenges/show.html.erb",
+    "app/services/verification_factory.rb",
+    "config/architecture.yml",
+    "config/authorization_inventory.yml",
+    "db/migrate/20260904143000_add_search_console_verification.rb",
+    "db/structure.sql",
+    "docs",
+    "test"
+  ],
+  "migrations": [
+    "20260904143000_add_search_console_verification.rb"
+  ],
+  "decisions": [
+    "Require properties.verify and integrations.manage;Accept only exact normalized URL-prefix origins or exact sc-domain hosts;Require provider siteOwner access and recheck exact selection;Persist only consent digest and bounded provider metadata in Prompt 056"
+  ],
+  "risks": [
+    "OAuth token exchange and encrypted credential persistence remain intentionally scoped to Prompts 091 and 092; provider client remains explicitly unconfigured until that boundary exists"
+  ],
+  "next_steps": [
+    "Commit and push Prompt 056",
+    "then execute Prompt 057 according to the dependency graph"
+  ],
+  "commit": null
+}

@@ -22,6 +22,9 @@ broader authorization scope of their own.
 
 Exact ownership challenge instructions, retry evidence and revocation require `properties.verify` at the
 organization, project or exact property scope. `properties.read` alone never reveals challenge material.
+Search Console selection, provider-bound challenge details and attempts require both `properties.verify` and
+organization-scoped `integrations.manage`; having either permission alone or a Google login identity is
+insufficient. DNS/HTML/meta verification remains governed by `properties.verify` alone.
 
 ## 2. Default role matrix
 

@@ -4,8 +4,12 @@ module Verification
   module Public
     module_function
 
-    def issue_challenge(clock: -> { Time.current }, **attributes)
-      IssueChallenge.new(clock: clock).call(**attributes)
+    def issue_challenge(clock: -> { Time.current }, search_console_client: nil, **attributes)
+      client = search_console_client || VerificationFactory.search_console_client
+      IssueChallenge.new(
+        clock: clock,
+        selection_resolver: SearchConsoleSelectionResolver.new(client: client, clock: clock)
+      ).call(**attributes)
     end
 
     def attempt_challenge(clock: -> { Time.current }, registry: nil, **attributes)
@@ -19,6 +23,11 @@ module Verification
 
     def challenge_details(**attributes)
       ChallengeDirectory.new.latest(**attributes)
+    end
+
+    def search_console_catalog(search_console_client: nil, **attributes)
+      client = search_console_client || VerificationFactory.search_console_client
+      SearchConsoleCatalog.new(client: client).call(**attributes)
     end
 
     def fresh_verification(**attributes)

@@ -39,6 +39,16 @@ After authorization:
 4. record permission level and external identifier;
 5. never infer access to sibling domains.
 
+Prompt 056 establishes the verification-side contract before credential OAuth is implemented. A credential-free
+tenant connection record accepts only a separately issued `search_console_oauth` grant with the least read-only
+scope; it never derives consent from Google login. Authorized selection lists at most 500 properties in memory,
+signs only the selected exact identifier for ten minutes and discards the list. URL-prefix identifiers must equal
+the normalized origin plus `/`; `sc-domain:` matches only the exact ASCII host, not a sibling/parent/subdomain.
+Only `siteOwner` is accepted as ownership evidence. Provider permission/check time and the exact identifier are
+recorded, while outages, revoked scope, inaccessible/ambiguous/no matches and insufficient permission remain
+distinct. Connection account/scope/credential-revision changes revoke current provider proof. See
+`docs/implementation/SEARCH_CONSOLE_VERIFICATION.md`; encrypted credentials/OAuth remain in Prompts 091/092.
+
 ### Search Analytics
 
 Persist:

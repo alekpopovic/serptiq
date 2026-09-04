@@ -7,10 +7,11 @@ module Verification
     VERIFIED_TTL = 30.days
 
     def initialize(clock: -> { Time.current }, access: Access.new,
-      registry: AdapterRegistry.unconfigured)
+      registry: AdapterRegistry.unconfigured, integration_permission: IntegrationPermission.new)
       @clock = clock
       @access = access
       @registry = registry
+      @integration_permission = integration_permission
     end
 
     def call(actor_membership:, project_id:, property_id:, environment_id:, challenge_id:)
@@ -75,6 +76,12 @@ module Verification
         challenge = scoped_challenge!(
           actor_membership, project_id, property_id, environment_id, challenge_id
         )
+        if challenge.method == "search_console"
+          @integration_permission.call(
+            actor_membership: actor_membership,
+            organization_id: challenge.organization_id
+          )
+        end
         now = @clock.call
         if (challenge.pending? || challenge.verified?) && challenge.expires_at <= now
           challenge.update!(state: "expired", expired_at: now)
@@ -159,16 +166,18 @@ module Verification
           attempted_at: reservation.attempted_at,
           created_at: now
         )
+        attributes = { evidence: adapter_result.evidence }
+        apply_provider_observation!(challenge, attributes, adapter_result.provider_observation)
         if adapter_result.verified?
-          challenge.update!(
+          attributes.merge!(
             state: "verified", verified_at: now, expires_at: now + VERIFIED_TTL,
             evidence: adapter_result.evidence
           )
+          challenge.update!(attributes)
           project_summary(challenge, state: "verified", verified_at: now)
           action = "verification.succeeded"
           operation = "verify"
         else
-          attributes = { evidence: adapter_result.evidence }
           if challenge.attempt_count >= MAX_ATTEMPTS
             attributes.merge!(
               state: "failed", failed_at: now, failure_category: adapter_result.failure_category
@@ -202,6 +211,14 @@ module Verification
 
       retry_after = (challenge.attempted_at + MIN_ATTEMPT_INTERVAL - now).ceil
       raise RateLimited.new(retry_after: retry_after)
+    end
+
+    def apply_provider_observation!(challenge, attributes, observation)
+      return unless challenge.method == "search_console" && observation
+      return unless observation.external_property_identifier == challenge.provider_property_identifier
+
+      attributes[:provider_permission_level] = observation.permission_level
+      attributes[:provider_checked_at] = observation.checked_at
     end
 
     def project_summary(challenge, state:, verified_at: nil)

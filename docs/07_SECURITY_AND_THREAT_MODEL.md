@@ -404,7 +404,12 @@ A domain verification challenge:
 - validates DNS responses against the intended name and record type;
 - limits HTML/meta proof fetch to the exact allowed origin and safe destination policy.
 
-Search Console ownership may be trusted only after the connected account and exact property match are verified.
+Search Console ownership may be trusted only after a separately consented tenant connection, both
+`integrations.manage` and exact-property `properties.verify`, an exact provider property match and Google's
+`siteOwner` permission are verified. Google login identity supplies none of these facts. Accessible provider
+lists are bounded and request-local; only the selected identifier/type, connection revision, permission and
+checked time persist. URL-prefix proof is exact-origin only, while `sc-domain:` matches only the exact host and
+never infers sibling ownership. Account, scope, token-revision or property-origin changes revoke current proof.
 
 The implementation derives each user-visible proof value from an application key and the immutable random
 challenge identity, then stores only its SHA-256 digest. Exact instructions are available only behind

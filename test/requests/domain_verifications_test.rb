@@ -104,7 +104,60 @@ class DomainVerificationsRequestTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
   end
 
+  test "authorized owner selects an exact separately consented Search Console property" do
+    connection = Integrations::Public.register_search_console_connection(
+      actor_membership: @owner.membership,
+      grant: Integrations::SearchConsole::ConnectionGrant.new(
+        external_account_id: "request-search-console-account",
+        granted_scopes: [ Integrations::SearchConsole::READONLY_SCOPE ],
+        consented_at: Time.current,
+        consent_reference: SecureRandom.urlsafe_base64(48, false)
+      )
+    )
+    external_identifier = "#{@environment.origin}/"
+    expected_connection_id = connection.id
+    client = Object.new
+    client.define_singleton_method(:list_properties) do |connection:|
+      raise "wrong tenant connection" unless connection.id == expected_connection_id
+
+      [ Integrations::SearchConsole::PropertyAccess.new(
+        external_property_identifier: external_identifier,
+        permission_level: "siteOwner"
+      ) ]
+    end
+
+    with_search_console_client(client) do
+      get verification_path
+    end
+    assert_response :success
+    assert_includes response.body, "Google-known ownership"
+    assert_includes response.body, "separately consented Search Console connection"
+    assert_includes response.body, external_identifier
+    selection = Nokogiri::HTML5.parse(response.body)
+      .at_css('select[name="verification[search_console_selection]"] option')["value"]
+
+    assert_difference("Verification::Challenge.count", 1) do
+      with_search_console_client(client) do
+        post verification_path, params: {
+          verification: { method: "search_console", search_console_selection: selection }
+        }
+      end
+    end
+    challenge = Verification::Challenge.order(:created_at).last
+    assert_equal connection.id, challenge.integration_connection_id
+    assert_equal external_identifier, challenge.provider_property_identifier
+    assert_equal "siteOwner", challenge.provider_permission_level
+  end
+
   private
+
+  def with_search_console_client(client)
+    previous = VerificationFactory.search_console_client_builder
+    VerificationFactory.search_console_client_builder = -> { client }
+    yield
+  ensure
+    VerificationFactory.search_console_client_builder = previous
+  end
 
   def verification_path(challenge_id: nil)
     organization_project_property_environment_verification_path(

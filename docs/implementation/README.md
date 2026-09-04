@@ -89,6 +89,8 @@ Do not pre-populate these reports with fictional implementation or test results.
   TXT semantics, single-consumption concurrency and periodic ownership rechecks.
 - [`HTTP_VERIFICATION.md`](./HTTP_VERIFICATION.md) defines exact file/static-meta proof, centralized public-network
   destination enforcement, explicit canonical redirects and bounded evidence.
+- [`SEARCH_CONSOLE_VERIFICATION.md`](./SEARCH_CONSOLE_VERIFICATION.md) defines separate provider consent,
+  exact URL-prefix/domain matching, dual authorization and connection-change revalidation.
 - [`BILLING_PROVIDER_CONTRACT.md`](./BILLING_PROVIDER_CONTRACT.md) defines normalized billing values,
   adapter operations/errors, transport policies, canonical lifecycle and second-provider requirements.
 - [`LEMON_SQUEEZY_ADAPTER.md`](./LEMON_SQUEEZY_ADAPTER.md) defines the first production adapter's exact

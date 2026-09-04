@@ -277,10 +277,18 @@ domain_operations:
   Properties::Public.reference:
     kind: context
     reason: explicit_tenant_project_property_projection_for_downstream_modules
+  Integrations::Public.register_search_console_connection: { kind: permission, permission: integrations.manage }
+  Integrations::Public.search_console_connections:
+    kind: context
+    reason: tenant_bound_search_console_connection_catalog_for_authorized_verification
+  Integrations::Public.search_console_connection:
+    kind: context
+    reason: exact_tenant_connection_projection_for_authorized_verification
   Verification::Public.issue_challenge: { kind: permission, permission: properties.verify }
   Verification::Public.attempt_challenge: { kind: permission, permission: properties.verify }
   Verification::Public.revoke_challenge: { kind: permission, permission: properties.verify }
   Verification::Public.challenge_details: { kind: permission, permission: properties.verify }
+  Verification::Public.search_console_catalog: { kind: permission, permission: properties.verify }
   Verification::Public.fresh_verification:
     kind: context
     reason: explicit_tenant_environment_freshness_projection_for_authorized_scan_admission

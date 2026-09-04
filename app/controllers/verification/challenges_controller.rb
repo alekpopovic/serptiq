@@ -14,6 +14,7 @@ module Verification
 
     permission_required "properties.verify", only: %i[show create attempt revoke],
       scope: -> { { project: @project, property: @property } }
+    permission_hint "integrations.manage", only: %i[show create]
 
     def show
       load_challenge
@@ -25,7 +26,8 @@ module Verification
         project_id: @project.id,
         property_id: @property.id,
         environment_id: @environment.id,
-        method: challenge_params.fetch(:method)
+        method: challenge_params.fetch(:method),
+        search_console_selection: challenge_params[:search_console_selection]
       )
       redirect_to verification_path(challenge_id: issued.challenge.id),
         notice: "Verification challenge issued.", status: :see_other
@@ -52,6 +54,7 @@ module Verification
         case result.challenge.method
         when "dns_txt" then DnsFailureMessage.for(failure_category)
         when "html_file", "meta_tag" then HttpFailureMessage.for(failure_category)
+        when "search_console" then SearchConsoleFailureMessage.for(failure_category)
         else "Proof was not observed yet. Check the instructions before retrying."
         end
       end
@@ -108,10 +111,20 @@ module Verification
         challenge_id: params[:challenge_id]
       )
       @verification_methods = MethodCatalog::LABELS.to_a
+      @search_console_authorized = allowed_to?("integrations.manage")
+      @verification_methods.reject! { |key, _label| key == "search_console" }
+      if @search_console_authorized
+        @search_console_catalog = Public.search_console_catalog(
+          actor_membership: Current.membership,
+          project_id: @project.id,
+          property_id: @property.id,
+          environment_id: @environment.id
+        )
+      end
     end
 
     def challenge_params
-      params.expect(verification: [ :method ])
+      params.expect(verification: [ :method, :search_console_selection ])
     end
 
     def verification_path(challenge_id: nil)

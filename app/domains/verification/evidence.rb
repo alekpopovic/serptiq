@@ -6,6 +6,7 @@ module Verification
       matched record_count status_code byte_count final_origin_match provider_property_match
       cname_hops delegation_count question_match multiple_records
       redirect_count content_type_allowed destination_approved request_match meta_count
+      provider_permission_owner connection_revision_match
     ].freeze
 
     module_function

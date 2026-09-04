@@ -112,7 +112,7 @@ class VerificationChallengeLifecycleTest < ActiveSupport::TestCase
   end
 
   test "revocation is idempotent and keeps prior success timestamp as history" do
-    issued = issue(method: "search_console")
+    issued = issue(method: "html_file")
     issued.challenge.update!(
       state: "verified", verified_at: @now, expires_at: @now + 30.days
     )

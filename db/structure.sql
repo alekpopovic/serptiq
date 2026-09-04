@@ -370,6 +370,51 @@ $$;
 
 
 --
+-- Name: invalidate_connection_bound_verifications(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.invalidate_connection_bound_verifications() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF NEW.external_account_id IS DISTINCT FROM OLD.external_account_id
+    OR NEW.granted_scopes IS DISTINCT FROM OLD.granted_scopes
+    OR NEW.credential_revision IS DISTINCT FROM OLD.credential_revision
+    OR (NEW.state IS DISTINCT FROM OLD.state
+      AND NEW.state IN ('reauthorization_required', 'revoked')) THEN
+    WITH affected AS (
+      UPDATE domain_verifications
+      SET state = 'revoked', revoked_at = CURRENT_TIMESTAMP,
+        failed_at = NULL, expired_at = NULL, failure_category = NULL,
+        lock_version = lock_version + 1, updated_at = CURRENT_TIMESTAMP
+      WHERE organization_id = NEW.organization_id
+        AND integration_connection_id = NEW.id
+        AND method = 'search_console'
+        AND state IN ('pending', 'verified')
+      RETURNING organization_id, project_id, property_id, environment_id
+    )
+    UPDATE properties
+    SET verification_status = 'unverified', verified_at = NULL,
+      lock_version = lock_version + 1, updated_at = CURRENT_TIMESTAMP
+    WHERE EXISTS (
+      SELECT 1 FROM affected
+      JOIN property_environments ON
+        property_environments.organization_id = affected.organization_id
+        AND property_environments.project_id = affected.project_id
+        AND property_environments.property_id = affected.property_id
+        AND property_environments.id = affected.environment_id
+        AND property_environments."primary" = TRUE
+      WHERE properties.organization_id = affected.organization_id
+        AND properties.project_id = affected.project_id
+        AND properties.id = affected.property_id
+    );
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: invalidate_origin_bound_verifications(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -473,6 +518,10 @@ BEGIN
     OR NEW.challenge_digest IS DISTINCT FROM OLD.challenge_digest
     OR NEW.expected_location IS DISTINCT FROM OLD.expected_location
     OR NEW.bound_origin IS DISTINCT FROM OLD.bound_origin
+    OR NEW.integration_connection_id IS DISTINCT FROM OLD.integration_connection_id
+    OR NEW.provider_property_identifier IS DISTINCT FROM OLD.provider_property_identifier
+    OR NEW.provider_property_type IS DISTINCT FROM OLD.provider_property_type
+    OR NEW.connection_revision IS DISTINCT FROM OLD.connection_revision
     OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
     RAISE EXCEPTION 'domain verification binding cannot be changed';
   END IF;
@@ -957,7 +1006,7 @@ CREATE TABLE public.domain_verification_attempts (
     attempted_at timestamp(6) with time zone NOT NULL,
     created_at timestamp(6) with time zone NOT NULL,
     CONSTRAINT domain_verification_attempts_evidence_shape CHECK (((jsonb_typeof(evidence) = 'object'::text) AND (octet_length((evidence)::text) <= 4096))),
-    CONSTRAINT domain_verification_attempts_failure_category_allowlist CHECK (((failure_category IS NULL) OR ((failure_category)::text = ANY ((ARRAY['proof_missing'::character varying, 'proof_mismatch'::character varying, 'provider_unavailable'::character varying, 'provider_unauthorized'::character varying, 'unsafe_destination'::character varying, 'malformed_response'::character varying, 'attempt_limit'::character varying, 'dns_nxdomain'::character varying, 'dns_no_record'::character varying, 'dns_propagating'::character varying, 'dns_timeout'::character varying, 'dns_transient_failure'::character varying, 'dns_multiple_records'::character varying, 'dns_response_limit'::character varying, 'dns_cname_limit'::character varying, 'dns_delegation_limit'::character varying, 'http_dns_failure'::character varying, 'http_timeout'::character varying, 'http_transport_failure'::character varying, 'http_redirect_rejected'::character varying, 'http_redirect_limit'::character varying, 'http_response_too_large'::character varying, 'http_content_type_rejected'::character varying, 'duplicate_meta'::character varying])::text[])))),
+    CONSTRAINT domain_verification_attempts_failure_category_allowlist CHECK (((failure_category IS NULL) OR ((failure_category)::text = ANY ((ARRAY['proof_missing'::character varying, 'proof_mismatch'::character varying, 'provider_unavailable'::character varying, 'provider_unauthorized'::character varying, 'unsafe_destination'::character varying, 'malformed_response'::character varying, 'attempt_limit'::character varying, 'dns_nxdomain'::character varying, 'dns_no_record'::character varying, 'dns_propagating'::character varying, 'dns_timeout'::character varying, 'dns_transient_failure'::character varying, 'dns_multiple_records'::character varying, 'dns_response_limit'::character varying, 'dns_cname_limit'::character varying, 'dns_delegation_limit'::character varying, 'http_dns_failure'::character varying, 'http_timeout'::character varying, 'http_transport_failure'::character varying, 'http_redirect_rejected'::character varying, 'http_redirect_limit'::character varying, 'http_response_too_large'::character varying, 'http_content_type_rejected'::character varying, 'duplicate_meta'::character varying, 'provider_scope_revoked'::character varying, 'provider_property_inaccessible'::character varying, 'provider_outage'::character varying, 'provider_ambiguous_match'::character varying, 'provider_no_match'::character varying, 'provider_insufficient_permission'::character varying, 'provider_connection_changed'::character varying])::text[])))),
     CONSTRAINT domain_verification_attempts_failure_shape CHECK (((((outcome)::text = 'verified'::text) AND (failure_category IS NULL)) OR (((outcome)::text = 'failed'::text) AND (failure_category IS NOT NULL)))),
     CONSTRAINT domain_verification_attempts_outcome CHECK (((sequence > 0) AND ((outcome)::text = ANY ((ARRAY['verified'::character varying, 'failed'::character varying])::text[]))))
 );
@@ -991,14 +1040,21 @@ CREATE TABLE public.domain_verifications (
     lock_version integer DEFAULT 0 NOT NULL,
     created_at timestamp(6) with time zone NOT NULL,
     updated_at timestamp(6) with time zone NOT NULL,
+    integration_connection_id uuid,
+    provider_property_identifier text,
+    provider_property_type character varying(24),
+    provider_permission_level character varying(32),
+    provider_checked_at timestamp(6) with time zone,
+    connection_revision integer,
     CONSTRAINT domain_verifications_attempt_shape CHECK (((attempt_count >= 0) AND (((attempt_count = 0) AND (attempted_at IS NULL)) OR ((attempt_count > 0) AND (attempted_at IS NOT NULL))))),
     CONSTRAINT domain_verifications_bounded_binding CHECK ((((char_length(expected_location) >= 1) AND (char_length(expected_location) <= 2048)) AND ((char_length(bound_origin) >= 8) AND (char_length(bound_origin) <= 2048)))),
     CONSTRAINT domain_verifications_digest_format CHECK (((challenge_digest)::text ~ '^[0-9a-f]{64}$'::text)),
     CONSTRAINT domain_verifications_evidence_shape CHECK (((jsonb_typeof(evidence) = 'object'::text) AND (octet_length((evidence)::text) <= 4096))),
     CONSTRAINT domain_verifications_expiry_order CHECK ((expires_at > created_at)),
-    CONSTRAINT domain_verifications_failure_category_allowlist CHECK (((failure_category IS NULL) OR ((failure_category)::text = ANY ((ARRAY['proof_missing'::character varying, 'proof_mismatch'::character varying, 'provider_unavailable'::character varying, 'provider_unauthorized'::character varying, 'unsafe_destination'::character varying, 'malformed_response'::character varying, 'attempt_limit'::character varying, 'dns_nxdomain'::character varying, 'dns_no_record'::character varying, 'dns_propagating'::character varying, 'dns_timeout'::character varying, 'dns_transient_failure'::character varying, 'dns_multiple_records'::character varying, 'dns_response_limit'::character varying, 'dns_cname_limit'::character varying, 'dns_delegation_limit'::character varying, 'http_dns_failure'::character varying, 'http_timeout'::character varying, 'http_transport_failure'::character varying, 'http_redirect_rejected'::character varying, 'http_redirect_limit'::character varying, 'http_response_too_large'::character varying, 'http_content_type_rejected'::character varying, 'duplicate_meta'::character varying])::text[])))),
+    CONSTRAINT domain_verifications_failure_category_allowlist CHECK (((failure_category IS NULL) OR ((failure_category)::text = ANY ((ARRAY['proof_missing'::character varying, 'proof_mismatch'::character varying, 'provider_unavailable'::character varying, 'provider_unauthorized'::character varying, 'unsafe_destination'::character varying, 'malformed_response'::character varying, 'attempt_limit'::character varying, 'dns_nxdomain'::character varying, 'dns_no_record'::character varying, 'dns_propagating'::character varying, 'dns_timeout'::character varying, 'dns_transient_failure'::character varying, 'dns_multiple_records'::character varying, 'dns_response_limit'::character varying, 'dns_cname_limit'::character varying, 'dns_delegation_limit'::character varying, 'http_dns_failure'::character varying, 'http_timeout'::character varying, 'http_transport_failure'::character varying, 'http_redirect_rejected'::character varying, 'http_redirect_limit'::character varying, 'http_response_too_large'::character varying, 'http_content_type_rejected'::character varying, 'duplicate_meta'::character varying, 'provider_scope_revoked'::character varying, 'provider_property_inaccessible'::character varying, 'provider_outage'::character varying, 'provider_ambiguous_match'::character varying, 'provider_no_match'::character varying, 'provider_insufficient_permission'::character varying, 'provider_connection_changed'::character varying])::text[])))),
     CONSTRAINT domain_verifications_lifecycle CHECK (((((state)::text = 'pending'::text) AND (verified_at IS NULL) AND (failed_at IS NULL) AND (expired_at IS NULL) AND (revoked_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'verified'::text) AND (verified_at IS NOT NULL) AND (failed_at IS NULL) AND (expired_at IS NULL) AND (revoked_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'failed'::text) AND (verified_at IS NULL) AND (failed_at IS NOT NULL) AND (expired_at IS NULL) AND (revoked_at IS NULL) AND (failure_category IS NOT NULL)) OR (((state)::text = 'expired'::text) AND (failed_at IS NULL) AND (expired_at IS NOT NULL) AND (revoked_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'revoked'::text) AND (failed_at IS NULL) AND (expired_at IS NULL) AND (revoked_at IS NOT NULL) AND (failure_category IS NULL)))),
     CONSTRAINT domain_verifications_method_allowlist CHECK (((method)::text = ANY ((ARRAY['dns_txt'::character varying, 'html_file'::character varying, 'meta_tag'::character varying, 'search_console'::character varying])::text[]))),
+    CONSTRAINT domain_verifications_search_console_binding CHECK (((((method)::text = 'search_console'::text) AND (integration_connection_id IS NOT NULL) AND (provider_property_identifier IS NOT NULL) AND ((char_length(provider_property_identifier) >= 1) AND (char_length(provider_property_identifier) <= 2048)) AND ((provider_property_type)::text = ANY ((ARRAY['url_prefix'::character varying, 'domain'::character varying])::text[])) AND ((provider_permission_level)::text = ANY ((ARRAY['siteOwner'::character varying, 'siteFullUser'::character varying, 'siteRestrictedUser'::character varying, 'siteUnverifiedUser'::character varying])::text[])) AND (provider_checked_at IS NOT NULL) AND (connection_revision > 0)) OR (((method)::text <> 'search_console'::text) AND (integration_connection_id IS NULL) AND (provider_property_identifier IS NULL) AND (provider_property_type IS NULL) AND (provider_permission_level IS NULL) AND (provider_checked_at IS NULL) AND (connection_revision IS NULL)))),
     CONSTRAINT domain_verifications_state_allowlist CHECK (((state)::text = ANY ((ARRAY['pending'::character varying, 'verified'::character varying, 'failed'::character varying, 'expired'::character varying, 'revoked'::character varying])::text[])))
 );
 
@@ -1058,6 +1114,36 @@ CREATE TABLE public.entitlement_subscription_contexts (
     CONSTRAINT entitlement_contexts_access_state_allowlist CHECK (((access_state)::text = ANY ((ARRAY['pending'::character varying, 'full'::character varying, 'grace'::character varying, 'read_only'::character varying, 'suspended'::character varying])::text[]))),
     CONSTRAINT entitlement_contexts_nonnegative_revision CHECK ((subscription_revision >= 0)),
     CONSTRAINT entitlement_contexts_subscription_status_allowlist CHECK (((subscription_status)::text = ANY ((ARRAY['pending'::character varying, 'incomplete'::character varying, 'trialing'::character varying, 'active'::character varying, 'past_due'::character varying, 'paused'::character varying, 'canceled'::character varying, 'expired'::character varying])::text[])))
+);
+
+
+--
+-- Name: integration_connections; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.integration_connections (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    connected_by_membership_id uuid NOT NULL,
+    provider character varying(32) NOT NULL,
+    external_account_id character varying(255) NOT NULL,
+    consent_kind character varying(48) NOT NULL,
+    consent_digest character varying(64) NOT NULL,
+    granted_scopes jsonb DEFAULT '[]'::jsonb NOT NULL,
+    state character varying(32) DEFAULT 'connected'::character varying NOT NULL,
+    credential_revision integer DEFAULT 1 NOT NULL,
+    consented_at timestamp(6) with time zone NOT NULL,
+    last_checked_at timestamp(6) with time zone,
+    revoked_at timestamp(6) with time zone,
+    lock_version integer DEFAULT 0 NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT integration_connections_consent_digest_format CHECK (((consent_digest)::text ~ '^[0-9a-f]{64}$'::text)),
+    CONSTRAINT integration_connections_lifecycle CHECK (((credential_revision > 0) AND ((((state)::text = 'revoked'::text) AND (revoked_at IS NOT NULL)) OR (((state)::text <> 'revoked'::text) AND (revoked_at IS NULL))))),
+    CONSTRAINT integration_connections_provider_allowlist CHECK (((provider)::text = 'search_console'::text)),
+    CONSTRAINT integration_connections_scopes_shape CHECK (((jsonb_typeof(granted_scopes) = 'array'::text) AND (octet_length((granted_scopes)::text) <= 2048))),
+    CONSTRAINT integration_connections_separate_consent CHECK (((consent_kind)::text = 'search_console_oauth'::text)),
+    CONSTRAINT integration_connections_state_allowlist CHECK (((state)::text = ANY ((ARRAY['connected'::character varying, 'healthy'::character varying, 'degraded'::character varying, 'reauthorization_required'::character varying, 'revoked'::character varying])::text[])))
 );
 
 
@@ -2188,6 +2274,14 @@ ALTER TABLE ONLY public.entitlement_subscription_contexts
 
 
 --
+-- Name: integration_connections integration_connections_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.integration_connections
+    ADD CONSTRAINT integration_connections_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: identities identities_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2741,6 +2835,13 @@ CREATE INDEX index_domain_verifications_on_environment_state ON public.domain_ve
 
 
 --
+-- Name: index_domain_verifications_on_integration; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_domain_verifications_on_integration ON public.domain_verifications USING btree (organization_id, integration_connection_id);
+
+
+--
 -- Name: index_domain_verifications_on_tenant_identity; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2787,6 +2888,27 @@ CREATE INDEX index_entitlement_overrides_on_validity ON public.organization_enti
 --
 
 CREATE UNIQUE INDEX index_entitlement_subscription_contexts_on_subscription_id ON public.entitlement_subscription_contexts USING btree (subscription_id);
+
+
+--
+-- Name: index_integration_connections_on_active_account; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_integration_connections_on_active_account ON public.integration_connections USING btree (organization_id, provider, external_account_id) WHERE ((state)::text <> 'revoked'::text);
+
+
+--
+-- Name: index_integration_connections_on_consent_digest; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_integration_connections_on_consent_digest ON public.integration_connections USING btree (consent_digest);
+
+
+--
+-- Name: index_integration_connections_on_tenant_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_integration_connections_on_tenant_identity ON public.integration_connections USING btree (organization_id, id);
 
 
 --
@@ -3630,6 +3752,13 @@ CREATE TRIGGER entitlement_definitions_stable BEFORE DELETE OR UPDATE ON public.
 
 
 --
+-- Name: integration_connections integration_connections_invalidate_verifications; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER integration_connections_invalidate_verifications AFTER UPDATE OF external_account_id, granted_scopes, credential_revision, state ON public.integration_connections FOR EACH ROW EXECUTE FUNCTION public.invalidate_connection_bound_verifications();
+
+
+--
 -- Name: organization_entitlement_overrides organization_entitlement_overrides_append_only; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -3830,6 +3959,14 @@ ALTER TABLE ONLY public.domain_verifications
 
 
 --
+-- Name: domain_verifications fk_domain_verifications_tenant_integration; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.domain_verifications
+    ADD CONSTRAINT fk_domain_verifications_tenant_integration FOREIGN KEY (organization_id, integration_connection_id) REFERENCES public.integration_connections(organization_id, id) ON DELETE RESTRICT;
+
+
+--
 -- Name: domain_verifications fk_domain_verifications_tenant_issuer; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3867,6 +4004,14 @@ ALTER TABLE ONLY public.organization_entitlement_overrides
 
 ALTER TABLE ONLY public.organization_entitlement_overrides
     ADD CONSTRAINT fk_entitlement_overrides_same_org_revoker FOREIGN KEY (organization_id, revoked_by_membership_id) REFERENCES public.memberships(organization_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: integration_connections fk_integration_connections_tenant_member; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.integration_connections
+    ADD CONSTRAINT fk_integration_connections_tenant_member FOREIGN KEY (organization_id, connected_by_membership_id) REFERENCES public.memberships(organization_id, id) ON DELETE RESTRICT;
 
 
 --
@@ -4187,6 +4332,14 @@ ALTER TABLE ONLY public.plan_version_snapshot_references
 
 ALTER TABLE ONLY public.billing_checkout_sessions
     ADD CONSTRAINT fk_rails_9f7df1dbb1 FOREIGN KEY (plan_version_id) REFERENCES public.plan_versions(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: integration_connections fk_rails_a9d88bf42e; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.integration_connections
+    ADD CONSTRAINT fk_rails_a9d88bf42e FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE RESTRICT;
 
 
 --
@@ -4564,6 +4717,7 @@ ALTER TABLE ONLY public.website_property_configs
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904143000'),
 ('20260904142000'),
 ('20260904141000'),
 ('20260904140000'),

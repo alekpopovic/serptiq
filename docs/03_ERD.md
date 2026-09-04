@@ -41,6 +41,7 @@ erDiagram
   PROPERTY ||--|{ PROPERTY_ENVIRONMENT : targets
   PROPERTY_ENVIRONMENT ||--o{ DOMAIN_VERIFICATION : verifies
   DOMAIN_VERIFICATION ||--o{ DOMAIN_VERIFICATION_ATTEMPT : records
+  INTEGRATION_CONNECTION ||--o{ DOMAIN_VERIFICATION : supplies_provider_evidence
 
   PLAN ||--o{ PLAN_VERSION : versions
   PLAN_VERSION ||--o{ PLAN_ENTITLEMENT : contains
@@ -729,6 +730,9 @@ the exact environment and origin.
 | expires_at | timestamptz | pending deadline or maximum verified lifetime |
 | failure_category | string | bounded category only for terminal failure |
 | evidence | jsonb | bounded allowlisted status/count observations; never bodies or tokens |
+| integration_connection_id / connection_revision | uuid / integer | immutable selected Search Console connection snapshot; nullable for other methods |
+| provider_property_identifier / provider_property_type | text / string | exact URL-prefix or domain identifier; nullable for other methods |
+| provider_permission_level / provider_checked_at | string / timestamptz | latest bounded Google-known observation |
 | lock_version | integer | optimistic lifecycle locking |
 
 At most one pending or verified challenge exists per environment. Immutable binding triggers prevent moving
@@ -749,7 +753,11 @@ successful `verified_at` observation.
 
 ### `integration_connections`
 
-Provider, organization, optional project, status, scopes, external account identifiers, health/freshness, connected/revoked timestamps.
+Prompt 056 creates the credential-free foundation with organization, same-tenant connecting membership,
+Search Console provider, external account identifier, `search_console_oauth` consent digest, bounded granted
+scopes, state, credential revision, consent/check/revocation timestamps and optimistic lock version. Composite
+tenant keys and allowlists prevent cross-organization substitution or login-consent reuse. Prompt 091 extends
+this provider-neutral record with encrypted credentials, optional resource scope and refresh/health behavior.
 
 ### `oauth_credentials`
 

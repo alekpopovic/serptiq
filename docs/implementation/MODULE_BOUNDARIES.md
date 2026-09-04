@@ -61,6 +61,10 @@ boundary and never expose raw DNS material to other modules.
 HTTP verification consumes `Shared::Public.safe_http_client`, the single public-destination resolution, connection and
 redirect policy also reserved for Crawling. Verification owns the exact proof path/content decisions and the
 explicit canonical-host variant allowlist; Shared never learns challenge values or tenant records.
+Search Console verification consumes only `Integrations::Public` connection projections. Integrations owns
+separate-consent metadata and future credentials/provider execution; Verification owns exact origin matching,
+challenge binding, dual-permission orchestration and proof lifecycle. Neither module treats Identity login as
+provider authorization.
 
 This combined catalog preserves both the foundational architecture capabilities
 and the explicit boundaries established by Prompt 002. Unrecognized module

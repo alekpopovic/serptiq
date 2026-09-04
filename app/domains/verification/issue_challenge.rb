@@ -4,13 +4,19 @@ module Verification
   class IssueChallenge
     PENDING_TTL = 24.hours
 
-    def initialize(clock: -> { Time.current }, id_generator: -> { SecureRandom.uuid }, access: Access.new)
+    def initialize(clock: -> { Time.current }, id_generator: -> { SecureRandom.uuid }, access: Access.new,
+      integration_permission: IntegrationPermission.new, selection_token: SearchConsoleSelectionToken.new,
+      selection_resolver: nil)
       @clock = clock
       @id_generator = id_generator
       @access = access
+      @integration_permission = integration_permission
+      @selection_token = selection_token
+      @selection_resolver = selection_resolver
     end
 
-    def call(actor_membership:, project_id:, property_id:, environment_id:, method:)
+    def call(actor_membership:, project_id:, property_id:, environment_id:, method:,
+      search_console_selection: nil)
       normalized_method = method.to_s
       raise ArgumentError, "unsupported verification method" unless Challenge::METHODS.include?(normalized_method)
 
@@ -23,6 +29,12 @@ module Verification
       )
       raise Conflict.new(reason_code: "verification_resource_inactive") unless
         context.project.active? && context.property.active? && context.environment.active?
+      selection = resolve_search_console_selection(
+        method: normalized_method,
+        actor_membership: actor_membership,
+        context: context,
+        selection_token: search_console_selection
+      )
 
       challenge = nil
       events = []
@@ -66,6 +78,16 @@ module Verification
           created_at: now,
           updated_at: now
         )
+        if selection
+          challenge.assign_attributes(
+            integration_connection_id: selection.connection_id,
+            provider_property_identifier: selection.external_property_identifier,
+            provider_property_type: selection.property_type,
+            provider_permission_level: selection.permission_level,
+            provider_checked_at: selection.checked_at,
+            connection_revision: selection.connection_revision
+          )
+        end
         challenge.challenge_digest = ChallengeToken.digest(ChallengeToken.value_for(challenge))
         challenge.save!
         Properties::Public.apply_verification_summary(
@@ -90,6 +112,26 @@ module Verification
       end
       events.each { |event| ChallengeEvent.enqueue(event) }
       IssuedChallenge.new(challenge: challenge, instructions: MethodCatalog.instructions(challenge))
+    end
+
+    private
+
+    def resolve_search_console_selection(method:, actor_membership:, context:, selection_token:)
+      return unless method == "search_console"
+
+      @integration_permission.call(
+        actor_membership: actor_membership,
+        organization_id: context.environment.organization_id
+      )
+      raise SearchConsoleSelectionError, "provider_outage" unless @selection_resolver
+
+      connection_id, identifier = @selection_token.verify(selection_token)
+      @selection_resolver.call(
+        organization_id: context.environment.organization_id,
+        connection_id: connection_id,
+        external_property_identifier: identifier,
+        origin: context.environment.origin.origin
+      )
     end
   end
 end

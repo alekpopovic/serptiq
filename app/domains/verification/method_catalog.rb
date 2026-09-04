@@ -41,8 +41,10 @@ module Verification
           "JavaScript-generated tags are not executed or accepted."
         ]
       when "search_console"
-        [ "Connect a Search Console account with verified ownership.",
-          "The adapter must confirm an exact property match for the origin below." ]
+        [ "This proof uses a separately consented Search Console connection, not your Google login session.",
+          "Selected provider property: #{challenge.provider_property_identifier}",
+          "Google-reported permission: #{challenge.provider_permission_level} (checked #{challenge.provider_checked_at.to_fs(:long)}).",
+          "SearchOps rechecks the exact provider property before accepting this observed proof." ]
       end
       Instructions.new(
         method: challenge.method,
