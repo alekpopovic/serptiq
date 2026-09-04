@@ -15,6 +15,7 @@
       field_ids: { provider: "shell_sign_in_form_provider_google" } %>
 
     <%= form_with model: @sign_in_form, url: sign_in_path, class: "mt-6 space-y-6" do |form| %>
+      <%= hidden_field_tag :return_to, @return_to %>
       <fieldset aria-describedby="provider-hint<%= " provider-error" if @sign_in_form.errors[:provider].any? %>">
         <legend class="so-label">Identity provider</legend>
         <p id="provider-hint" class="so-hint">Choose a provider to exercise validation. No OAuth request is made.</p>

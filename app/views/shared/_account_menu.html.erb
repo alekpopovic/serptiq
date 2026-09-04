@@ -5,7 +5,8 @@
     <span class="text-slate-400 transition group-open:rotate-180 motion-reduce:transition-none" aria-hidden="true">⌄</span>
   </summary>
   <div class="absolute right-0 top-12 z-30 w-64 rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
-    <p class="px-3 py-2 text-xs leading-5 text-slate-500">Account actions arrive with authentication. No user data is shown in this scaffold.</p>
+    <p class="px-3 py-2 text-xs leading-5 text-slate-500">Signed in as <%= Current.user.display_name.presence || "SearchOps user" %>.</p>
     <%= link_to "Public home", root_path, class: "so-menu-link" %>
+    <%= button_to "Sign out", logout_path, method: :delete, class: "so-menu-link w-full text-left" %>
   </div>
 </details>

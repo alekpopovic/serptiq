@@ -38,6 +38,8 @@ class ApplicationShellRequestTest < ActionDispatch::IntegrationTest
   end
 
   test "dashboard uses authenticated shell scaffolding without tenant fixtures" do
+    authenticate_request(issue_identity_session)
+
     get dashboard_path
 
     assert_response :success
@@ -46,6 +48,6 @@ class ApplicationShellRequestTest < ActionDispatch::IntegrationTest
     assert_select "nav[aria-label='Workspace navigation'] a[aria-current='page']", text: "Dashboard"
     assert_select "turbo-frame#dashboard-shell"
     assert_select "#workspace-empty-title", text: "No workspace context yet"
-    assert_select ".so-badge", text: "Scaffold only"
+    assert_select ".so-badge", text: "Signed in"
   end
 end

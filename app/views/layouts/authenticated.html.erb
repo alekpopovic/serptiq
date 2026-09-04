@@ -30,7 +30,7 @@
             <p class="truncate text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Workspace scaffold</p>
           </div>
 
-          <%= render "shared/account_menu", label: "Account" %>
+          <%= render "shared/account_menu", label: Current.user.display_name.presence || "Account" %>
         </div>
       </header>
 

@@ -133,12 +133,13 @@ Unique: `(provider, provider_subject)`. Avoid automatically merging accounts mer
 | id | uuid | PK |
 | user_id | uuid | FK |
 | token_digest | binary/string | unique digest; raw token only in secure cookie |
-| ip_address | inet | policy-controlled |
-| user_agent | text | bounded |
+| ip_address_digest | string | keyed digest; raw address is not retained |
+| user_agent_digest | string | keyed digest; raw value is not retained |
 | last_seen_at | timestamptz | |
 | expires_at | timestamptz | |
 | revoked_at | timestamptz | |
 | revoke_reason | string | |
+| rotated_from_id | uuid | nullable self-FK for rotation lineage |
 
 ### `oauth_transactions`
 

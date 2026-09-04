@@ -2,6 +2,7 @@ Rails.application.routes.draw do
   root "public_pages#home"
   get "sign-in", to: "public_pages#sign_in", as: :sign_in
   post "sign-in", to: "public_pages#preview_sign_in"
+  delete "logout", to: "identity/sessions#destroy", as: :logout
   get "dashboard", to: "dashboard#index", as: :dashboard
 
   get "up", to: "operational_status#up", defaults: { format: :json }, as: :up

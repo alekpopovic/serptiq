@@ -39,5 +39,7 @@ Do not pre-populate these reports with fictional implementation or test results.
   structured event fields, correlation lifecycle and prohibited log data.
 - [`HEALTH_ENDPOINTS.md`](./HEALTH_ENDPOINTS.md) defines public liveness,
   readiness and release semantics plus private worker heartbeat inspection.
+- [`AUTHENTICATION_SESSIONS.md`](./AUTHENTICATION_SESSIONS.md) defines native
+  session tokens, cookies, request context, rotation and logout behavior.
 - [`../../tracking/README.md`](../../tracking/README.md) defines prompt evidence,
   recovery and state integrity.

@@ -29,6 +29,7 @@ class ApplicationShellSystemTest < ApplicationSystemTestCase
 
   test "workspace navigation adapts to a narrow viewport" do
     page.current_window.resize_to(390, 844)
+    authenticate_system_browser(issue_identity_session)
     visit dashboard_path
 
     assert_selector "aside[aria-label='Workspace']", visible: :hidden

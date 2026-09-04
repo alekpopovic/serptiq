@@ -91,6 +91,10 @@ The migration is reversible before dependent objects exist. Once UUID defaults
 or functions depend on it, production rollback must be a reviewed forward fix,
 not an automatic extension drop. No extension is enabled in queue/cache/cable.
 
+Domain `datetime` columns use PostgreSQL `timestamptz` through the application
+adapter initializer. Values still surface as Rails `:datetime`, but PostgreSQL
+stores instants with time-zone-aware semantics as required by the ERD.
+
 ## Readiness query
 
 `Shared::DatabaseHealthCheck.call(database: :primary)` executes exactly
