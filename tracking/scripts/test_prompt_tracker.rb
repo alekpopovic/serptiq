@@ -25,9 +25,9 @@ class PromptTrackerCliTest < Minitest::Test
     FileUtils.chmod(0o755, @script)
 
     rows = [
-      ["000", "test", "First", "prompts/000_first.md", "medium", ""],
-      ["001", "test", "Second", "prompts/001_second.md", "high", "000"],
-      ["002", "test", "Third", "prompts/002_third.md", "xhigh", "001"]
+      [ "000", "test", "First", "prompts/000_first.md", "medium", "" ],
+      [ "001", "test", "Second", "prompts/001_second.md", "high", "000" ],
+      [ "002", "test", "Third", "prompts/002_third.md", "xhigh", "001" ]
     ]
     catalog = File.join(@root, "tracking", "prompt_catalog.csv")
     CSV.open(catalog, "w") do |csv|
@@ -89,7 +89,7 @@ class PromptTrackerCliTest < Minitest::Test
       @script,
       *args
     )
-    [stdout.force_encoding(Encoding::UTF_8), stderr.force_encoding(Encoding::UTF_8), status]
+    [ stdout.force_encoding(Encoding::UTF_8), stderr.force_encoding(Encoding::UTF_8), status ]
   end
 
   def assert_success(result)
@@ -123,9 +123,22 @@ class PromptTrackerCliTest < Minitest::Test
 
   def test_validate_status_and_next_are_read_only
     before = File.read(File.join(@root, "tracking", "state.json"))
-    assert_match(/VALID: 3 prompts/, assert_success(run_cli("validate")))
-    assert_match(/0\/3 completed/, assert_success(run_cli("status")))
-    assert_match(/000 — First/, assert_success(run_cli("next")))
+    commands = [
+      [ "validate" ],
+      [ "status" ],
+      [ "status", "--json" ],
+      [ "next" ],
+      [ "next", "--json" ],
+      [ "show", "000" ],
+      [ "show", "000", "--json" ],
+      [ "history" ],
+      [ "history", "--json" ]
+    ]
+    outputs = commands.to_h { |args| [ args, assert_success(run_cli(*args)) ] }
+
+    assert_match(/VALID: 3 prompts/, outputs.fetch([ "validate" ]))
+    assert_match(/0\/3 completed/, outputs.fetch([ "status" ]))
+    assert_match(/000 — First/, outputs.fetch([ "next" ]))
     after = File.read(File.join(@root, "tracking", "state.json"))
     assert_equal before, after
   end
@@ -211,6 +224,31 @@ class PromptTrackerCliTest < Minitest::Test
     assert_equal "in_progress", state.dig("prompts", "000", "status")
   end
 
+  def test_state_replacement_is_atomic_for_concurrent_readers
+    parse_errors = Queue.new
+    finished = false
+    reader = Thread.new do
+      until finished
+        JSON.parse(File.read(File.join(@root, "tracking", "state.json")))
+        Thread.pass
+      end
+    rescue JSON::ParserError, Errno::ENOENT => error
+      parse_errors << error
+    end
+
+    5.times do |index|
+      assert_success(run_cli("start", "000"))
+      assert_success(run_cli("block", "000", "--reason", "temporary blocker #{index}"))
+      assert_success(run_cli("unblock", "000", "--reason", "blocker resolved #{index}"))
+    end
+  ensure
+    finished = true
+    reader&.join
+    parse_error = parse_errors.pop(true) unless parse_errors&.empty?
+    assert_nil parse_error, "reader observed a partial/missing state: #{parse_error}"
+    assert_empty Dir.glob(File.join(@root, "tracking", "state.json.tmp.*")) if @root
+  end
+
   def test_reset_requires_cascade_and_archives_results
     assert_success(run_cli("start", "000"))
     complete("000")
@@ -238,5 +276,54 @@ class PromptTrackerCliTest < Minitest::Test
     content = File.read(catalog_path).sub(",First,", ",First changed,")
     File.write(catalog_path, content)
     assert_match(/catalog checksum mismatch/, assert_failure(run_cli("validate")))
+  end
+
+  def test_invalid_catalog_ids_reasoning_dependencies_and_cycles_are_rejected
+    cases = {
+      "invalid prompt ID" => [ [ "bad", "test", "First", "prompts/000_first.md", "medium", "" ] ],
+      "invalid reasoning" => [ [ "000", "test", "First", "prompts/000_first.md", "extreme", "" ] ],
+      "unknown dependency" => [ [ "000", "test", "First", "prompts/000_first.md", "medium", "999" ] ],
+      "dependency cycle" => [
+        [ "000", "test", "First", "prompts/000_first.md", "medium", "001" ],
+        [ "001", "test", "Second", "prompts/001_second.md", "high", "000" ]
+      ]
+    }
+
+    cases.each do |message, rows|
+      write_catalog(rows)
+      assert_match(/#{Regexp.escape(message)}/, assert_failure(run_cli("validate")))
+    end
+  end
+
+  def test_duplicate_and_malformed_catalog_rows_are_rejected
+    rows = [
+      [ "000", "test", "First", "prompts/000_first.md", "medium", "" ],
+      [ "000", "test", "Duplicate", "prompts/001_second.md", "high", "" ]
+    ]
+    write_catalog(rows)
+    assert_match(/duplicate catalog ID/, assert_failure(run_cli("validate")))
+
+    File.write(File.join(@root, "tracking", "prompt_catalog.csv"), "id,title\n000,\"unterminated\n")
+    assert_match(/malformed catalog CSV/, assert_failure(run_cli("validate")))
+  end
+
+  def test_completed_result_content_is_validated_against_state
+    assert_success(run_cli("start", "000"))
+    complete("000")
+    result_path = File.join(@root, "tracking", "results", "000.json")
+    result = JSON.parse(File.read(result_path))
+    result["summary"] = "tampered summary"
+    File.write(result_path, JSON.pretty_generate(result) + "\n")
+
+    assert_match(/state summary mismatch/, assert_failure(run_cli("validate")))
+  end
+
+  private
+
+  def write_catalog(rows)
+    CSV.open(File.join(@root, "tracking", "prompt_catalog.csv"), "w") do |csv|
+      csv << %w[id phase title filename reasoning depends_on]
+      rows.each { |row| csv << row }
+    end
   end
 end

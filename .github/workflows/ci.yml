@@ -6,6 +6,24 @@ on:
     branches: [ main ]
 
 jobs:
+  tracker:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Set up Ruby
+        uses: ruby/setup-ruby@v1
+
+      - name: Validate prompt tracker without mutating state
+        run: ruby tracking/scripts/prompt_tracker.rb validate
+
+      - name: Test prompt tracker in isolated temporary repositories
+        run: ruby tracking/scripts/test_prompt_tracker.rb
+
   scan_ruby:
     runs-on: ubuntu-latest
 

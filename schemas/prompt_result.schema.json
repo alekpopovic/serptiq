@@ -6,6 +6,7 @@
   "additionalProperties": false,
   "required": [
     "prompt_id",
+    "title",
     "status",
     "started_at",
     "finished_at",
@@ -19,6 +20,10 @@
     "prompt_id": {
       "type": "string",
       "pattern": "^\\d{3}$"
+    },
+    "title": {
+      "type": "string",
+      "minLength": 1
     },
     "status": {
       "const": "completed"

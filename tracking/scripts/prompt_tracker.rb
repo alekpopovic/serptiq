@@ -13,6 +13,14 @@ class TrackerError < StandardError; end
 class PromptTracker
   VALID_STATUSES = %w[pending in_progress blocked completed].freeze
   TEST_OUTCOMES = %w[passed failed not_run].freeze
+  RESULT_REQUIRED_KEYS = %w[
+    prompt_id title status started_at finished_at summary tests files_changed
+    migrations decisions risks next_steps commit
+  ].freeze
+  RESULT_ARRAY_KEYS = %w[files_changed migrations decisions risks next_steps].freeze
+  RESULT_ALLOWED_KEYS = RESULT_REQUIRED_KEYS.freeze
+  TEST_REQUIRED_KEYS = %w[command outcome].freeze
+  TEST_ALLOWED_KEYS = %w[command outcome notes].freeze
 
   attr_reader :root, :catalog_path, :state_path
 
@@ -47,7 +55,7 @@ class PromptTracker
     errors = validate_state(state)
     raise TrackerError, errors.join("; ") unless errors.empty?
 
-    counts = VALID_STATUSES.to_h { |status| [status, 0] }
+    counts = VALID_STATUSES.to_h { |status| [ status, 0 ] }
     state.fetch("prompts").each_value { |entry| counts[entry.fetch("status")] += 1 }
     current = state["current_prompt"]
     next_entry = eligible_prompt(state)
@@ -131,11 +139,12 @@ class PromptTracker
 
   def show(id, json: false)
     state = load_state
+    validate_state_or_raise!(state)
     row = catalog_row(id)
     item = prompt_summary(row.fetch("id"), state)
     item[:state] = state.fetch("prompts").fetch(id)
     item[:dependency_states] = row.fetch("depends_on").to_h do |dep|
-      [dep, state.fetch("prompts").fetch(dep).fetch("status")]
+      [ dep, state.fetch("prompts").fetch(dep).fetch("status") ]
     end
 
     if json
@@ -158,6 +167,7 @@ class PromptTracker
 
   def history(limit: nil, json: false)
     state = load_state
+    validate_state_or_raise!(state)
     events = state.fetch("history")
     events = events.last(limit) if limit
     if json
@@ -218,7 +228,7 @@ class PromptTracker
 
     tests = Array(options[:tests])
     if tests.empty? && options[:legacy_tests]
-      tests = [parse_legacy_test(options[:legacy_tests])]
+      tests = [ parse_legacy_test(options[:legacy_tests]) ]
     end
     raise TrackerError, "at least one --test or --tests entry is required" if tests.empty?
 
@@ -236,10 +246,10 @@ class PromptTracker
     decisions = split_list(options[:decisions])
     risks = split_list(options[:risks])
     next_steps = split_list(options[:next_steps])
-    risks = ["none reported"] if risks.empty?
-    next_steps = ["follow the dependency graph"] if next_steps.empty?
+    risks = [ "none reported" ] if risks.empty?
+    next_steps = [ "follow the dependency graph" ] if next_steps.empty?
 
-    if !not_run.empty? && risks == ["none reported"]
+    if !not_run.empty? && risks == [ "none reported" ]
       raise TrackerError, "--allow-not-run requires a non-empty --risks explanation"
     end
 
@@ -350,7 +360,7 @@ class PromptTracker
 
     with_locked_state do |state|
       validate_state_or_raise!(state)
-      affected = [id]
+      affected = [ id ]
       downstream = transitive_dependents(id)
       active_downstream = downstream.select do |dep|
         state.fetch("prompts").fetch(dep).fetch("status") != "pending"
@@ -446,12 +456,12 @@ class PromptTracker
       return if visited[id] || found
       if visiting[id]
         index = stack.index(id) || 0
-        found = stack[index..] + [id]
+        found = stack[index..] + [ id ]
         return
       end
       visiting[id] = true
       stack << id
-      @catalog.fetch(id).fetch("depends_on").each { |dep| visit.call(dep) }
+      @catalog.fetch(id).fetch("depends_on").each { |dep| visit.call(dep) if @catalog.key?(dep) }
       stack.pop
       visiting.delete(id)
       visited[id] = true
@@ -487,6 +497,10 @@ class PromptTracker
     in_progress = []
     (@catalog.keys & prompt_states.keys).each do |id|
       entry = prompt_states.fetch(id)
+      unless entry.is_a?(Hash)
+        errors << "state entry for #{id} must be an object"
+        next
+      end
       status = entry["status"]
       errors << "invalid status #{status.inspect} for #{id}" unless VALID_STATUSES.include?(status)
       in_progress << id if status == "in_progress"
@@ -499,13 +513,16 @@ class PromptTracker
         if File.file?(json_path)
           begin
             result = JSON.parse(File.read(json_path))
-            errors << "result ID mismatch for #{id}" unless result["prompt_id"] == id
-            errors << "result status mismatch for #{id}" unless result["status"] == "completed"
-            errors << "state result_file mismatch for #{id}" unless entry["result_file"] == File.join("tracking", "results", "#{id}.json")
+            errors.concat(validate_result(id, entry, result))
           rescue JSON::ParserError => e
             errors << "invalid result JSON for #{id}: #{e.message}"
           end
         end
+      end
+
+      if status == "blocked"
+        errors << "blocked #{id} is missing blocked_at" if entry["blocked_at"].to_s.empty?
+        errors << "blocked #{id} is missing block_reason" if entry["block_reason"].to_s.strip.empty?
       end
 
       if %w[in_progress completed].include?(status)
@@ -520,13 +537,84 @@ class PromptTracker
     current = state["current_prompt"]
     if current
       errors << "current_prompt #{current} is not in catalog" unless @catalog.key?(current)
-      errors << "current_prompt #{current} is not in_progress" unless prompt_states.dig(current, "status") == "in_progress"
-      errors << "current_prompt does not match in_progress prompt" unless in_progress == [current]
+      current_entry = prompt_states[current]
+      current_status = current_entry["status"] if current_entry.is_a?(Hash)
+      errors << "current_prompt #{current} is not in_progress" unless current_status == "in_progress"
+      errors << "current_prompt does not match in_progress prompt" unless in_progress == [ current ]
     elsif !in_progress.empty?
       errors << "in_progress prompt exists but current_prompt is null"
     end
 
+    errors << "state.history must be an array" unless state["history"].is_a?(Array)
+
+    completed_ids = prompt_states.filter_map { |id, entry| id if entry.is_a?(Hash) && entry["status"] == "completed" }
+    result_ids = Dir.glob(File.join(@results_dir, "*.json")).map { |path| File.basename(path, ".json") }
+    orphaned_ids = result_ids - completed_ids
+    errors << "result files exist for non-completed prompts: #{orphaned_ids.join(', ')}" unless orphaned_ids.empty?
+
     errors
+  end
+
+  def validate_result(id, entry, result)
+    return [ "result for #{id} must be an object" ] unless result.is_a?(Hash)
+
+    errors = []
+    missing = RESULT_REQUIRED_KEYS - result.keys
+    extra = result.keys - RESULT_ALLOWED_KEYS
+    errors << "result for #{id} missing keys: #{missing.join(', ')}" unless missing.empty?
+    errors << "result for #{id} has unknown keys: #{extra.join(', ')}" unless extra.empty?
+    return errors unless missing.empty?
+
+    errors << "result ID mismatch for #{id}" unless result["prompt_id"] == id
+    errors << "result title mismatch for #{id}" unless result["title"] == @catalog.fetch(id).fetch("title")
+    errors << "result status mismatch for #{id}" unless result["status"] == "completed"
+    errors << "result summary missing for #{id}" if result["summary"].to_s.strip.empty?
+    errors << "result started_at invalid for #{id}" unless iso8601_time?(result["started_at"])
+    errors << "result finished_at invalid for #{id}" unless iso8601_time?(result["finished_at"])
+    errors << "state started_at mismatch for #{id}" unless entry["started_at"] == result["started_at"]
+    errors << "state finished_at mismatch for #{id}" unless entry["finished_at"] == result["finished_at"]
+    errors << "state summary mismatch for #{id}" unless entry["summary"] == result["summary"]
+    errors << "state commit mismatch for #{id}" unless entry["commit"] == result["commit"]
+    expected_path = File.join("tracking", "results", "#{id}.json")
+    errors << "state result_file mismatch for #{id}" unless entry["result_file"] == expected_path
+
+    RESULT_ARRAY_KEYS.each do |key|
+      value = result[key]
+      errors << "result #{key} for #{id} must be an array of strings" unless value.is_a?(Array) && value.all?(String)
+    end
+    validate_result_tests(id, result["tests"], errors)
+    unless result["commit"].nil? || result["commit"].is_a?(String)
+      errors << "result commit for #{id} must be a string or null"
+    end
+    errors
+  end
+
+  def validate_result_tests(id, tests, errors)
+    unless tests.is_a?(Array) && !tests.empty?
+      errors << "result tests for #{id} must be a non-empty array"
+      return
+    end
+
+    tests.each_with_index do |test, index|
+      unless test.is_a?(Hash)
+        errors << "result test #{index} for #{id} must be an object"
+        next
+      end
+      missing = TEST_REQUIRED_KEYS - test.keys
+      extra = test.keys - TEST_ALLOWED_KEYS
+      errors << "result test #{index} for #{id} missing keys: #{missing.join(', ')}" unless missing.empty?
+      errors << "result test #{index} for #{id} has unknown keys: #{extra.join(', ')}" unless extra.empty?
+      errors << "result test #{index} command for #{id} is empty" if test["command"].to_s.strip.empty?
+      errors << "result test #{index} outcome for #{id} is invalid" unless TEST_OUTCOMES.include?(test["outcome"])
+      errors << "result test #{index} notes for #{id} must be a string" if test.key?("notes") && !test["notes"].is_a?(String)
+    end
+  end
+
+  def iso8601_time?(value)
+    Time.iso8601(value.to_s)
+    true
+  rescue ArgumentError
+    false
   end
 
   def validate_state_or_raise!(state)
@@ -710,7 +798,7 @@ class PromptTracker
 
   def transitive_dependents(id)
     result = []
-    queue = [id]
+    queue = [ id ]
     until queue.empty?
       current = queue.shift
       direct = @catalog.values.select { |row| row.fetch("depends_on").include?(current) }.map { |row| row.fetch("id") }
