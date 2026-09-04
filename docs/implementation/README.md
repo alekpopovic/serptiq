@@ -67,5 +67,7 @@ Do not pre-populate these reports with fictional implementation or test results.
   windows, corrections, read models, retention and partitioning policy.
 - [`USAGE_QUOTAS.md`](./USAGE_QUOTAS.md) defines atomic quota admission, immutable limit snapshots,
   idempotent reservation finalization/release and stale-hold recovery.
+- [`PLAN_USAGE_UI.md`](./PLAN_USAGE_UI.md) defines the catalog-driven pricing, plan comparison, billing-control
+  visibility and tenant-safe usage presentation contract.
 - [`../../tracking/README.md`](../../tracking/README.md) defines prompt evidence,
   recovery and state integrity.

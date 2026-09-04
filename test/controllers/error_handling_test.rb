@@ -100,7 +100,7 @@ class ErrorHandlingTest < ActionController::TestCase
     get :quota
 
     assert_response :too_many_requests
-    assert_select "#public-error-title", /could not complete/i
+    assert_select "#public-error-title", "Usage limit reached"
     assert_select "p", /Error code: quota_exceeded/
     refute_match(/secret operator detail/, response.body)
   end

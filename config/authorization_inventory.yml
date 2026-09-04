@@ -21,6 +21,14 @@ controllers:
         reason: platform_plan_catalog_permission
       publish: *platform_plan_catalog
       retire: *platform_plan_catalog
+  Plans::ComparisonsController:
+    source: app/controllers/plans/comparisons_controller.rb
+    actions:
+      show: { kind: permission, permission: plans.read }
+  Usage::DashboardsController:
+    source: app/controllers/usage/dashboards_controller.rb
+    actions:
+      show: { kind: permission, permission: billing.read }
   Entitlements::DiagnosticsController:
     source: app/controllers/entitlements/diagnostics_controller.rb
     actions:
@@ -143,8 +151,11 @@ domain_operations:
   Billing::Public.active_subscriber_counts: { kind: context, reason: platform_catalog_review_projection }
   Billing::Public.active_subscriber_count: { kind: context, reason: locked_catalog_retirement_projection }
   Billing::Public.plan_provider_mappings: { kind: system, reason: provider_mapping_consistency_projection }
+  Billing::Public.active_subscription: { kind: context, reason: explicit_tenant_subscription_projection }
+  Billing::Public.checkout_available?: { kind: context, reason: safe_provider_mapping_availability_projection }
   Entitlements::Public.validate_catalog: { kind: system, reason: governed_entitlement_definition_validation }
   Entitlements::Public.sync_catalog: { kind: system, reason: operator_entitlement_catalog_synchronization }
+  Entitlements::Public.catalog_entries: { kind: context, reason: public_commercial_catalog_projection }
   Entitlements::Public.bind_subscription: { kind: context, reason: billing_owned_subscription_projection }
   Entitlements::Public.resolve: { kind: context, reason: explicit_tenant_entitlement_resolution }
   Entitlements::Public.set_organization_override: { kind: context, reason: platform_catalog_authorized_override }
@@ -159,6 +170,7 @@ domain_operations:
   Plans::Public.authorize_catalog!: { kind: context, reason: platform_catalog_grant_validation }
   Plans::Public.catalog_decision: { kind: context, reason: platform_catalog_grant_hint }
   Plans::Public.catalog_entries: { kind: context, reason: called_after_platform_catalog_authorization }
+  Plans::Public.current_offers: { kind: context, reason: published_commercial_catalog_projection }
   Plans::Public.version_snapshot: { kind: context, reason: internal_immutable_catalog_projection }
   Plans::Public.catalog_version: { kind: context, reason: locked_catalog_orchestration_projection }
   Plans::Public.purchasable_version: { kind: context, reason: current_catalog_selection }
@@ -178,3 +190,4 @@ domain_operations:
   Usage::Public.finalize_reservation: { kind: context, reason: tenant_bound_usage_finalization }
   Usage::Public.release_reservation: { kind: context, reason: tenant_bound_quota_hold_release }
   Usage::Public.maintain_reservations: { kind: system, reason: bounded_quota_recovery_and_reconciliation }
+  Usage::Public.organization_dashboard: { kind: permission, permission: billing.read }

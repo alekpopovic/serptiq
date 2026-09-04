@@ -28,6 +28,10 @@ module Plans
       CatalogQuery.new.call
     end
 
+    def current_offers(**attributes)
+      OfferCatalogQuery.new.call(**attributes)
+    end
+
     def version_snapshot(id:, lock: false)
       VersionLookup.new.call(id: id, lock: lock)
     end

@@ -6,6 +6,8 @@
     { label: "Members", path: organization_members_path(Current.organization.slug) },
     *(Current.membership&.owner? ? [ { label: "Invitations", path: organization_invitations_path(Current.organization.slug) } ] : []),
     { label: "Teams", path: organization_teams_path(Current.organization.slug) },
+    { label: "Plans", path: organization_plan_comparison_path(Current.organization.slug) },
+    { label: "Usage", path: organization_usage_path(Current.organization.slug) },
     { label: "Organization settings", path: organization_settings_path(Current.organization.slug) }
   ] : [ { label: "Get started", path: onboarding_path } ]),
   { label: "Account details", path: account_profile_path },

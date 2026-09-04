@@ -50,6 +50,12 @@ class PublicErrorPresentation
           title: "Please wait before trying again",
           action: :sign_in
         }
+      when Shared::Public::QuotaError
+        {
+          title: "Usage limit reached",
+          message: error.definition.public_message,
+          action: :quota
+        }
       else
         default_details(error)
       end

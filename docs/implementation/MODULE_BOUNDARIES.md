@@ -123,6 +123,11 @@ membership; tenant domains never receive a public counter-mutation API. Quota ca
 `Usage::Public` reserve/extend/finalize/release operations and pass a source already resolved within the same
 tenant.
 
+Customer-facing pricing reads published immutable versions through `Plans::Public`, while entitlement labels
+come from `Entitlements::Public`. Billing exposes only tenant subscription summaries and boolean checkout
+availability; provider variant identifiers are never presentation data. Organization usage pages call the
+`Usage::Public` dashboard with a matching organization-scoped `billing.read` authorization proof.
+
 ## Shared primitives
 
 `app/domains/shared/` is owned platform domain code, not a general utilities

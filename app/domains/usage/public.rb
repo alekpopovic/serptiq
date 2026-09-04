@@ -51,5 +51,9 @@ module Usage
     def maintain_reservations(**attributes)
       MaintainQuotaReservations.new.call(**attributes)
     end
+
+    def organization_dashboard(**attributes)
+      OrganizationUsageQuery.new.call(**attributes)
+    end
   end
 end

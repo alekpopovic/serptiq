@@ -1,0 +1,78 @@
+<% content_for :title, "Pricing" %>
+
+<section class="border-b border-slate-200 bg-white">
+  <div class="so-container py-14 sm:py-18">
+    <p class="so-eyebrow">Published plan catalog</p>
+    <h1 class="mt-2 max-w-3xl text-4xl font-black tracking-tight text-slate-950">Plans built for evidence-led search operations</h1>
+    <p class="mt-4 max-w-3xl text-base leading-7 text-slate-600">
+      Prices, limits and features below come from immutable published plan versions. Prices are display data;
+      taxes and the final charge are confirmed by the hosted billing provider before purchase.
+    </p>
+  </div>
+</section>
+
+<section class="so-container py-12" aria-labelledby="published-plans-title">
+  <h2 id="published-plans-title" class="sr-only">Published plans</h2>
+  <% if @offers.empty? %>
+    <div class="so-card p-6" role="status">
+      <h2 class="font-bold text-slate-950">Plan offers are temporarily unavailable</h2>
+      <p class="mt-2 text-sm text-slate-600">No effective published plan version is available. No purchase can be started.</p>
+    </div>
+  <% else %>
+    <div class="grid gap-5 sm:grid-cols-2 xl:grid-cols-5">
+      <% @offers.each do |offer| %>
+        <article id="public-plan-card-<%= offer.id %>" class="so-card flex flex-col p-5" aria-labelledby="public-plan-<%= offer.id %>">
+          <span class="so-badge so-badge-success w-fit">Published v<%= offer.version %></span>
+          <h2 id="public-plan-<%= offer.id %>" class="mt-4 text-xl font-black text-slate-950"><%= offer.display_name %></h2>
+          <p class="mt-2 min-h-16 text-sm leading-6 text-slate-600"><%= offer.positioning %></p>
+          <% if offer.custom_pricing? %>
+            <p class="mt-5 text-2xl font-black text-slate-950">Custom pricing</p>
+            <p class="mt-1 text-xs text-slate-500">Contract configuration required</p>
+          <% else %>
+            <dl class="mt-5 space-y-2 text-sm">
+              <div><dt class="inline text-slate-500">Monthly:</dt> <dd class="inline font-bold"><%= display_price(offer.monthly_price_cents, offer.currency) %></dd></div>
+              <div><dt class="inline text-slate-500">Annual:</dt> <dd class="inline font-bold"><%= display_price(offer.annual_price_cents, offer.currency) %></dd></div>
+            </dl>
+          <% end %>
+          <%= link_to "Sign in to compare", sign_in_path(return_to: pricing_path), class: "so-button so-button-primary mt-6" %>
+        </article>
+      <% end %>
+    </div>
+
+    <div class="so-card mt-10 overflow-hidden" aria-labelledby="public-feature-comparison-title">
+      <div class="border-b border-slate-200 bg-slate-50 px-5 py-4">
+        <h2 id="public-feature-comparison-title" class="font-bold text-slate-950">Complete feature and limit comparison</h2>
+        <p class="mt-1 text-sm text-slate-600">Disabled, unavailable and contract-configured values are shown explicitly.</p>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+          <thead class="text-xs uppercase tracking-wide text-slate-500">
+            <tr>
+              <th class="sticky left-0 bg-white px-5 py-3">Feature or limit</th>
+              <% @offers.each do |offer| %>
+                <th class="min-w-40 px-5 py-3"><%= offer.display_name %></th>
+              <% end %>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-slate-100 bg-white">
+            <% @entitlement_definitions.each do |definition| %>
+              <tr>
+                <th class="sticky left-0 min-w-72 bg-white px-5 py-4 font-normal">
+                  <span class="font-semibold text-slate-950"><%= definition.description %></span>
+                  <span class="mt-1 block font-mono text-xs text-slate-500"><%= definition.key %></span>
+                </th>
+                <% @offers.each do |offer| %>
+                  <% value = offer.entitlement_value(definition.key) %>
+                  <% state = definition.state(value) %>
+                  <td class="px-5 py-4">
+                    <span class="so-badge <%= commercial_state_badge(state) %>"><%= definition.display(value) %></span>
+                  </td>
+                <% end %>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  <% end %>
+</section>

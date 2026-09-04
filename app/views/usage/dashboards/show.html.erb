@@ -1,0 +1,76 @@
+<% content_for :title, "Organization usage" %>
+
+<div class="mx-auto max-w-6xl">
+  <%= render "shared/breadcrumbs", items: [
+    { label: "Dashboard", path: organization_dashboard_path(Current.organization.slug) },
+    { label: Current.organization.name, path: organization_dashboard_path(Current.organization.slug) },
+    { label: "Usage", path: nil }
+  ] %>
+
+  <div class="mt-6 flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+    <div>
+      <p class="so-eyebrow">Local usage ledger</p>
+      <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950">Usage and reservations</h1>
+      <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+        Used values are immutable local observations. Reserved values are temporary holds for accepted work;
+        they are released or converted to actual usage when work finishes.
+      </p>
+    </div>
+    <span class="so-badge so-badge-neutral">Updated <%= l(@usage_dashboard.generated_at, format: :short) %></span>
+  </div>
+
+  <% if @usage_dashboard.quota_exhausted? %>
+    <section class="so-card mt-6 border-amber-300 bg-amber-50 p-5" aria-labelledby="quota-exhausted-title" role="alert">
+      <h2 id="quota-exhausted-title" class="font-bold text-amber-950">New metered work is paused</h2>
+      <p class="mt-1 text-sm leading-6 text-amber-900">The current quota is exhausted. Existing scans, reports and workspace data remain available according to subscription policy.</p>
+      <div class="mt-4 flex flex-wrap gap-3">
+        <% if allowed_to?("plans.read") %><%= link_to "Compare plans", organization_plan_comparison_path(Current.organization.slug), class: "so-button so-button-primary" %><% end %>
+        <%= link_to "Return to existing workspace", organization_dashboard_path(Current.organization.slug), class: "so-button so-button-secondary" %>
+      </div>
+    </section>
+  <% end %>
+
+  <div class="mt-8 grid gap-6 lg:grid-cols-2">
+    <% @usage_dashboard.entries.each do |entry| %>
+      <section class="so-card p-6" aria-labelledby="usage-pool-<%= entry.pool_key.parameterize %>">
+        <div class="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p class="font-mono text-xs text-slate-500"><%= entry.pool_key %></p>
+            <h2 id="usage-pool-<%= entry.pool_key.parameterize %>" class="mt-1 text-xl font-black text-slate-950"><%= entry.unit.humanize %></h2>
+          </div>
+          <span class="so-badge <%= commercial_state_badge(entry.state) %>"><%= entry.state.humanize %></span>
+        </div>
+
+        <dl class="mt-5 grid grid-cols-2 gap-4 sm:grid-cols-4">
+          <div><dt class="text-xs uppercase tracking-wide text-slate-500">Used</dt><dd class="mt-1 text-lg font-bold"><%= number_with_delimiter(entry.used) %></dd></div>
+          <div><dt class="text-xs uppercase tracking-wide text-slate-500">Reserved</dt><dd class="mt-1 text-lg font-bold"><%= number_with_delimiter(entry.reserved) %></dd></div>
+          <div><dt class="text-xs uppercase tracking-wide text-slate-500">Remaining</dt><dd class="mt-1 text-lg font-bold"><%= entry.unlimited? ? "Unlimited" : (entry.remaining.nil? ? "Unavailable" : number_with_delimiter(entry.remaining)) %></dd></div>
+          <div><dt class="text-xs uppercase tracking-wide text-slate-500">Reset</dt><dd class="mt-1 text-sm font-bold"><%= entry.reset_at ? l(entry.reset_at, format: :long) : "Not applicable" %></dd></div>
+        </dl>
+
+        <% if entry.temporarily_reserved? %>
+          <p class="mt-4 rounded-lg bg-sky-50 px-3 py-2 text-sm text-sky-900" role="status"><%= number_with_delimiter(entry.reserved) %> <%= entry.unit %> temporarily reserved for accepted work.</p>
+        <% elsif entry.disabled? %>
+          <p class="mt-4 text-sm text-slate-600">This metered capacity is disabled by the effective entitlement.</p>
+        <% elsif entry.unavailable? %>
+          <p class="mt-4 text-sm text-slate-600">Usage is unavailable until a concrete plan or contract limit is configured.</p>
+        <% elsif entry.unlimited? %>
+          <p class="mt-4 text-sm text-slate-600">This observation meter has no quota limit.</p>
+        <% end %>
+
+        <details class="mt-5 border-t border-slate-100 pt-4">
+          <summary class="cursor-pointer font-semibold text-slate-800">How this usage is measured</summary>
+          <ul class="mt-3 space-y-3">
+            <% entry.meters.each do |meter| %>
+              <li>
+                <p class="font-semibold text-slate-900"><%= meter.name %> <span class="font-mono text-xs text-slate-500"><%= meter.key %></span></p>
+                <p class="mt-1 text-sm text-slate-600"><%= meter.description %></p>
+                <p class="mt-1 text-xs text-slate-500">Current catalog weight: <%= meter.weight || "Unavailable" %> <%= entry.unit %> per <%= meter.source_unit.singularize %>.</p>
+              </li>
+            <% end %>
+          </ul>
+        </details>
+      </section>
+    <% end %>
+  </div>
+</div>

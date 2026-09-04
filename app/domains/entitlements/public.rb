@@ -12,6 +12,10 @@ module Entitlements
       CatalogSync.new(catalog: validate_catalog(path: path, plans_path: plans_path)).call(dry_run: dry_run)
     end
 
+    def catalog_entries
+      CatalogQuery.new.call
+    end
+
     def bind_subscription(**attributes)
       BindSubscriptionContext.new.call(**attributes)
     end

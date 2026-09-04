@@ -14,6 +14,12 @@
     <div class="mt-6">
       <% if error[:action] == :sign_in %>
         <%= link_to "Start sign-in again", sign_in_path, class: "so-button so-button-primary" %>
+      <% elsif error[:action] == :quota && Current.organization %>
+        <div class="flex flex-wrap gap-3">
+          <%= link_to "Review usage", organization_usage_path(Current.organization.slug), class: "so-button so-button-primary" %>
+          <%= link_to "Compare plans", organization_plan_comparison_path(Current.organization.slug), class: "so-button so-button-secondary" %>
+          <%= link_to "Return to existing workspace", organization_dashboard_path(Current.organization.slug), class: "so-button so-button-secondary" %>
+        </div>
       <% else %>
         <%= link_to "Return to home", root_path, class: "so-button so-button-secondary" %>
       <% end %>

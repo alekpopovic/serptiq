@@ -160,6 +160,12 @@ version and meter rate for that operation. Later upgrades or downgrades govern n
 hold may be extended and finalized only against its admission snapshot. Reservations never cross a usage
 window, so a provider-period or UTC-month rollover starts with an independent balance.
 
+Prompt 041 exposes only effective published offers on public pricing and includes an organization's exact
+subscribed version on authenticated comparison, including grandfathered status. The organization-wide usage
+screen derives used and reserved values from the ledger and reservations, distinguishes unavailable,
+disabled and unlimited states, and requires `billing.read`. Plan-change controls additionally require
+`billing.manage` and an active provider mapping; display prices do not initiate or confirm a charge.
+
 ## 9. Plan-version migration and grandfathering policy
 
 - `config_blueprints/plans.yml` is the governed commercial source. Validate it with

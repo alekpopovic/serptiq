@@ -19,5 +19,13 @@ module Billing
     def plan_provider_mappings(active: nil)
       PlanProviderMappingInventory.new.call(active: active)
     end
+
+    def active_subscription(organization_id:)
+      ActiveSubscriptionQuery.new.call(organization_id: organization_id)
+    end
+
+    def checkout_available?(**attributes)
+      CheckoutAvailability.new.call(**attributes)
+    end
   end
 end

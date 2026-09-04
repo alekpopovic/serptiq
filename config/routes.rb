@@ -1,5 +1,6 @@
 Rails.application.routes.draw do
   root "public_pages#home"
+  get "pricing", to: "public_pages#pricing", as: :pricing
   get "sign-in", to: "public_pages#sign_in", as: :sign_in
   get "invitations", to: "tenancy/invitation_entries#show", as: :invitation_entry
   post "auth/google", to: "identity/google_oauth#create", as: :google_oauth_authorization
@@ -34,6 +35,12 @@ Rails.application.routes.draw do
   get "dashboard/organizations/:organization_slug/entitlements",
     to: "entitlements/diagnostics#show",
     as: :organization_entitlements
+  get "dashboard/organizations/:organization_slug/plans",
+    to: "plans/comparisons#show",
+    as: :organization_plan_comparison
+  get "dashboard/organizations/:organization_slug/usage",
+    to: "usage/dashboards#show",
+    as: :organization_usage
   get "dashboard/organizations/:organization_slug/settings/ownership-transfer",
     to: "tenancy/ownership_transfers#show",
     as: :organization_ownership_transfer

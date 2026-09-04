@@ -19,6 +19,11 @@ class PublicPagesController < ApplicationController
 
   def home; end
 
+  def pricing
+    @offers = Plans::Public.current_offers
+    @entitlement_definitions = Entitlements::Public.catalog_entries
+  end
+
   def sign_in
     @return_to = Identity::SafeReturnPath.call(params[:return_to])
     availability = self.class.provider_availability_resolver.call
