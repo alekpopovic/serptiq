@@ -7,6 +7,16 @@ Rails.application.routes.draw do
   get "auth/github/callback", to: "identity/github_oauth#callback", as: :github_oauth_callback
   delete "logout", to: "identity/sessions#destroy", as: :logout
   get "dashboard", to: "dashboard#index", as: :dashboard
+  get "dashboard/organizations/new", to: "tenancy/organizations#new", as: :new_organization
+  post "dashboard/organizations", to: "tenancy/organizations#create", as: :organizations
+  get "dashboard/organizations/:organization_slug/switch",
+    to: "tenancy/organization_switches#show",
+    as: :switch_organization
+  get "dashboard/organizations/:organization_slug/settings",
+    to: "tenancy/organization_settings#show",
+    as: :organization_settings
+  patch "dashboard/organizations/:organization_slug/settings",
+    to: "tenancy/organization_settings#update"
   get "dashboard/organizations/:organization_slug", to: "dashboard#index", as: :organization_dashboard
   get "onboarding", to: "onboarding#show", as: :onboarding
   get "dashboard/account/profile", to: "identity/profiles#show", as: :account_profile

@@ -51,5 +51,7 @@ Do not pre-populate these reports with fictional implementation or test results.
   the dedicated protocol/session regression command.
 - [`TENANCY_FOUNDATION.md`](./TENANCY_FOUNDATION.md) defines organization,
   ownership and membership invariants plus verified request/job context.
+- [`ORGANIZATION_FLOWS.md`](./ORGANIZATION_FLOWS.md) defines accessible
+  organization creation, switching, settings and controlled slug redirects.
 - [`../../tracking/README.md`](../../tracking/README.md) defines prompt evidence,
   recovery and state integrity.

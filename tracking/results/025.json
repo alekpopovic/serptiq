@@ -1,0 +1,85 @@
+{
+  "prompt_id": "025",
+  "title": "Build organization creation, settings and switcher flows",
+  "status": "completed",
+  "started_at": "2026-09-04T06:23:02Z",
+  "finished_at": "2026-09-04T06:34:15Z",
+  "summary": "Added accessible organization creation and owner-only settings; safe active-membership switching; suspended-state presentation; controlled historical slug redirects and reserved-slug enforcement.",
+  "tests": [
+    {
+      "command": "bundle exec rails test test/domain/tenancy/organization_slug_policy_test.rb test/domain/tenancy/organization_test.rb test/domain/tenancy/organization_context_test.rb test/requests/organization_flows_test.rb test/requests/organization_context_test.rb",
+      "outcome": "passed",
+      "notes": "21 runs and 164 assertions before final alias denial addition"
+    },
+    {
+      "command": "bundle exec rails test test/requests/organization_flows_test.rb",
+      "outcome": "passed",
+      "notes": "6 runs and 57 assertions including foreign historical alias denial"
+    },
+    {
+      "command": "bundle exec rails test test/system/organization_flows_test.rb",
+      "outcome": "passed",
+      "notes": "4 runs and 12 assertions"
+    },
+    {
+      "command": "bundle exec rails db:migrate:redo:primary VERSION=20260904063000",
+      "outcome": "passed",
+      "notes": "slug alias table and reserved checks reverted and reapplied"
+    },
+    {
+      "command": "bin/quality",
+      "outcome": "passed",
+      "notes": "12 checks with 287 Ruby files and zero security warnings"
+    },
+    {
+      "command": "bundle exec rails test",
+      "outcome": "passed",
+      "notes": "294 runs and 2484 assertions"
+    },
+    {
+      "command": "bundle exec rails test:system",
+      "outcome": "passed",
+      "notes": "15 runs and 69 assertions"
+    },
+    {
+      "command": "bundle exec rails zeitwerk:check",
+      "outcome": "passed",
+      "notes": "application eager loaded successfully"
+    }
+  ],
+  "files_changed": [
+    "app/controllers/application_controller.rb",
+    "app/controllers/concerns/tenancy",
+    "app/controllers/dashboard_controller.rb",
+    "app/controllers/tenancy",
+    "app/domains/tenancy",
+    "app/views/dashboard/index.html.erb",
+    "app/views/layouts/authenticated.html.erb",
+    "app/views/onboarding/show.html.erb",
+    "app/views/shared/_breadcrumbs.html.erb",
+    "app/views/tenancy",
+    "config/routes.rb",
+    "db/migrate/20260904063000_create_organization_slug_aliases.rb",
+    "db/schema.rb",
+    "docs/03_ERD.md",
+    "docs/implementation/ORGANIZATION_FLOWS.md",
+    "docs/implementation/README.md",
+    "test/domain/tenancy/organization_slug_policy_test.rb",
+    "test/requests/organization_flows_test.rb",
+    "test/system/first_run_onboarding_test.rb",
+    "test/system/organization_flows_test.rb"
+  ],
+  "migrations": [
+    "20260904063000 creates organization_slug_aliases and reserved-slug checks; new table indexes are inline and adding the organization check briefly locks and validates existing rows"
+  ],
+  "decisions": [
+    "old slugs redirect only after active membership verification; switch destinations use allowlisted route keys; project and billing controls remain disabled pending authorization"
+  ],
+  "risks": [
+    "current and alias slugs are separate tables so every supported direct SQL writer must take the documented advisory lock"
+  ],
+  "next_steps": [
+    "Prompt 026 implements membership lifecycle and immediate access revocation"
+  ],
+  "commit": null
+}

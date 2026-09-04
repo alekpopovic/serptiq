@@ -179,6 +179,19 @@ the deferred foreign key allows the organization, initial membership and ownersh
 be created atomically without an ownerless committed state. Historical slug aliases may
 live in `organization_slug_aliases`.
 
+### `organization_slug_aliases`
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid | PK |
+| organization_id | uuid | FK |
+| slug | citext | globally unique historical route segment |
+
+Aliases preserve renamed local links but resolve only after authentication and active
+membership verification. Reserved navigation segments are rejected for current and alias
+slugs. Application create/rename operations serialize the shared current/alias namespace
+with a PostgreSQL transaction advisory lock.
+
 ### `memberships`
 
 | Column | Type | Notes |

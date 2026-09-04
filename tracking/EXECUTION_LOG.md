@@ -52,3 +52,5 @@
 | 2026-09-04T06:05:06Z | 023 | completed | Added PostgreSQL-backed fixed-window authentication rate limits for OAuth initiation, callback failures, session management and account-security actions using HMAC-protected IP/session keys; generic Retry-After responses; bounded auth metrics; hourly cleanup; a dedicated CI security command; and consolidated protocol, redaction, collision, fixation and concurrency regressions. |
 | 2026-09-04T06:08:12Z | 024 | started | Implement organizations, slugs and current tenant context |
 | 2026-09-04T06:21:47Z | 024 | completed | Added constrained organization, durable ownership and membership aggregates; atomic owner creation; verified request/job tenant context; safe active-membership switcher; lifecycle/rename audit; tenant isolation helpers and documentation. |
+| 2026-09-04T06:23:02Z | 025 | started | Build organization creation, settings and switcher flows |
+| 2026-09-04T06:34:15Z | 025 | completed | Added accessible organization creation and owner-only settings; safe active-membership switching; suspended-state presentation; controlled historical slug redirects and reserved-slug enforcement. |

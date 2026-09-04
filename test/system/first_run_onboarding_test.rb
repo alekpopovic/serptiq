@@ -24,7 +24,7 @@ class FirstRunOnboardingSystemTest < ApplicationSystemTestCase
     assert_current_path onboarding_path
     assert_text "Create your first organization"
     assert_link "Review account details"
-    assert_text "Organization setup next"
+    assert_link "Set up organization"
     find("body").send_keys(:tab)
     assert_equal "Skip to main content", page.evaluate_script("document.activeElement.textContent.trim()")
   end

@@ -30,7 +30,8 @@ module Tenancy
       if UUID_PATTERN.match?(value)
         relation.find(value)
       else
-        relation.find_by!(slug: OrganizationSlug.call(value))
+        slug = OrganizationSlug.call(value)
+        relation.find_by(slug: slug) || OrganizationSlugAlias.includes(:organization).find_by!(slug: slug).organization
       end
     end
   end

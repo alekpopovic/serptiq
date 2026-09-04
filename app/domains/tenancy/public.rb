@@ -7,7 +7,7 @@ module Tenancy
     def first_run_status(user:)
       raise ArgumentError, "active identity user is required" unless Identity::Public.active_user?(user)
 
-      kind = OrganizationsForUser.new.call(user: user).any? ? :returning : :no_organization
+      kind = OrganizationNavigation.new.call(user: user).any? ? :returning : :no_organization
       FirstRunStatus.new(kind: kind)
     end
 
@@ -30,8 +30,22 @@ module Tenancy
       OrganizationsForUser.new.call(user: user)
     end
 
-    def update_organization(actor_membership:, name:, slug:)
-      UpdateOrganization.new.call(actor_membership: actor_membership, name: name, slug: slug)
+    def organization_navigation(user:)
+      OrganizationNavigation.new.call(user: user)
+    end
+
+    def authorize_organization_owner!(membership:)
+      AuthorizeOrganizationOwner.new.call(membership: membership)
+    end
+
+    def update_organization(actor_membership:, name:, slug:, default_locale: nil, time_zone: nil)
+      UpdateOrganization.new.call(
+        actor_membership: actor_membership,
+        name: name,
+        slug: slug,
+        default_locale: default_locale,
+        time_zone: time_zone
+      )
     end
 
     def transition_organization(actor_membership:, to:, clock: -> { Time.current })

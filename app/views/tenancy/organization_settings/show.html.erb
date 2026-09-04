@@ -1,0 +1,54 @@
+<% content_for :title, "Organization settings" %>
+
+<div class="mx-auto max-w-4xl">
+  <%= render "shared/breadcrumbs", items: [
+    { label: "Dashboard", path: organization_dashboard_path(Current.organization.slug) },
+    { label: Current.organization.name, path: organization_dashboard_path(Current.organization.slug) },
+    { label: "Settings", path: nil }
+  ] %>
+
+  <div class="mt-6">
+    <p class="so-eyebrow">Organization settings</p>
+    <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950">General details</h1>
+    <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">Only the verified current owner can change these fields. Changing the slug keeps the previous local link as a membership-checked redirect.</p>
+  </div>
+
+  <%= form_with model: @organization, scope: :organization, url: organization_settings_path(Current.organization.slug), method: :patch, class: "so-card mt-8 space-y-6 p-6 sm:p-8" do |form| %>
+    <%= render "shared/error_summary", model: @organization,
+      title: "Check the organization details",
+      field_ids: { name: "organization_name", slug: "organization_slug", default_locale: "organization_default_locale", time_zone: "organization_time_zone" } %>
+    <div>
+      <%= form.label :name, "Organization name", class: "so-label" %>
+      <%= form.text_field :name, required: true, maxlength: 160, class: "so-input" %>
+    </div>
+    <div>
+      <%= form.label :slug, "Organization slug", class: "so-label" %>
+      <%= form.text_field :slug, required: true, maxlength: 63, class: "so-input", aria: { describedby: "organization-slug-policy" } %>
+      <p id="organization-slug-policy" class="so-hint">Previous slugs redirect only after authentication and active-membership verification. Reserved navigation words remain unavailable.</p>
+    </div>
+    <div class="grid gap-5 sm:grid-cols-2">
+      <div>
+        <%= form.label :default_locale, "Default language", class: "so-label" %>
+        <%= form.select :default_locale, @locales, {}, class: "so-select" %>
+      </div>
+      <div>
+        <%= form.label :time_zone, "Time zone", class: "so-label" %>
+        <%= form.select :time_zone, @time_zones, {}, class: "so-select" %>
+      </div>
+    </div>
+    <%= form.submit "Save organization settings", class: "so-button so-button-primary" %>
+  <% end %>
+
+  <div class="mt-8 grid gap-5 sm:grid-cols-2">
+    <section class="so-card p-6" aria-labelledby="billing-settings-title">
+      <h2 id="billing-settings-title" class="font-bold text-slate-950">Billing</h2>
+      <p class="mt-2 text-sm leading-6 text-slate-600">Billing controls are not available yet. Plan access will be enforced by separate entitlement and permission checks.</p>
+      <span class="so-badge so-badge-neutral mt-4">Not available</span>
+    </section>
+    <section class="so-card p-6" aria-labelledby="security-settings-title">
+      <h2 id="security-settings-title" class="font-bold text-slate-950">Organization security</h2>
+      <p class="mt-2 text-sm leading-6 text-slate-600">Member roles and organization security controls are installed by their dedicated authorized workflows.</p>
+      <span class="so-badge so-badge-neutral mt-4">Not available</span>
+    </section>
+  </div>
+</div>

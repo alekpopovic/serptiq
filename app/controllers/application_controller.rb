@@ -1,5 +1,6 @@
 class ApplicationController < ActionController::Base
   include Identity::CurrentRequest
+  include Tenancy::NavigationHelpers
 
   rescue_from StandardError, with: :render_public_error
   rescue_from ActionController::InvalidAuthenticityToken, with: :render_csrf_rejection

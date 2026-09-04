@@ -1,7 +1,8 @@
 <% content_for :body_class, "bg-slate-100 text-slate-950" %>
+<% organization_path = Current.organization && organization_dashboard_path(Current.organization.slug) %>
 <% navigation_items = [
-  { label: "Dashboard", path: dashboard_path },
-  { label: "Get started", path: onboarding_path },
+  { label: "Dashboard", path: organization_path || dashboard_path },
+  *(Current.organization ? [ { label: "Organization settings", path: organization_settings_path(Current.organization.slug) } ] : [ { label: "Get started", path: onboarding_path } ]),
   { label: "Account details", path: account_profile_path },
   { label: "Account security", path: account_security_path },
   { label: "Sessions", path: account_sessions_path }
@@ -13,7 +14,7 @@
         <%= render "shared/brand", compact: false, inverted: true %>
       </div>
       <%= render "shared/app_navigation", items: navigation_items, current_path: request.path, mobile: false %>
-      <p class="mt-auto px-6 py-5 text-xs leading-5 text-slate-400">Workspace navigation is scaffolded for the tenancy flows added in later prompts.</p>
+      <p class="mt-auto px-6 py-5 text-xs leading-5 text-slate-400">Organization links are generated from verified membership context.</p>
     </aside>
 
     <div class="min-w-0">
@@ -33,7 +34,29 @@
           </div>
 
           <div class="min-w-0 flex-1">
-            <p class="truncate text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">Workspace scaffold</p>
+            <details class="group relative inline-block">
+              <summary class="so-button so-button-secondary so-button-small list-none [&::-webkit-details-marker]:hidden" aria-label="Choose organization">
+                <span class="max-w-48 truncate"><%= Current.organization&.name || "Choose organization" %></span>
+                <span aria-hidden="true">⌄</span>
+              </summary>
+              <div class="absolute left-0 top-12 z-30 w-72 rounded-xl border border-slate-200 bg-white p-2 shadow-xl">
+                <p class="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Your organizations</p>
+                <% organization_navigation_entries.each do |entry| %>
+                  <% if entry.available? %>
+                    <%= link_to organization_switch_path_for(entry), class: "so-menu-link flex items-center justify-between gap-3" do %>
+                      <span class="truncate"><%= entry.name %></span>
+                      <% if Current.organization&.id == entry.id %><span aria-label="Current organization">✓</span><% end %>
+                    <% end %>
+                  <% else %>
+                    <div class="flex items-center justify-between gap-3 px-3 py-2 text-sm text-slate-500">
+                      <span class="truncate"><%= entry.name %></span>
+                      <span class="so-badge so-badge-warning"><%= entry.status_label %></span>
+                    </div>
+                  <% end %>
+                <% end %>
+                <%= link_to "Create organization", new_organization_path, class: "so-menu-link mt-1 border-t border-slate-100 pt-3" %>
+              </div>
+            </details>
           </div>
 
           <%= render "shared/account_menu", label: Current.user.display_name.presence || "Account" %>

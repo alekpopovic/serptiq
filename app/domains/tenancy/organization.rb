@@ -12,6 +12,8 @@ module Tenancy
       dependent: :restrict_with_exception
     has_many :ownerships, class_name: "Tenancy::OrganizationOwnership", inverse_of: :organization,
       dependent: :restrict_with_exception
+    has_many :slug_aliases, class_name: "Tenancy::OrganizationSlugAlias", inverse_of: :organization,
+      dependent: :restrict_with_exception
     belongs_to :current_ownership,
       class_name: "Tenancy::OrganizationOwnership",
       optional: true
@@ -29,6 +31,8 @@ module Tenancy
     validates :default_locale, inclusion: { in: ->(_) { I18n.available_locales.map(&:to_s) } }
     validates :time_zone, inclusion: { in: ->(_) { ActiveSupport::TimeZone.all.map(&:name) } }
     validates :data_region, format: { with: DATA_REGION_PATTERN }
+    validate :slug_is_not_reserved
+    validate :slug_is_not_claimed_by_foreign_alias
     validate :lifecycle_timestamps_are_consistent
 
     def active?
@@ -36,6 +40,16 @@ module Tenancy
     end
 
     private
+
+    def slug_is_not_reserved
+      errors.add(:slug, "is reserved") if OrganizationSlugPolicy.reserved?(slug)
+    end
+
+    def slug_is_not_claimed_by_foreign_alias
+      return unless OrganizationSlugPolicy.claimed_by_alias?(slug, excluding_organization_id: id)
+
+      errors.add(:slug, "has already been taken")
+    end
 
     def lifecycle_timestamps_are_consistent
       valid = case status

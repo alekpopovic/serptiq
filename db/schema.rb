@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_04_061000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_04_063000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -127,6 +127,18 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_061000) do
     t.check_constraint "ended_at IS NULL OR ended_at >= assigned_at", name: "organization_ownerships_timestamp_order"
   end
 
+  create_table "organization_slug_aliases", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.uuid "organization_id", null: false
+    t.citext "slug", null: false
+    t.datetime "updated_at", null: false
+    t.index ["organization_id", "created_at"], name: "index_organization_slug_aliases_on_org_and_created"
+    t.index ["organization_id"], name: "index_organization_slug_aliases_on_organization_id"
+    t.index ["slug"], name: "index_organization_slug_aliases_on_slug", unique: true
+    t.check_constraint "slug::text <> ALL (ARRAY['account'::text, 'billing'::text, 'invitations'::text, 'members'::text, 'new'::text, 'projects'::text, 'roles'::text, 'security'::text, 'settings'::text, 'switch'::text, 'teams'::text])", name: "organization_slug_aliases_not_reserved"
+    t.check_constraint "slug::text ~ '^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$'::text", name: "organization_slug_aliases_format"
+  end
+
   create_table "organizations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
     t.uuid "current_ownership_id", null: false
@@ -145,6 +157,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_061000) do
     t.check_constraint "char_length(name::text) >= 2 AND char_length(name::text) <= 160 AND name::text = btrim(name::text)", name: "organizations_name_format"
     t.check_constraint "data_region::text ~ '^[a-z][a-z0-9_-]{1,31}$'::text", name: "organizations_data_region_format"
     t.check_constraint "default_locale::text ~ '^[a-z]{2}(?:-[A-Z]{2})?$'::text", name: "organizations_locale_format"
+    t.check_constraint "slug::text <> ALL (ARRAY['account'::text, 'billing'::text, 'invitations'::text, 'members'::text, 'new'::text, 'projects'::text, 'roles'::text, 'security'::text, 'settings'::text, 'switch'::text, 'teams'::text])", name: "organizations_slug_not_reserved"
     t.check_constraint "slug::text ~ '^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$'::text", name: "organizations_slug_format"
     t.check_constraint "status::text = 'active'::text AND suspended_at IS NULL AND deletion_requested_at IS NULL AND deleted_at IS NULL OR status::text = 'suspended'::text AND suspended_at IS NOT NULL AND deletion_requested_at IS NULL AND deleted_at IS NULL OR status::text = 'pending_deletion'::text AND deletion_requested_at IS NOT NULL AND deleted_at IS NULL OR status::text = 'deleted'::text AND deletion_requested_at IS NOT NULL AND deleted_at IS NOT NULL AND deleted_at >= deletion_requested_at", name: "organizations_lifecycle_consistency"
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'suspended'::character varying, 'pending_deletion'::character varying, 'deleted'::character varying]::text[])", name: "organizations_status_allowlist"
@@ -205,6 +218,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_061000) do
   add_foreign_key "oauth_transactions", "sessions", column: "link_session_id", on_delete: :restrict
   add_foreign_key "organization_ownerships", "memberships", column: ["organization_id", "membership_id"], primary_key: ["organization_id", "id"], name: "fk_ownerships_same_organization_membership", on_delete: :restrict
   add_foreign_key "organization_ownerships", "organizations", on_delete: :restrict
+  add_foreign_key "organization_slug_aliases", "organizations", on_delete: :restrict
   add_foreign_key "organizations", "organization_ownerships", column: "current_ownership_id", on_delete: :restrict, deferrable: :deferred
   add_foreign_key "sessions", "sessions", column: "rotated_from_id", on_delete: :restrict
   add_foreign_key "sessions", "users", on_delete: :restrict

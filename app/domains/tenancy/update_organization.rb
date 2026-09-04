@@ -2,12 +2,18 @@
 
 module Tenancy
   class UpdateOrganization
-    def call(actor_membership:, name:, slug:)
+    def call(actor_membership:, name:, slug:, default_locale: nil, time_zone: nil)
       organization, old_slug = Organization.transaction do
-        locked = lock_owned_organization(actor_membership)
-        previous_slug = locked.slug
-        locked.update!(name: name, slug: slug)
-        [ locked, previous_slug ]
+        OrganizationSlugPolicy.with_namespace_lock do
+          locked = lock_owned_organization(actor_membership)
+          previous_slug = locked.slug
+          attributes = { name: name, slug: slug }
+          attributes[:default_locale] = default_locale unless default_locale.nil?
+          attributes[:time_zone] = time_zone unless time_zone.nil?
+          locked.update!(attributes)
+          preserve_slug_alias!(locked, previous_slug) if locked.slug != previous_slug
+          [ locked, previous_slug ]
+        end
       end
       operation = old_slug == organization.slug ? "rename" : "rename_and_change_slug"
       Audit.emit("organization.renamed", outcome: "succeeded", operation: operation)
@@ -24,20 +30,14 @@ module Tenancy
 
     private
 
+    def preserve_slug_alias!(organization, previous_slug)
+      organization.slug_aliases.where(slug: organization.slug).delete_all
+      organization.slug_aliases.create!(slug: previous_slug)
+    end
+
     def lock_owned_organization(membership)
-      raise OrganizationAccessDenied unless membership.is_a?(Membership) && membership.active?
-
-      organization = Organization.lock.find(membership.organization_id)
-      owned = organization.active? && OrganizationOwnership.where(
-        organization_id: organization.id,
-        membership_id: membership.id,
-        ended_at: nil
-      ).exists?
-      raise OrganizationAccessDenied unless owned
-
-      organization
-    rescue ActiveRecord::RecordNotFound
-      raise OrganizationAccessDenied, cause: nil
+      organization = AuthorizeOrganizationOwner.new.call(membership: membership)
+      Organization.lock.find(organization.id)
     end
   end
 end

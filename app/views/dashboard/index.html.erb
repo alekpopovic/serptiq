@@ -1,6 +1,12 @@
 <% content_for :title, "Dashboard scaffold" %>
 
 <div class="mx-auto max-w-7xl">
+  <% if Current.organization %>
+    <%= render "shared/breadcrumbs", items: [
+      { label: "Dashboard", path: dashboard_path },
+      { label: Current.organization.name, path: nil }
+    ] %>
+  <% end %>
   <div class="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
     <div>
       <p class="so-eyebrow">Authenticated workspace</p>
@@ -17,11 +23,32 @@
   <%= turbo_frame_tag "dashboard-shell" do %>
     <div class="mt-8 grid gap-6 xl:grid-cols-[minmax(0,1fr)_20rem]">
       <div class="so-card p-6 sm:p-8">
-        <%= render "shared/empty_state",
-          heading_id: "workspace-empty-title",
-          title: Current.organization ? "Organization context verified" : "Choose an organization",
-          body: Current.organization ? "Project onboarding is added by its own authorized workflow. No sample customer data is shown." : "Only organizations reached through an active membership are listed.",
-          action: link_to("Return to public home", root_path, class: "so-button so-button-secondary") %>
+        <% if Current.organization %>
+          <section class="so-empty-state" aria-labelledby="workspace-empty-title">
+            <div class="mx-auto grid size-12 place-items-center rounded-xl bg-teal-50 text-xl text-teal-800" aria-hidden="true">◇</div>
+            <h2 id="workspace-empty-title" class="mt-4 text-lg font-bold text-slate-950">Organization context verified</h2>
+            <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-600">Project creation becomes available after its permission boundary is installed. No sample customer data is shown.</p>
+            <span class="so-button so-button-secondary mt-5 opacity-70" aria-disabled="true">Project setup not available yet</span>
+          </section>
+        <% else %>
+          <section aria-labelledby="workspace-empty-title">
+            <h2 id="workspace-empty-title" class="text-lg font-bold text-slate-950">Choose an organization</h2>
+            <p class="mt-2 text-sm leading-6 text-slate-600">Only organizations tied to your active membership are shown. Suspended organizations remain visible but cannot be opened or changed.</p>
+            <ul class="mt-5 divide-y divide-slate-100">
+              <% @organization_navigation.each do |entry| %>
+                <li class="flex items-center justify-between gap-4 py-3">
+                  <span class="font-semibold text-slate-900"><%= entry.name %></span>
+                  <% if entry.available? %>
+                    <%= link_to "Open", organization_dashboard_path(entry.slug), class: "so-button so-button-secondary so-button-small" %>
+                  <% else %>
+                    <span class="so-badge so-badge-warning"><%= entry.status_label %></span>
+                  <% end %>
+                </li>
+              <% end %>
+            </ul>
+            <%= link_to "Create organization", new_organization_path, class: "so-button so-button-primary mt-5" %>
+          </section>
+        <% end %>
       </div>
 
       <aside class="so-card p-6" aria-labelledby="shell-status-title">

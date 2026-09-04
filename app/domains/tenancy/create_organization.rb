@@ -13,34 +13,36 @@ module Tenancy
       raise ArgumentError, "active identity user is required" unless Identity::Public.active_user?(user)
 
       result = Organization.transaction do
-        now = @clock.call
-        organization_id = SecureRandom.uuid
-        membership_id = SecureRandom.uuid
-        ownership_id = SecureRandom.uuid
-        organization = Organization.create!(
-          id: organization_id,
-          name: name,
-          slug: slug,
-          default_locale: default_locale,
-          time_zone: time_zone,
-          data_region: data_region,
-          status: "active",
-          current_ownership_id: ownership_id
-        )
-        membership = Membership.create!(
-          id: membership_id,
-          organization: organization,
-          user_id: user.id,
-          status: "active",
-          joined_at: now
-        )
-        ownership = @ownership_model.create!(
-          id: ownership_id,
-          organization: organization,
-          membership: membership,
-          assigned_at: now
-        )
-        Result.new(organization: organization, membership: membership, ownership: ownership)
+        OrganizationSlugPolicy.with_namespace_lock do
+          now = @clock.call
+          organization_id = SecureRandom.uuid
+          membership_id = SecureRandom.uuid
+          ownership_id = SecureRandom.uuid
+          organization = Organization.create!(
+            id: organization_id,
+            name: name,
+            slug: slug,
+            default_locale: default_locale,
+            time_zone: time_zone,
+            data_region: data_region,
+            status: "active",
+            current_ownership_id: ownership_id
+          )
+          membership = Membership.create!(
+            id: membership_id,
+            organization: organization,
+            user_id: user.id,
+            status: "active",
+            joined_at: now
+          )
+          ownership = @ownership_model.create!(
+            id: ownership_id,
+            organization: organization,
+            membership: membership,
+            assigned_at: now
+          )
+          Result.new(organization: organization, membership: membership, ownership: ownership)
+        end
       end
       Audit.emit("organization.created", outcome: "succeeded", operation: "create")
       result
