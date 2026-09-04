@@ -98,7 +98,8 @@ module Billing
       transition = SubscriptionLifecycle.transition(
         from: new_record ? nil : subscription.status,
         snapshot: snapshot,
-        at: @clock.call
+        at: @clock.call,
+        current_grace_ends_at: subscription.grace_ends_at
       )
       change = pending_plan_change(subscription, mapping, snapshot)
       subscription.assign_attributes(subscription_attributes(

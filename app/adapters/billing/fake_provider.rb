@@ -12,15 +12,20 @@ module Billing
       rate_limited: [ "rate_limited", true, 30 ],
       timeout: [ "timeout", true, nil ],
       unavailable: [ "unavailable", true, nil ],
+      not_found: [ "not_found", false, nil ],
       malformed_response: [ "malformed_response", false, nil ]
     }.freeze
 
     attr_reader :calls
 
-    def initialize(clock: -> { Time.current }, scenarios: {}, unsupported: [])
+    def initialize(clock: -> { Time.current }, scenarios: {}, unsupported: [], subscription_snapshots: {})
       @clock = clock
       @scenarios = scenarios.transform_keys(&:to_s)
       @unsupported = Array(unsupported).map(&:to_s).freeze
+      @subscription_snapshots = subscription_snapshots.to_h.transform_keys(&:to_s).freeze
+      unless @subscription_snapshots.values.all? { |value| value.is_a?(SubscriptionSnapshot) }
+        raise ArgumentError, "fake subscription snapshots are invalid"
+      end
       @calls = []
     end
 
@@ -74,7 +79,9 @@ module Billing
     def fetch_subscription(reference:)
       reference = provider_reference!(reference)
       perform("fetch_subscription", reference: ValueNormalization::FILTERED) do
-        subscription_snapshot(reference: reference)
+        @subscription_snapshots.fetch(reference) do
+          subscription_snapshot(reference: reference)
+        end
       end
     end
 
@@ -123,10 +130,13 @@ module Billing
       end
 
       perform("reconciliation_page", page_number: page_number, page_size: page_size) do
+        snapshots = @subscription_snapshots.values
+        snapshots = [ subscription_snapshot(reference: "subscription-001") ] if snapshots.empty?
+        offset = (page_number - 1) * page_size
         SubscriptionPage.new(
-          subscriptions: [ subscription_snapshot(reference: "subscription-001") ],
-          next_page: nil,
-          total: 1
+          subscriptions: snapshots.slice(offset, page_size) || [],
+          next_page: offset + page_size < snapshots.length ? page_number + 1 : nil,
+          total: snapshots.length
         )
       end
     end

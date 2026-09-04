@@ -1,0 +1,128 @@
+<% content_for :title, "Billing support" %>
+
+<div class="mx-auto max-w-7xl">
+  <%= render "shared/breadcrumbs", items: [
+    { label: "Dashboard", path: dashboard_path },
+    { label: "Billing support", path: nil }
+  ] %>
+
+  <div class="mt-6">
+    <p class="so-eyebrow">Platform administration</p>
+    <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950">Billing support</h1>
+    <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+      Sanitized local webhook, mapping and reconciliation evidence. Provider payment, invoice and tax records
+      remain authoritative in the provider portal.
+    </p>
+  </div>
+
+  <section class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4" aria-label="Billing alerts">
+    <% [
+      [ "Webhook lag", "#{@dashboard.metrics.webhook_lag_seconds}s" ],
+      [ "Dead letters", @dashboard.metrics.dead_letter_count ],
+      [ "Repeated failures", @dashboard.metrics.repeated_failure_count ],
+      [ "Reconciliation drift", @dashboard.metrics.drift_count ]
+    ].each do |label, value| %>
+      <div class="so-card p-4">
+        <p class="text-xs font-semibold uppercase tracking-wide text-slate-500"><%= label %></p>
+        <p class="mt-2 text-2xl font-black text-slate-950"><%= value %></p>
+      </div>
+    <% end %>
+  </section>
+
+  <section class="so-card mt-8 overflow-hidden" aria-labelledby="webhook-events-title">
+    <div class="border-b border-slate-200 p-5">
+      <h2 id="webhook-events-title" class="text-lg font-bold">Recent webhook events</h2>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+        <thead class="bg-slate-50">
+          <tr><th class="px-4 py-3">Received</th><th class="px-4 py-3">Provider/type</th><th class="px-4 py-3">State</th><th class="px-4 py-3">Attempts</th><th class="px-4 py-3">Action</th></tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          <% @dashboard.events.each do |event| %>
+            <tr>
+              <td class="px-4 py-3"><%= l(event.received_at, format: :long) %></td>
+              <td class="px-4 py-3"><%= event.provider %> / <%= event.event_type %></td>
+              <td class="px-4 py-3"><%= event.state %><% if event.last_error_category %> (<%= event.last_error_category %>)<% end %></td>
+              <td class="px-4 py-3"><%= event.attempt_count %></td>
+              <td class="px-4 py-3">
+                <% if @dashboard.manage_allowed && %w[retryable dead_letter].include?(event.state) %>
+                  <%= form_with url: replay_admin_billing_event_path(event.id), method: :post, class: "flex gap-2" do |form| %>
+                    <%= form.text_field :confirmation, required: true, autocomplete: "off", class: "so-input",
+                      aria: { label: "Type REPLAY #{event.id}" }, placeholder: "REPLAY #{event.id}" %>
+                    <%= form.submit "Replay", class: "so-button so-button-secondary so-button-small" %>
+                  <% end %>
+                <% else %>
+                  <span class="text-slate-500">Read only</span>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="so-card mt-8 overflow-hidden" aria-labelledby="mapping-title">
+    <div class="border-b border-slate-200 p-5"><h2 id="mapping-title" class="text-lg font-bold">Mapping diagnostics</h2></div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+        <thead class="bg-slate-50">
+          <tr><th class="px-4 py-3">Organization</th><th class="px-4 py-3">Provider</th><th class="px-4 py-3">Status</th><th class="px-4 py-3">Action</th></tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          <% @dashboard.mappings.each do |mapping| %>
+            <tr>
+              <td class="px-4 py-3 font-mono text-xs"><%= mapping.organization_id %></td>
+              <td class="px-4 py-3"><%= mapping.provider %> / <%= mapping.environment %></td>
+              <td class="px-4 py-3"><%= mapping.status %>: <%= mapping.reason_code %></td>
+              <td class="px-4 py-3">
+                <% if @dashboard.manage_allowed %>
+                  <%= button_to "Reconcile", reconcile_admin_billing_subscription_path(mapping.subscription_id),
+                    method: :post, params: { organization_id: mapping.organization_id },
+                    class: "so-button so-button-secondary so-button-small" %>
+                <% else %>
+                  <span class="text-slate-500">Read only</span>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="so-card mt-8 p-5" aria-labelledby="consistency-title">
+    <h2 id="consistency-title" class="text-lg font-bold">Consistency report</h2>
+    <% if @dashboard.consistency_issues.empty? %>
+      <p class="mt-2 text-sm text-emerald-700">No unexplained local billing drift detected.</p>
+    <% else %>
+      <ul class="mt-3 list-disc space-y-1 pl-5 text-sm text-red-700">
+        <% @dashboard.consistency_issues.each do |issue| %>
+          <li><%= issue.type %>: <%= issue.count %></li>
+        <% end %>
+      </ul>
+    <% end %>
+  </section>
+
+  <section class="so-card mt-8 overflow-hidden" aria-labelledby="reconciliation-title">
+    <div class="border-b border-slate-200 p-5"><h2 id="reconciliation-title" class="text-lg font-bold">Recent reconciliations</h2></div>
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+        <thead class="bg-slate-50">
+          <tr><th class="px-4 py-3">Requested</th><th class="px-4 py-3">Source</th><th class="px-4 py-3">State</th><th class="px-4 py-3">Differences</th></tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100">
+          <% @dashboard.reconciliations.each do |run| %>
+            <tr>
+              <td class="px-4 py-3"><%= l(run.requested_at, format: :long) %></td>
+              <td class="px-4 py-3"><%= run.source %></td>
+              <td class="px-4 py-3"><%= run.state %><% if run.failure_category %> (<%= run.failure_category %>)<% end %></td>
+              <td class="px-4 py-3"><%= run.difference_fields.any? ? run.difference_fields.join(", ") : "—" %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</div>

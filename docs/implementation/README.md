@@ -67,6 +67,8 @@ Do not pre-populate these reports with fictional implementation or test results.
   stale-safe canonical billing projection, retry/dead-letter behavior and controlled replay.
 - [`BILLING_SUBSCRIPTION_LIFECYCLE.md`](./BILLING_SUBSCRIPTION_LIFECYCLE.md) defines canonical transitions,
   request-time access, provider-confirmed plan changes, immutable reservations and durable outbox delivery.
+- [`BILLING_RECONCILIATION.md`](./BILLING_RECONCILIATION.md) defines bounded provider comparison, safe repair,
+  platform support access, alert metrics, consistency checks and incident recovery.
 - [`USAGE_LEDGER.md`](./USAGE_LEDGER.md) defines immutable weighted usage events, explicit metering
   windows, corrections, read models, retention and partitioning policy.
 - [`USAGE_QUOTAS.md`](./USAGE_QUOTAS.md) defines atomic quota admission, immutable limit snapshots,

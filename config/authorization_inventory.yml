@@ -41,6 +41,14 @@ controllers:
     source: app/controllers/billing/plan_changes_controller.rb
     actions:
       create: { kind: permission, permission: billing.manage }
+  Billing::SupportController:
+    source: app/controllers/billing/support_controller.rb
+    actions:
+      index: &platform_billing_support
+        kind: exempt
+        reason: platform_billing_support_permission
+      replay: *platform_billing_support
+      reconcile: *platform_billing_support
   Usage::DashboardsController:
     source: app/controllers/usage/dashboards_controller.rb
     actions:
@@ -118,6 +126,12 @@ jobs:
   Billing::SubscriptionPlanChangeJob:
     kind: system
     name: billing_subscription_plan_change
+  Billing::ReconciliationJob:
+    kind: system
+    name: billing_reconciliation
+  Billing::ReconciliationSweepJob:
+    kind: system
+    name: billing_reconciliation_sweep
   Identity::AuthenticationRateLimitCleanupJob:
     kind: system
     name: authentication_rate_limit_cleanup
@@ -188,6 +202,14 @@ domain_operations:
   Billing::Public.create_hosted_checkout: { kind: permission, permission: billing.manage }
   Billing::Public.create_customer_portal: { kind: permission, permission: billing.manage }
   Billing::Public.request_plan_change: { kind: permission, permission: billing.manage }
+  Billing::Public.support_decision: { kind: context, reason: platform_billing_support_grant_hint }
+  Billing::Public.authorize_support!: { kind: context, reason: platform_billing_support_grant_validation }
+  Billing::Public.support_dashboard: { kind: context, reason: requires_platform_billing_support_decision }
+  Billing::Public.request_reconciliation: { kind: context, reason: requires_platform_billing_support_decision }
+  Billing::Public.schedule_reconciliations: { kind: system, reason: bounded_scheduled_provider_reconciliation }
+  Billing::Public.reconcile_subscription: { kind: system, reason: durable_tenant_subscription_reconciliation }
+  Billing::Public.billing_consistency_issues: { kind: system, reason: operator_billing_consistency_diagnostic }
+  Billing::Public.operational_metrics: { kind: system, reason: bounded_billing_alert_snapshot }
   Billing::Public.provider: { kind: system, reason: configured_provider_adapter_resolution }
   Billing::Public.operation_policies: { kind: system, reason: provider_transport_policy_contract }
   Billing::Public.register_customer_mapping: { kind: context, reason: verified_provider_customer_correlation }
@@ -204,6 +226,7 @@ domain_operations:
   Entitlements::Public.bind_subscription: { kind: context, reason: billing_owned_subscription_projection }
   Entitlements::Public.resolve: { kind: context, reason: explicit_tenant_entitlement_resolution }
   Entitlements::Public.subscription_access: { kind: context, reason: local_subscription_access_projection }
+  Entitlements::Public.subscription_context_consistency_issues: { kind: system, reason: operator_projection_diagnostic }
   Shared::Events::Public.record!: { kind: context, reason: append_only_internal_outbox_sink }
   Shared::Events::Public.publish!: { kind: system, reason: committed_outbox_delivery }
   Entitlements::Public.set_organization_override: { kind: context, reason: platform_catalog_authorized_override }

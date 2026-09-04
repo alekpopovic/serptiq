@@ -74,6 +74,23 @@ class BillingSubscriptionLifecycleAccessTest < ActiveSupport::TestCase
     assert access?("reports.read", at: @now + 2.hours)
   end
 
+  test "a newer past due observation does not extend an existing grace deadline" do
+    first_snapshot = subscription_snapshot(status: "past_due", provider_updated_at: @now)
+    original_deadline = Billing::SubscriptionLifecycle.transition(
+      from: "active", snapshot: first_snapshot, at: @now
+    ).grace_ends_at
+    newer_snapshot = subscription_snapshot(status: "past_due", provider_updated_at: @now + 1.day)
+
+    transition = Billing::SubscriptionLifecycle.transition(
+      from: "past_due",
+      snapshot: newer_snapshot,
+      at: @now + 1.day,
+      current_grace_ends_at: original_deadline
+    )
+
+    assert_equal original_deadline, transition.grace_ends_at
+  end
+
   test "unified access boundary denies new work before entitlement and quota for read-only subscription" do
     project("paused", "read_only")
     project_id = deterministic_uuid("project", "subscription-access-boundary")
@@ -99,6 +116,21 @@ class BillingSubscriptionLifecycleAccessTest < ActiveSupport::TestCase
   end
 
   private
+
+  def subscription_snapshot(status:, provider_updated_at:)
+    Billing::SubscriptionSnapshot.new(
+      provider: "fake",
+      customer_reference: "customer-001",
+      subscription_reference: "subscription-001",
+      variant_reference: "variant-001",
+      status: status,
+      access_state: "grace",
+      billing_interval: "monthly",
+      currency: "EUR",
+      provider_updated_at: provider_updated_at,
+      metadata: { "raw_status" => status }
+    )
+  end
 
   def project(status, access_state, grace_ends_at: nil, access_expires_at: nil, ended_at: nil)
     canceled = status == "canceled"

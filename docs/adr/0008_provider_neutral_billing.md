@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-09-04
 - Owners: Billing
-- Last reviewed: 2026-09-04 (Prompt 047)
+- Last reviewed: 2026-09-04 (Prompt 049)
 
 ## Context
 
@@ -47,3 +47,9 @@ policy, and evaluates deadline expiry at request time. Plan changes are durable 
 asynchronously, but only a validated provider event may switch the immutable plan version. Subscription and
 entitlement context move atomically, usage reservations retain their admission snapshot, and durable lifecycle
 notifications use the shared PostgreSQL outbox.
+
+Prompt 049 completes the periodic drift loop. Scheduled and targeted runs persist bounded evidence, validate
+the exact tenant/customer/subscription/plan mapping and classify match, safe repair, ambiguity, missing objects
+and outages. Repairs reuse canonical projection; support access is a separate least-privilege platform grant
+with recent authentication for mutations. Read-only consistency queries and low-cardinality billing alert
+metrics support incident recovery without exposing provider identifiers.

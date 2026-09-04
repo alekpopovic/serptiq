@@ -1,0 +1,79 @@
+{
+  "prompt_id": "049",
+  "title": "Add billing reconciliation and support operations",
+  "status": "completed",
+  "started_at": "2026-09-04T18:13:51Z",
+  "finished_at": "2026-09-04T18:50:21Z",
+  "summary": "Implemented durable scheduled and targeted provider reconciliation with exact tenant/customer/subscription/plan validation, match/repair/ambiguous/missing/outage classifications, bounded retries and sanitized evidence; added least-privilege recent-auth billing support UI, alert metrics, consistency queries, rake diagnostics and incident runbook.",
+  "tests": [
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test test/domain/billing test/domain/entitlements test/adapters/billing test/adapters/contracts/billing_provider_contract_test.rb test/requests/billing_hosted_flows_test.rb test/requests/billing_webhook_ingress_test.rb test/requests/billing_support_test.rb test/requests/entitlement_diagnostics_test.rb test/jobs/billing test/database/billing_checkout_concurrency_test.rb test/database/billing_provider_mapping_constraints_test.rb test/database/billing_webhook_ingress_concurrency_test.rb test/database/billing_webhook_projection_concurrency_test.rb test/database/billing_reconciliation_constraints_test.rb",
+      "outcome": "passed",
+      "notes": "128 runs, 915 assertions"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test",
+      "outcome": "passed",
+      "notes": "616 runs, 4892 assertions"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test:system",
+      "outcome": "passed",
+      "notes": "27 runs, 129 assertions"
+    },
+    {
+      "command": "bin/quality",
+      "outcome": "passed",
+      "notes": "14 checks; 782 Ruby files; Brakeman 0 warnings; dependency audits clean"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails billing:consistency:check",
+      "outcome": "passed",
+      "notes": "0 issues"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails billing:operations:metrics",
+      "outcome": "passed",
+      "notes": "all four metrics zero in clean test database"
+    },
+    {
+      "command": "db:rollback:primary STEP=1 then db:migrate:primary",
+      "outcome": "passed",
+      "notes": "migration 20260904123000 reverted and reapplied"
+    }
+  ],
+  "files_changed": [
+    "app/adapters/billing/fake_provider.rb",
+    "app/controllers/billing/support_controller.rb",
+    "app/domains/billing",
+    "app/domains/entitlements",
+    "app/jobs/billing",
+    "app/services/billing_reconciliation_factory.rb",
+    "app/services/billing_support_factory.rb",
+    "app/views/billing/support/index.html.erb",
+    "config/authorization_inventory.yml",
+    "config/recurring.yml",
+    "config/routes.rb",
+    "db/migrate/20260904123000_add_billing_reconciliation_support.rb",
+    "db/structure.sql",
+    "docs/03_ERD.md",
+    "docs/07_SECURITY_AND_THREAT_MODEL.md",
+    "docs/08_INTEGRATIONS_AND_API.md",
+    "docs/10_DEPLOYMENT_AND_OPERATIONS.md",
+    "docs/adr/0008_provider_neutral_billing.md",
+    "docs/implementation/BILLING_RECONCILIATION.md",
+    "docs/implementation/BILLING_SUBSCRIPTION_LIFECYCLE.md",
+    "docs/implementation/README.md",
+    "lib/tasks/billing_operations.rake",
+    "test"
+  ],
+  "migrations": [],
+  "decisions": [],
+  "risks": [
+    "Provider portal remains authoritative; missing and ambiguous drift deliberately require operator review. The additive migration takes brief PostgreSQL catalog locks."
+  ],
+  "next_steps": [
+    "Proceed to prompt 050 after commit and push."
+  ],
+  "commit": null
+}

@@ -56,6 +56,38 @@ module Billing
       command.call(**attributes)
     end
 
+    def support_decision(user:, permission:)
+      SupportPolicy.new.decision(user: user, permission: permission)
+    end
+
+    def authorize_support!(user:, permission:)
+      SupportPolicy.new.authorize!(user: user, permission: permission)
+    end
+
+    def support_dashboard(**attributes)
+      SupportDashboardQuery.new.call(**attributes)
+    end
+
+    def request_reconciliation(command:, **attributes)
+      command.call(**attributes)
+    end
+
+    def schedule_reconciliations(scheduler:, **attributes)
+      scheduler.call(**attributes)
+    end
+
+    def reconcile_subscription(reconciler:, **attributes)
+      reconciler.call(**attributes)
+    end
+
+    def billing_consistency_issues
+      ConsistencyReport.new.call
+    end
+
+    def operational_metrics(emit: false)
+      OperationalMetrics.new.call(emit: emit)
+    end
+
     def provider(provider_key:, registry: ProviderRegistry.new)
       registry.fetch(provider_key)
     end

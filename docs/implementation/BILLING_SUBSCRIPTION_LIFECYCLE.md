@@ -27,6 +27,9 @@ read-only access. Cancellation access expires at the exact provider end. These d
 access decision, so session age or delayed cache invalidation cannot extend access. Evaluation order is active
 membership, RBAC, subscription access, entitlement, resource state and quota.
 
+Once past-due grace begins, newer past-due self-observations preserve the original deadline. Webhook retries or
+periodic reconciliation therefore cannot renew delinquent access merely by advancing an observation timestamp.
+
 Subscription and entitlement context changes occur in one PostgreSQL transaction. The context stores canonical
 status/access/deadlines and subscription lock revision. Expired contexts remain available to enforce
 retention-safe reads rather than silently granting a free plan or deleting data.

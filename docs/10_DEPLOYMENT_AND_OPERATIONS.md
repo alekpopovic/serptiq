@@ -309,6 +309,10 @@ Initial internal objectives:
 
 Alert on symptoms and customer impact, not every transient provider response. Every page-worthy alert links to a runbook.
 
+Billing emits bounded `billing.webhook_lag`, `billing.dead_letters`, `billing.projection_failures` and
+`billing.reconciliation_drift` events. The first-response and recovery procedure, thresholds, safe replay rules
+and read-only consistency commands are in `docs/implementation/BILLING_RECONCILIATION.md`.
+
 ## 14. Capacity and cost controls
 
 Enforce at admission time:
@@ -423,6 +427,9 @@ Create and maintain:
 - backup restore;
 - provider rate-limit exhaustion;
 - customer data export/deletion.
+
+The implemented billing backlog/drift runbook is `docs/implementation/BILLING_RECONCILIATION.md`. Support
+mutations require an explicit platform manage grant, recent authentication and auditable exact targeting.
 
 ## 18. Production release checklist
 

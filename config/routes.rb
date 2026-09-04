@@ -19,6 +19,13 @@ Rails.application.routes.draw do
   patch "dashboard/admin/plans/:plan_key/versions/:version/retire",
     to: "plans/catalog#retire",
     as: :retire_admin_plan_version
+  get "dashboard/admin/billing", to: "billing/support#index", as: :admin_billing_support
+  post "dashboard/admin/billing/events/:event_id/replay",
+    to: "billing/support#replay",
+    as: :replay_admin_billing_event
+  post "dashboard/admin/billing/subscriptions/:subscription_id/reconcile",
+    to: "billing/support#reconcile",
+    as: :reconcile_admin_billing_subscription
   get "dashboard/organizations/new", to: "tenancy/organizations#new", as: :new_organization
   post "dashboard/organizations", to: "tenancy/organizations#create", as: :organizations
   get "dashboard/organizations/:organization_slug/switch",

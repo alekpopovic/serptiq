@@ -166,6 +166,12 @@ The provider-neutral contract, canonical lifecycle, redacted values and per-oper
 implemented in `docs/implementation/BILLING_PROVIDER_CONTRACT.md`. Ordinary access reads the trusted local
 projection and never calls the provider synchronously.
 
+Reconciliation runs every six hours for a bounded set of current/recent provider subscriptions. It validates
+the exact environment, customer, subscription and active plan mapping before comparing canonical fields.
+Only a newer, explicitly allowed transition can be repaired, and repair reuses the canonical webhook
+projection transaction. Older/unsafe evidence, missing objects and outages are classified without guessing or
+direct state mutation. See `docs/implementation/BILLING_RECONCILIATION.md`.
+
 ## 8. Slack notifications
 
 The MVP uses a Slack app or incoming webhook strategy selected during implementation. The domain adapter accepts structured messages, not preformatted provider payloads.

@@ -196,6 +196,12 @@ Controls:
 - access only after trusted local projection;
 - test-mode isolation.
 
+The reconciliation job verifies the stored tenant/subscription pair plus provider environment, customer,
+subscription and active plan mapping. It stores only bounded allowlisted facts and a reference digest. A
+missing object or ambiguous/stale snapshot cannot revoke or grant access automatically. Support replay and
+targeted reconciliation require explicit platform grants and recent authentication; organization ownership is
+insufficient.
+
 ### T-06 Quota bypass and double spending
 
 Attack examples:

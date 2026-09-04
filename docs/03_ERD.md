@@ -57,6 +57,9 @@ erDiagram
   ORGANIZATION ||--o{ QUOTA_RESERVATION : reserves
   ORGANIZATION ||--o{ USAGE_WINDOW : aggregates
   ORGANIZATION ||--o{ BILLING_WEBHOOK_EVENT : receives
+  ORGANIZATION ||--o{ BILLING_RECONCILIATION_RUN : reconciles
+  SUBSCRIPTION ||--o{ BILLING_RECONCILIATION_RUN : checked_by
+  USER ||--o{ BILLING_SUPPORT_ACCESS_GRANT : receives
 
   ORGANIZATION ||--o{ INTEGRATION_CONNECTION : owns
   PROJECT ||--o{ INTEGRATION_CONNECTION : optionally_scopes
@@ -568,6 +571,19 @@ Unique `(provider, provider_environment, provider_event_id)`. Database checks en
 non-negative counters, terminal timestamps and bounded encrypted payload/header sizes. A delivery with the same
 identity and checksum increments the duplicate counter; one with a different checksum increments the conflict
 counter without replacing the original evidence.
+
+### `billing_reconciliation_runs`
+
+Durable scheduled/targeted comparison record with an exact organization/subscription composite foreign key,
+provider/environment, source, constrained lifecycle, attempt/backoff timestamps, bounded difference fields and
+an allowlisted provider snapshot. A partial unique index permits one active run per subscription. Targeted rows
+require a support requester; scheduled rows prohibit one. Provider subscription identity is retained only as a
+SHA-256 digest inside the bounded snapshot.
+
+### `billing_support_access_grants`
+
+Explicit platform-user grants for `billing_support.read` or `billing_support.manage`, independent of tenant
+roles. A partial unique index prevents duplicate active grants and a check requires revocation after grant.
 
 ### `usage_meter_definitions` / `usage_meter_rates`
 

@@ -37,6 +37,10 @@ module Entitlements
       SubscriptionAccessPolicy.new.call(**attributes)
     end
 
+    def subscription_context_consistency_issues
+      SubscriptionContextConsistency.new.call
+    end
+
     def set_organization_override(**attributes)
       SetOrganizationOverride.new.call(**attributes)
     end

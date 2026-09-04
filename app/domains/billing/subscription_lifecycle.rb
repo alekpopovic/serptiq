@@ -39,13 +39,17 @@ module Billing
       source == target || TRANSITIONS.fetch(source, []).include?(target)
     end
 
-    def transition(from:, snapshot:, at: Time.current)
+    def transition(from:, snapshot:, at: Time.current, current_grace_ends_at: nil)
       target = snapshot.status
       unless from.nil? || transition_allowed?(from: from, to: target)
         raise SubscriptionTransitionInvalid.new(reason_code: "subscription_transition_invalid")
       end
 
-      grace_ends_at = grace_end(snapshot)
+      grace_ends_at = if from.to_s == "past_due" && target == "past_due" && current_grace_ends_at
+        current_grace_ends_at
+      else
+        grace_end(snapshot)
+      end
       access_expires_at = target == "canceled" ? snapshot.access_expires_at : nil
       access_state = effective_access(
         status: target,

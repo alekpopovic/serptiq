@@ -11,7 +11,7 @@ module Billing
       @auditor = auditor
     end
 
-    def call(webhook_event_id:, confirmation:)
+    def call(webhook_event_id:, confirmation:, actor_user_id: nil)
       event = WebhookEvent.transaction do
         record = WebhookEvent.lock.find(webhook_event_id)
         unless REPLAYABLE_STATES.include?(record.state) && confirmation.to_s == "REPLAY #{record.id}"
@@ -20,6 +20,7 @@ module Billing
         record.prepare_replay!(at: @clock.call)
         @auditor.record!(
           organization_id: record.organization_id,
+          actor_user_id: actor_user_id,
           action: "billing.webhook_replayed",
           target_type: "BillingWebhook",
           target_id: record.id,

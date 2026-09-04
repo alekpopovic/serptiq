@@ -573,6 +573,45 @@ CREATE TABLE public.billing_plan_provider_mappings (
 
 
 --
+-- Name: billing_reconciliation_runs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.billing_reconciliation_runs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    subscription_id uuid NOT NULL,
+    requested_by_user_id uuid,
+    provider character varying(32) NOT NULL,
+    environment character varying(16) NOT NULL,
+    source character varying(16) NOT NULL,
+    state character varying(16) DEFAULT 'queued'::character varying NOT NULL,
+    provider_snapshot jsonb DEFAULT '{}'::jsonb NOT NULL,
+    difference_fields jsonb DEFAULT '[]'::jsonb NOT NULL,
+    failure_category character varying(64),
+    requested_at timestamp(6) with time zone NOT NULL,
+    enqueued_at timestamp(6) with time zone,
+    started_at timestamp(6) with time zone,
+    completed_at timestamp(6) with time zone,
+    next_attempt_at timestamp(6) with time zone,
+    provider_updated_at timestamp(6) with time zone,
+    attempt_count integer DEFAULT 0 NOT NULL,
+    lock_version integer DEFAULT 0 NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT billing_reconciliations_attempt_range CHECK (((attempt_count >= 0) AND (attempt_count <= 5))),
+    CONSTRAINT billing_reconciliations_differences_bounded CHECK (((jsonb_typeof(difference_fields) = 'array'::text) AND (pg_column_size(difference_fields) <= 2048))),
+    CONSTRAINT billing_reconciliations_enqueue_order CHECK (((enqueued_at IS NULL) OR (enqueued_at >= requested_at))),
+    CONSTRAINT billing_reconciliations_environment_allowlist CHECK (((environment)::text = ANY ((ARRAY['development'::character varying, 'test'::character varying, 'staging'::character varying, 'production'::character varying])::text[]))),
+    CONSTRAINT billing_reconciliations_lifecycle_shape CHECK (((((state)::text = 'queued'::text) AND (attempt_count = 0) AND (started_at IS NULL) AND (completed_at IS NULL) AND (next_attempt_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'running'::text) AND (attempt_count > 0) AND (started_at IS NOT NULL) AND (completed_at IS NULL) AND (next_attempt_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'retryable'::text) AND (attempt_count > 0) AND (started_at IS NOT NULL) AND (completed_at IS NULL) AND (next_attempt_at IS NOT NULL) AND (failure_category IS NOT NULL)) OR (((state)::text = ANY ((ARRAY['matched'::character varying, 'repaired'::character varying, 'ambiguous'::character varying])::text[])) AND (attempt_count > 0) AND (started_at IS NOT NULL) AND (completed_at IS NOT NULL) AND (next_attempt_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = ANY ((ARRAY['missing'::character varying, 'failed'::character varying])::text[])) AND (attempt_count > 0) AND (started_at IS NOT NULL) AND (completed_at IS NOT NULL) AND (next_attempt_at IS NULL) AND (failure_category IS NOT NULL)))),
+    CONSTRAINT billing_reconciliations_provider_format CHECK (((provider)::text ~ '^[a-z][a-z0-9_]{1,31}$'::text)),
+    CONSTRAINT billing_reconciliations_requester_shape CHECK (((((source)::text = 'scheduled'::text) AND (requested_by_user_id IS NULL)) OR (((source)::text = 'targeted'::text) AND (requested_by_user_id IS NOT NULL)))),
+    CONSTRAINT billing_reconciliations_snapshot_bounded CHECK (((jsonb_typeof(provider_snapshot) = 'object'::text) AND (pg_column_size(provider_snapshot) <= 8192))),
+    CONSTRAINT billing_reconciliations_source_allowlist CHECK (((source)::text = ANY ((ARRAY['scheduled'::character varying, 'targeted'::character varying])::text[]))),
+    CONSTRAINT billing_reconciliations_state_allowlist CHECK (((state)::text = ANY ((ARRAY['queued'::character varying, 'running'::character varying, 'matched'::character varying, 'repaired'::character varying, 'ambiguous'::character varying, 'missing'::character varying, 'retryable'::character varying, 'failed'::character varying])::text[])))
+);
+
+
+--
 -- Name: billing_subscription_changes; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -606,6 +645,23 @@ CREATE TABLE public.billing_subscription_changes (
     CONSTRAINT billing_changes_lifecycle_shape CHECK (((effective_at >= requested_at) AND ((dispatch_enqueued_at IS NULL) OR (dispatch_enqueued_at >= requested_at)) AND ((((direction)::text = 'upgrade'::text) AND ((effective_policy)::text = 'immediate'::text) AND ((state)::text <> 'scheduled'::text)) OR (((direction)::text = 'downgrade'::text) AND ((effective_policy)::text = 'period_end'::text) AND ((state)::text <> 'pending'::text))) AND ((((state)::text = ANY ((ARRAY['pending'::character varying, 'scheduled'::character varying])::text[])) AND (submitted_at IS NULL) AND (applied_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'submitted'::text) AND (submitted_at IS NOT NULL) AND (applied_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'applied'::text) AND (submitted_at IS NOT NULL) AND (applied_at IS NOT NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'failed'::text) AND (applied_at IS NULL) AND (failed_at IS NOT NULL) AND (failure_category IS NOT NULL)) OR (((state)::text = 'canceled'::text) AND (applied_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL))))),
     CONSTRAINT billing_changes_policy_allowlist CHECK (((effective_policy)::text = ANY ((ARRAY['immediate'::character varying, 'period_end'::character varying])::text[]))),
     CONSTRAINT billing_changes_state_allowlist CHECK (((state)::text = ANY ((ARRAY['pending'::character varying, 'scheduled'::character varying, 'submitted'::character varying, 'applied'::character varying, 'failed'::character varying, 'canceled'::character varying])::text[])))
+);
+
+
+--
+-- Name: billing_support_access_grants; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.billing_support_access_grants (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    permission character varying(32) NOT NULL,
+    granted_at timestamp(6) with time zone NOT NULL,
+    revoked_at timestamp(6) with time zone,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT billing_support_grants_permission_allowlist CHECK (((permission)::text = ANY ((ARRAY['billing_support.read'::character varying, 'billing_support.manage'::character varying])::text[]))),
+    CONSTRAINT billing_support_grants_revocation_order CHECK (((revoked_at IS NULL) OR (revoked_at >= granted_at)))
 );
 
 
@@ -1624,11 +1680,27 @@ ALTER TABLE ONLY public.billing_plan_provider_mappings
 
 
 --
+-- Name: billing_reconciliation_runs billing_reconciliation_runs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_reconciliation_runs
+    ADD CONSTRAINT billing_reconciliation_runs_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: billing_subscription_changes billing_subscription_changes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.billing_subscription_changes
     ADD CONSTRAINT billing_subscription_changes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: billing_support_access_grants billing_support_access_grants_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_support_access_grants
+    ADD CONSTRAINT billing_support_access_grants_pkey PRIMARY KEY (id);
 
 
 --
@@ -2061,6 +2133,41 @@ CREATE UNIQUE INDEX index_billing_plan_mappings_on_provider_catalog_identity ON 
 --
 
 CREATE UNIQUE INDEX index_billing_plan_mappings_on_provider_variant ON public.billing_plan_provider_mappings USING btree (provider, environment, provider_variant_id);
+
+
+--
+-- Name: index_billing_reconciliations_on_active_subscription; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_billing_reconciliations_on_active_subscription ON public.billing_reconciliation_runs USING btree (subscription_id) WHERE ((state)::text = ANY ((ARRAY['queued'::character varying, 'running'::character varying, 'retryable'::character varying])::text[]));
+
+
+--
+-- Name: index_billing_reconciliations_on_provider_rate; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_billing_reconciliations_on_provider_rate ON public.billing_reconciliation_runs USING btree (provider, environment, requested_at);
+
+
+--
+-- Name: index_billing_reconciliations_on_retry; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_billing_reconciliations_on_retry ON public.billing_reconciliation_runs USING btree (state, next_attempt_at);
+
+
+--
+-- Name: index_billing_reconciliations_on_tenant_history; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_billing_reconciliations_on_tenant_history ON public.billing_reconciliation_runs USING btree (organization_id, requested_at);
+
+
+--
+-- Name: index_billing_support_grants_on_active_permission; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_billing_support_grants_on_active_permission ON public.billing_support_access_grants USING btree (user_id, permission) WHERE (revoked_at IS NULL);
 
 
 --
@@ -2966,6 +3073,14 @@ ALTER TABLE ONLY public.billing_checkout_sessions
 
 
 --
+-- Name: billing_reconciliation_runs fk_billing_reconciliations_tenant_subscription; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_reconciliation_runs
+    ADD CONSTRAINT fk_billing_reconciliations_tenant_subscription FOREIGN KEY (organization_id, subscription_id) REFERENCES public.subscriptions(organization_id, id) ON DELETE RESTRICT;
+
+
+--
 -- Name: billing_webhook_events fk_billing_webhooks_tenant_subscription; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3118,6 +3233,14 @@ ALTER TABLE ONLY public.plan_catalog_access_grants
 
 
 --
+-- Name: billing_support_access_grants fk_rails_33d94711b6; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_support_access_grants
+    ADD CONSTRAINT fk_rails_33d94711b6 FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
+
+
+--
 -- Name: subscriptions fk_rails_364213cc3e; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3206,6 +3329,14 @@ ALTER TABLE ONLY public.billing_customers
 
 
 --
+-- Name: billing_reconciliation_runs fk_rails_71bf2bef10; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_reconciliation_runs
+    ADD CONSTRAINT fk_rails_71bf2bef10 FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE RESTRICT;
+
+
+--
 -- Name: sessions fk_rails_758836b4f0; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3291,6 +3422,14 @@ ALTER TABLE ONLY public.outbox_events
 
 ALTER TABLE ONLY public.usage_quota_reservation_operations
     ADD CONSTRAINT fk_rails_b94ce8e8be FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: billing_reconciliation_runs fk_rails_b976ff4fef; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_reconciliation_runs
+    ADD CONSTRAINT fk_rails_b976ff4fef FOREIGN KEY (requested_by_user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
 
 
 --
@@ -3612,6 +3751,7 @@ ALTER TABLE ONLY public.usage_windows
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904123000'),
 ('20260904102000'),
 ('20260904101000'),
 ('20260904100000'),

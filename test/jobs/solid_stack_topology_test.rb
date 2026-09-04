@@ -144,9 +144,11 @@ class SolidStackTopologyTest < ActiveSupport::TestCase
       clear_solid_queue_finished_jobs
       maintain_organization_invitations
       maintain_usage_quota_reservations
+      reconcile_billing_subscriptions
     ], tasks.keys.sort
-    assert tasks.values.all? { |task| task.fetch("queue") == "maintenance" }
-    assert tasks.values.all? { |task| task.fetch("priority") == 50 }
+    maintenance = tasks.except("reconcile_billing_subscriptions")
+    assert maintenance.values.all? { |task| task.fetch("queue") == "maintenance" }
+    assert maintenance.values.all? { |task| task.fetch("priority") == 50 }
     assert_equal "Identity::SessionCleanupJob.perform_later",
       tasks.fetch("cleanup_inactive_identity_sessions").fetch("command")
     assert_equal "Identity::AuthenticationRateLimitCleanupJob.perform_later",
@@ -155,6 +157,12 @@ class SolidStackTopologyTest < ActiveSupport::TestCase
       tasks.fetch("maintain_organization_invitations").fetch("command")
     assert_equal "Usage::QuotaReservationMaintenanceJob.perform_later",
       tasks.fetch("maintain_usage_quota_reservations").fetch("command")
+    assert_equal({
+      "command" => "Billing::ReconciliationSweepJob.perform_later",
+      "queue" => "billing",
+      "priority" => 40,
+      "schedule" => "every 6 hours at minute 7"
+    }, tasks.fetch("reconcile_billing_subscriptions"))
     assert tasks.slice("clear_solid_queue_finished_batches", "clear_solid_queue_finished_jobs").values.all? do |task|
       task.fetch("command").start_with?("SolidQueue::")
     end
