@@ -102,6 +102,20 @@ module Billing
       end
     end
 
+    def reconciliation_page(page_number: 1, page_size: 100)
+      unless page_number.is_a?(Integer) && page_number.positive? && page_size.is_a?(Integer) && page_size.between?(1, 100)
+        raise ArgumentError, "reconciliation page is invalid"
+      end
+
+      perform("reconciliation_page", page_number: page_number, page_size: page_size) do
+        SubscriptionPage.new(
+          subscriptions: [ subscription_snapshot(reference: "subscription-001") ],
+          next_page: nil,
+          total: 1
+        )
+      end
+    end
+
     def verify_webhook(raw_body:, headers:)
       perform("verify_webhook", body_bytes: raw_body.to_s.bytesize) do
         signature = headers.to_h["X-Fake-Signature"] || headers.to_h["x-fake-signature"]

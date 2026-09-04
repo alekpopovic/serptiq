@@ -1,0 +1,78 @@
+{
+  "prompt_id": "044",
+  "title": "Implement the Lemon Squeezy billing client",
+  "status": "completed",
+  "started_at": "2026-09-04T15:29:23Z",
+  "finished_at": "2026-09-04T15:53:08Z",
+  "summary": "Implemented the production Lemon Squeezy JSON:API adapter with exact store/product/variant and environment validation, TLS and bounded transport, safe-GET-only retries, local correlation digests, lifecycle/webhook normalization, redacted metrics, and sanitized contract fixtures.",
+  "tests": [
+    {
+      "command": "docker compose run --rm test ./bin/rails test test/adapters/billing/lemon_squeezy_client_test.rb test/adapters/billing/lemon_squeezy_provider_test.rb test/adapters/billing/lemon_squeezy_net_http_transport_test.rb test/adapters/contracts/billing_provider_contract_test.rb test/domain/billing/lemon_squeezy_mapping_test.rb test/domain/billing/checkout_availability_test.rb test/domain/billing/provider_mapping_test.rb test/domain/billing/value_objects_test.rb test/configuration/configuration_test.rb",
+      "outcome": "passed",
+      "notes": "39 runs, 461 assertions, 0 failures"
+    },
+    {
+      "command": "docker compose run --rm test ./bin/rails test",
+      "outcome": "passed",
+      "notes": "540 runs, 4369 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "bin/rails test:system",
+      "outcome": "passed",
+      "notes": "22 runs, 110 assertions, 0 failures"
+    },
+    {
+      "command": "docker compose run --rm test psql -h db -U searchops -d searchops_structure_044 -v ON_ERROR_STOP=1 -f db/structure.sql",
+      "outcome": "passed",
+      "notes": "clean SQL load; temporary database removed"
+    },
+    {
+      "command": "transactional migration down runner",
+      "outcome": "passed",
+      "notes": "migration reversed successfully and transaction rolled back"
+    },
+    {
+      "command": "env -u DEBUG bin/quality",
+      "outcome": "passed",
+      "notes": "14 checks; Brakeman 0 warnings; advisory audits clean"
+    },
+    {
+      "command": "ruby tracking/scripts/prompt_tracker.rb validate",
+      "outcome": "passed",
+      "notes": "120 prompts valid before completion"
+    }
+  ],
+  "files_changed": [
+    ".env.example",
+    "app/adapters/billing",
+    "app/domains/billing",
+    "config/searchops.yml",
+    "config/searchops/configuration.rb",
+    "db/migrate/20260904094000_add_lemon_squeezy_mapping_coordinates.rb",
+    "db/structure.sql",
+    "docs/08_INTEGRATIONS_AND_API.md",
+    "docs/12_SOURCE_REFERENCES.md",
+    "docs/adr/0008_provider_neutral_billing.md",
+    "docs/implementation",
+    "test/adapters/billing",
+    "test/adapters/contracts/billing_provider_contract_test.rb",
+    "test/configuration/configuration_test.rb",
+    "test/domain/billing",
+    "test/fixtures/files/billing",
+    "tracking"
+  ],
+  "migrations": [
+    "20260904094000_add_lemon_squeezy_mapping_coordinates.rb: adds nullable provider store/product coordinates, requires a complete numeric store/product/variant tuple for Lemon Squeezy, and adds a partial unique catalog-identity index. Existing non-Lemon mappings remain valid."
+  ],
+  "decisions": [
+    "Lemon Squeezy mutations are not retried because the current official API contract does not document provider-side idempotency; local keys are used only as one-way correlation digests.",
+    "Reconciliation consumes bounded normalized subscription pages and never follows a provider-supplied pagination URL directly."
+  ],
+  "risks": [
+    "Mutation timeouts remain uncertain and require later reconciliation. The new validated checks and index can briefly wait on mapping-table writes."
+  ],
+  "next_steps": [
+    "Prompt 045: implement authorized hosted checkout and customer portal flows."
+  ],
+  "commit": null
+}

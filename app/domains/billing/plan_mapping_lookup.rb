@@ -19,6 +19,8 @@ module Billing
         environment: mapping.environment,
         currency: mapping.currency,
         billing_interval: mapping.billing_interval,
+        store_reference: mapping.provider_store_id,
+        product_reference: mapping.provider_product_id,
         variant_reference: mapping.provider_variant_id
       )
     end

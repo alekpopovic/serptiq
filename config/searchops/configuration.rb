@@ -103,6 +103,14 @@ module Searchops
       billing_provider: Definition.new("SEARCHOPS_BILLING_PROVIDER", :enum, "disabled", nil, nil,
         %w[disabled fake lemon_squeezy], false, nil),
       billing_store_id: Definition.new("SEARCHOPS_BILLING_STORE_ID", :string, nil, nil, nil, nil, false, nil),
+      billing_http_open_timeout: Definition.new("SEARCHOPS_BILLING_HTTP_OPEN_TIMEOUT", :duration, "2s",
+        0.1, 10, nil, false, nil),
+      billing_http_read_timeout: Definition.new("SEARCHOPS_BILLING_HTTP_READ_TIMEOUT", :duration, "5s",
+        0.1, 30, nil, false, nil),
+      billing_http_write_timeout: Definition.new("SEARCHOPS_BILLING_HTTP_WRITE_TIMEOUT", :duration, "5s",
+        0.1, 30, nil, false, nil),
+      billing_http_max_response_bytes: Definition.new("SEARCHOPS_BILLING_HTTP_MAX_RESPONSE_BYTES", :integer,
+        524_288, 1024, 1_048_576, nil, false, nil),
       encryption_key_version: Definition.new("SEARCHOPS_ENCRYPTION_KEY_VERSION", :string, "v1", nil, nil, nil, false, nil),
       crawler_max_urls_per_scan: Definition.new("SEARCHOPS_CRAWLER_MAX_URLS_PER_SCAN", :integer, 10_000,
         1, 1_000_000, nil, false, nil),
@@ -397,6 +405,9 @@ module Searchops
       if fetch(:billing_provider) == "lemon_squeezy"
         require_settings(errors, :billing_store_id)
         require_secrets(errors, :billing_api_key, :billing_webhook_secret)
+        unless fetch(:billing_store_id).to_s.match?(/\A[1-9][0-9]{0,18}\z/)
+          errors << "SEARCHOPS_BILLING_STORE_ID must be a positive provider identifier"
+        end
       end
       if fetch(:email_delivery_method) == "smtp"
         require_settings(errors, :email_from, :smtp_host, :smtp_username)

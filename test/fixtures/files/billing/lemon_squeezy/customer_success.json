@@ -1,0 +1,19 @@
+{
+  "jsonapi": { "version": "1.0" },
+  "data": {
+    "type": "customers",
+    "id": "5001",
+    "attributes": {
+      "store_id": 1001,
+      "name": "Sanitized Customer",
+      "email": "billing@example.test",
+      "status": "subscribed",
+      "urls": {
+        "customer_portal": "https://safe-store.lemonsqueezy.com/billing?expires=1788616800&signature=sanitized"
+      },
+      "created_at": "2026-09-01T12:00:00Z",
+      "updated_at": "2026-09-04T12:00:00Z",
+      "test_mode": true
+    }
+  }
+}

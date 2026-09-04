@@ -73,5 +73,7 @@ Do not pre-populate these reports with fictional implementation or test results.
   evaluation order, integration APIs, reservation cleanup and feature-operation key registry.
 - [`BILLING_PROVIDER_CONTRACT.md`](./BILLING_PROVIDER_CONTRACT.md) defines normalized billing values,
   adapter operations/errors, transport policies, canonical lifecycle and second-provider requirements.
+- [`LEMON_SQUEEZY_ADAPTER.md`](./LEMON_SQUEEZY_ADAPTER.md) defines the first production adapter's exact
+  endpoints, no-retry mutation policy, mapping validation, lifecycle translation and sanitized fixtures.
 - [`../../tracking/README.md`](../../tracking/README.md) defines prompt evidence,
   recovery and state integrity.

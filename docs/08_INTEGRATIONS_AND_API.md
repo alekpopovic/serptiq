@@ -137,6 +137,13 @@ Webhook receiver:
 
 Only subscribe to required event types. Retain enough raw data for troubleshooting under the declared retention policy.
 
+The production client uses the fixed Lemon Squeezy HTTPS API origin and JSON:API media type. It validates the
+configured and returned store, product, variant and test-mode tuple before normalizing any subscription.
+Because the provider documentation does not declare mutation idempotency support, POST/PATCH/DELETE calls are
+not retried; a digest of the local operation key is used only for safe correlation. Subscription retrieval and
+bounded reconciliation pagination may retry short transient failures. See
+`docs/implementation/LEMON_SQUEEZY_ADAPTER.md` for the dated endpoint/status mapping and observability contract.
+
 The provider-neutral contract, canonical lifecycle, redacted values and per-operation timeout/retry policy are
 implemented in `docs/implementation/BILLING_PROVIDER_CONTRACT.md`. Ordinary access reads the trusted local
 projection and never calls the provider synchronously.

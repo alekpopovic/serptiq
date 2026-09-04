@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-09-04
 - Owners: Billing
-- Last reviewed: 2026-09-04 (Prompt 043)
+- Last reviewed: 2026-09-04 (Prompt 044)
 
 ## Context
 
@@ -28,3 +28,8 @@ and expands the local subscription into separately constrained canonical status 
 status is bounded metadata, hosted links and identifiers redact themselves, and the access/entitlement domains
 remain provider-free. Prompt 044 supplies the first production adapter and later prompts own webhook projection
 and reconciliation workflows.
+
+Prompt 044 implements the Lemon Squeezy JSON:API adapter, exact store/product/variant and environment mapping,
+bounded TLS transport, short safe-GET retries, redacted request metrics and sanitized fixtures. Lemon Squeezy
+does not document provider-side mutation idempotency, so the adapter deliberately performs no automatic
+mutation retries and treats the hashed local key as correlation only.

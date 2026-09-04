@@ -47,6 +47,7 @@ class BillingProviderContractTest < ActiveSupport::TestCase
       subscription: canceled,
       idempotency_key: "resume-command-001"
     )
+    page = adapter.reconciliation_page(page_number: 1, page_size: 100)
     webhook = adapter.verify_webhook(
       raw_body: webhook_body,
       headers: { "X-Fake-Signature" => "valid" }
@@ -60,10 +61,12 @@ class BillingProviderContractTest < ActiveSupport::TestCase
     assert canceled.cancel_at_period_end
     assert_equal "canceled", canceled.status
     assert_equal "active", resumed.status
+    assert_instance_of Billing::SubscriptionPage, page
+    assert_equal 1, page.total
     assert_instance_of Billing::VerifiedWebhook, webhook
     assert_instance_of Billing::ProviderEvent, event
     assert_equal "payment.succeeded", event.name
-    assert_equal 8, adapter.calls.size
+    assert_equal 9, adapter.calls.size
     assert Billing::Provider::OPERATIONS.all? { |operation| adapter.supports?(operation) }
   end
 
@@ -72,6 +75,7 @@ class BillingProviderContractTest < ActiveSupport::TestCase
 
     assert_equal Billing::Provider::OPERATIONS.sort, policies.keys.sort
     assert_equal [ "GET", 2, "none" ], policy_tuple(policies.fetch("fetch_subscription"))
+    assert_equal [ "GET", 2, "none" ], policy_tuple(policies.fetch("reconciliation_page"))
     %w[create_checkout change_subscription cancel_subscription resume_subscription].each do |operation|
       policy = policies.fetch(operation)
       assert_equal "required", policy.idempotency

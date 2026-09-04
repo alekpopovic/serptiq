@@ -2,9 +2,12 @@
 
 module Billing
   class ProviderRegistry
-    def initialize(environment: Rails.env.to_s, builders: nil)
+    def initialize(environment: Rails.env.to_s, builders: nil, settings: Rails.application.config.x.searchops)
       @environment = environment.to_s
-      @builders = builders || { "fake" => -> { FakeProvider.new } }
+      @builders = builders || {
+        "fake" => -> { FakeProvider.new },
+        "lemon_squeezy" => -> { LemonSqueezyProvider.from_settings(settings: settings, environment: @environment) }
+      }
     end
 
     def fetch(provider_key)

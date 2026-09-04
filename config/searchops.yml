@@ -41,6 +41,10 @@ shared:
   auth_account_security_rate_window: 5m
   auth_account_security_max_per_session: 20
   billing_provider: disabled
+  billing_http_open_timeout: 2s
+  billing_http_read_timeout: 5s
+  billing_http_write_timeout: 5s
+  billing_http_max_response_bytes: 524288
   encryption_key_version: v1
   crawler_max_urls_per_scan: 10000
   crawler_connect_timeout: 5s

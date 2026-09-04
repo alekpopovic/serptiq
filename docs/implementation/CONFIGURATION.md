@@ -54,7 +54,7 @@ secret-management workflow; do not copy literal documentation values.
 | Database roles | process database role, four bounded pool sizes, process count, connection budget and SQL timeout bounds | PostgreSQL URLs for primary, queue, cache and cable, or one shared host/user/password credential set |
 | Object storage | service, private bucket, region and optional endpoint origin | access key ID/secret when workload identity is unavailable |
 | OAuth providers | enable flags, client IDs, bounded HTTP timeouts/response size, safe discovery/JWKS retries, JWKS TTL/key count, OIDC clock skew/token lifetime, transaction lifetime/retention, start/callback/session/account-security windows and per-IP/session caps | client secrets; callback tokens are transient and later persistent integration tokens use database encryption |
-| Billing | provider (`disabled`, development/test-only `fake`, or `lemon_squeezy`) and store ID | API key and webhook verification secret |
+| Billing | provider (`disabled`, development/test-only `fake`, or `lemon_squeezy`), store ID, bounded HTTP open/read/write timeouts and response cap | API key and webhook verification secret |
 | Encryption | active key version identifier | primary key ring, deterministic key and derivation salt |
 | Crawler limits | URL, byte, redirect, concurrency and connect/read duration bounds | none |
 | Browser limits | wall-time, memory, request-count and concurrency bounds | none |

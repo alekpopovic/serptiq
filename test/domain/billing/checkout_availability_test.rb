@@ -20,7 +20,9 @@ class BillingCheckoutAvailabilityTest < ActiveSupport::TestCase
       environment: "test",
       currency: "EUR",
       billing_interval: "monthly",
-      provider_variant_id: "test-starter-monthly"
+      provider_store_id: "1001",
+      provider_product_id: "2001",
+      provider_variant_id: "3001"
     )
     @attributes = {
       plan_version_id: version.id,

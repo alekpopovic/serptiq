@@ -1,0 +1,16 @@
+{
+  "jsonapi": { "version": "1.0" },
+  "data": {
+    "type": "checkouts",
+    "id": "checkout-safe-001",
+    "attributes": {
+      "store_id": 1001,
+      "variant_id": 3001,
+      "test_mode": true,
+      "url": "https://safe-store.lemonsqueezy.com/checkout/custom/checkout-safe-001?expires=1788530400&signature=sanitized",
+      "created_at": "2026-09-04T12:00:00Z",
+      "updated_at": "2026-09-04T12:00:00Z",
+      "expires_at": "2026-09-04T12:30:00Z"
+    }
+  }
+}

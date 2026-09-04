@@ -7,6 +7,7 @@ module Billing
   ) do
     NAMES = %w[
       subscription.created subscription.updated subscription.canceled subscription.resumed
+      subscription.expired subscription.paused subscription.unpaused
       payment.succeeded payment.failed payment.recovered
     ].freeze
 

@@ -31,6 +31,11 @@ Checked on **2026-09-04** unless an item states otherwise. These sources provide
 
 - Lemon Squeezy webhooks: <https://docs.lemonsqueezy.com/guides/developer-guide/webhooks>
 - Lemon Squeezy subscription object: <https://docs.lemonsqueezy.com/api/subscriptions/the-subscription-object>
+- Lemon Squeezy API requests, authentication and pagination: <https://docs.lemonsqueezy.com/api/getting-started/requests>
+- Lemon Squeezy create checkout: <https://docs.lemonsqueezy.com/api/checkouts/create-checkout>
+- Lemon Squeezy customer object and signed portal URL: <https://docs.lemonsqueezy.com/api/customers/the-customer-object>
+- Lemon Squeezy subscription management: <https://docs.lemonsqueezy.com/guides/developer-guide/managing-subscriptions>
+- Lemon Squeezy subscription reconciliation list: <https://docs.lemonsqueezy.com/api/subscriptions/list-all-subscriptions>
 
 ## Google Search and performance
 

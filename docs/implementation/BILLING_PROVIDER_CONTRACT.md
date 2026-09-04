@@ -32,7 +32,7 @@ provider” for raw status and must not present it as an access guarantee.
 ## Operations and transport policy
 
 `Billing::Provider` defines checkout creation, portal link creation, subscription fetch/change/cancel/resume,
-webhook verification and canonical event parsing. Change/cancel/resume may return `unsupported_operation` for
+bounded reconciliation pages, webhook verification and canonical event parsing. Change/cancel/resume may return `unsupported_operation` for
 a provider that cannot support the requested transition; capability checks remain explicit.
 
 | Operation | Method | Open/read timeout | Response cap | Safe retries | Idempotency |
@@ -43,10 +43,13 @@ a provider that cannot support the requested transition; capability checks remai
 | change subscription | PATCH | 2s / 5s | 512 KiB | 1 | required provider key |
 | cancel subscription | DELETE | 2s / 5s | 512 KiB | 1 | required provider key |
 | resume subscription | PATCH | 2s / 5s | 512 KiB | 1 | required provider key |
+| reconciliation page | GET | 2s / 5s | 512 KiB | 2 | naturally safe |
 | verify/parse webhook | local | bounded by 512 KiB ingress | 512 KiB | 0 | provider event/fingerprint |
 
 Retries are the maximum additional attempts after the first call. A mutation may be retried only after its
-provider idempotency key is attached and the adapter confirms equivalent provider semantics. Timeouts are
+provider idempotency key is attached and the adapter confirms equivalent provider semantics. Lemon Squeezy
+does not currently document mutation idempotency, so its adapter uses zero mutation retries and only a
+one-way local correlation digest. Timeouts are
 categorized as retryable but do not prove the first request failed; reconciliation resolves uncertainty.
 Authentication, authorization, signature and malformed-response failures are terminal. Rate limits carry a
 bounded `retry_after` when the provider supplies one.
@@ -57,9 +60,10 @@ bounded `retry_after` when the provider supplies one.
 The reverse provider identity is unique in that environment. A composite foreign key requires a provider-backed
 subscription to reference a customer with the exact same organization, provider and environment.
 
-`billing_plan_provider_mappings` remains the exact internal plan-version/currency/interval to opaque variant
-mapping. Missing, inactive, wrong-environment or wrong-interval mappings fail closed; the variant is redacted
-from projections.
+`billing_plan_provider_mappings` remains the exact internal plan-version/currency/interval to opaque provider
+catalog mapping. Lemon Squeezy rows additionally require numeric store, product and variant coordinates.
+Missing, inactive, wrong-store, wrong-product, wrong-environment or wrong-interval mappings fail closed; all
+provider coordinates are redacted from projections.
 
 Canonical subscription statuses are `pending`, `trialing`, `active`, `past_due`, `paused`, `canceled` and
 `expired`. Access states are independently constrained:

@@ -524,9 +524,13 @@ CREATE TABLE public.billing_plan_provider_mappings (
     active boolean DEFAULT true NOT NULL,
     created_at timestamp(6) with time zone NOT NULL,
     updated_at timestamp(6) with time zone NOT NULL,
+    provider_store_id character varying(128),
+    provider_product_id character varying(128),
+    CONSTRAINT billing_plan_mappings_catalog_coordinates_shape CHECK ((((provider_store_id IS NULL) AND (provider_product_id IS NULL)) OR ((provider_store_id IS NOT NULL) AND (provider_product_id IS NOT NULL)))),
     CONSTRAINT billing_plan_mappings_currency_format CHECK (((currency)::text ~ '^[A-Z]{3}$'::text)),
     CONSTRAINT billing_plan_mappings_environment_allowlist CHECK (((environment)::text = ANY ((ARRAY['development'::character varying, 'test'::character varying, 'staging'::character varying, 'production'::character varying])::text[]))),
     CONSTRAINT billing_plan_mappings_interval_allowlist CHECK (((billing_interval)::text = ANY ((ARRAY['monthly'::character varying, 'annual'::character varying])::text[]))),
+    CONSTRAINT billing_plan_mappings_lemon_squeezy_coordinates CHECK ((((provider)::text <> 'lemon_squeezy'::text) OR ((provider_store_id IS NOT NULL) AND (provider_product_id IS NOT NULL) AND ((provider_store_id)::text ~ '^[1-9][0-9]{0,18}$'::text) AND ((provider_product_id)::text ~ '^[1-9][0-9]{0,18}$'::text) AND ((provider_variant_id)::text ~ '^[1-9][0-9]{0,18}$'::text)))),
     CONSTRAINT billing_plan_mappings_provider_format CHECK (((provider)::text ~ '^[a-z][a-z0-9_]{1,31}$'::text)),
     CONSTRAINT billing_plan_mappings_variant_format CHECK (((provider_variant_id)::text ~ '^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$'::text))
 );
@@ -1797,6 +1801,13 @@ CREATE UNIQUE INDEX index_billing_customers_on_tenant_provider ON public.billing
 --
 
 CREATE UNIQUE INDEX index_billing_plan_mappings_on_active_target ON public.billing_plan_provider_mappings USING btree (plan_version_id, provider, environment, currency, billing_interval) WHERE (active = true);
+
+
+--
+-- Name: index_billing_plan_mappings_on_provider_catalog_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_billing_plan_mappings_on_provider_catalog_identity ON public.billing_plan_provider_mappings USING btree (provider, environment, provider_store_id, provider_product_id, provider_variant_id) WHERE ((provider_store_id IS NOT NULL) AND (provider_product_id IS NOT NULL));
 
 
 --
@@ -3188,6 +3199,7 @@ ALTER TABLE ONLY public.usage_windows
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904094000'),
 ('20260904093000'),
 ('20260904092000'),
 ('20260904091000'),
