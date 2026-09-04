@@ -80,6 +80,17 @@ controllers:
       update: *manage_properties
       archive: *manage_properties
       reactivate: *manage_properties
+  Properties::EnvironmentsController:
+    source: app/controllers/properties/environments_controller.rb
+    actions:
+      index: &read_property_environments { kind: permission, permission: properties.read }
+      show: *read_property_environments
+      new: &manage_property_environments { kind: permission, permission: properties.manage }
+      create: *manage_property_environments
+      edit: *manage_property_environments
+      update: *manage_property_environments
+      archive: *manage_property_environments
+      reactivate: *manage_property_environments
   Tenancy::InvitationAcceptancesController:
     source: app/controllers/tenancy/invitation_acceptances_controller.rb
     actions:
@@ -232,6 +243,14 @@ domain_operations:
   Properties::Public.create_property: { kind: permission, permission: properties.manage }
   Properties::Public.update_property: { kind: permission, permission: properties.manage }
   Properties::Public.transition_property: { kind: permission, permission: properties.manage }
+  Properties::Public.create_environment: { kind: permission, permission: properties.manage }
+  Properties::Public.update_environment: { kind: permission, permission: properties.manage }
+  Properties::Public.transition_environment: { kind: permission, permission: properties.manage }
+  Properties::Public.environment_page: { kind: permission, permission: properties.read }
+  Properties::Public.environment_details: { kind: permission, permission: properties.read }
+  Properties::Public.environment_reference:
+    kind: context
+    reason: explicit_tenant_project_property_environment_projection_for_downstream_modules
   Properties::Public.property_page:
     kind: context
     reason: filters_every_result_through_property_scope_visibility

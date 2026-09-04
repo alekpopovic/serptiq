@@ -1,0 +1,67 @@
+{
+  "prompt_id": "052",
+  "title": "Implement environments and canonical URL origin normalization",
+  "status": "completed",
+  "started_at": "2026-09-04T20:02:10Z",
+  "finished_at": "2026-09-04T20:36:01Z",
+  "summary": "Implemented tenant-safe property environments with immutable keys and kinds, lifecycle management, transactional primary-production selection, strict canonical HTTP(S) origin normalization with IDNA display/network forms, audited changes, UI warnings, and backward-compatible primary-origin mirroring.",
+  "tests": [
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test test/domain/properties/environment_test.rb test/requests/property_environments_test.rb test/database/property_environment_constraints_test.rb test/database/property_environment_primary_concurrency_test.rb",
+      "outcome": "passed",
+      "notes": "17 runs, 93 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test",
+      "outcome": "passed",
+      "notes": "679 runs, 5280 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test:system",
+      "outcome": "passed",
+      "notes": "33 runs, 156 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "mise exec -- bin/quality",
+      "outcome": "passed",
+      "notes": "14 checks passed; 872 Ruby files and 63 ERB templates clean; 4 JavaScript modules valid; Brakeman 0 warnings; advisory audits clean"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails db:rollback STEP=1 && docker compose --profile test run --rm test ./bin/rails db:migrate",
+      "outcome": "passed",
+      "notes": "Property environment migration rolled back and reapplied successfully"
+    }
+  ],
+  "files_changed": [
+    "Gemfile",
+    "Gemfile.lock",
+    "app/controllers/properties/environments_controller.rb",
+    "app/domains/auditing/consistency_report.rb",
+    "app/domains/properties",
+    "app/views/properties",
+    "config/authorization_inventory.yml",
+    "config/routes.rb",
+    "db/migrate/20260904133000_create_property_environments.rb",
+    "db/structure.sql",
+    "docs",
+    "test",
+    "tracking"
+  ],
+  "migrations": [
+    "20260904133000_create_property_environments.rb creates property_environments with tenant/parent FKs",
+    "lifecycle checks",
+    "uniqueness indexes",
+    "primary-production partial uniqueness",
+    "and a deferred exactly-one-primary constraint trigger"
+  ],
+  "decisions": [
+    "Properties owns environments; web properties receive one active primary production environment; primary origin remains mirrored to website_property_configs for compatibility; canonical parsing is admission validation rather than crawler SSRF authorization; public DNS hostnames only in the MVP"
+  ],
+  "risks": [
+    "Canonical origin admission does not resolve DNS and must not replace per-hop crawler network safety; mirrored website origin remains until downstream consumers migrate to environments"
+  ],
+  "next_steps": [
+    "Prompt 053 should build verification against the canonical primary environment while retaining redirect-by-redirect network authorization"
+  ],
+  "commit": null
+}

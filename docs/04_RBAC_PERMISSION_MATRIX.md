@@ -16,6 +16,10 @@ System roles are immutable templates. Assignments may be organization-scoped or 
 
 Legend: **✓** default grant, **—** not granted. Owners receive every customer permission but remain subject to plan entitlements and quotas.
 
+Property-environment reads inherit `properties.read`; create, origin/primary updates and lifecycle changes
+inherit `properties.manage` at organization, project or exact property scope. Environments do not introduce a
+broader authorization scope of their own.
+
 ## 2. Default role matrix
 
 | Permission | Owner | Organization Admin | Billing Admin | SEO Lead | Developer | Content Editor | Analyst | Viewer |

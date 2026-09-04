@@ -81,6 +81,8 @@ Do not pre-populate these reports with fictional implementation or test results.
   active-project capacity, audit/outbox history and bulk placeholder read models.
 - [`PROPERTIES.md`](./PROPERTIES.md) defines versioned typed property configuration, tenant/project scope
   linkage, active property limits, lifecycle, verification-reset and grouped read-model semantics.
+- [`PROPERTY_ENVIRONMENTS.md`](./PROPERTY_ENVIRONMENTS.md) defines canonical IDNA origin parsing, public-only
+  input policy, property environment lifecycle and the concurrent exactly-one-primary invariant.
 - [`BILLING_PROVIDER_CONTRACT.md`](./BILLING_PROVIDER_CONTRACT.md) defines normalized billing values,
   adapter operations/errors, transport policies, canonical lifecycle and second-provider requirements.
 - [`LEMON_SQUEEZY_ADAPTER.md`](./LEMON_SQUEEZY_ADAPTER.md) defines the first production adapter's exact

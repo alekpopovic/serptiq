@@ -1,0 +1,31 @@
+<% content_for :title, "Environments" %>
+
+<div class="mx-auto max-w-6xl">
+  <%= render "shared/breadcrumbs", items: [
+    { label: "Projects", path: organization_projects_path(Current.organization.slug) },
+    { label: @project.name, path: organization_project_path(Current.organization.slug, @project.slug) },
+    { label: @property.display_name, path: organization_project_property_path(Current.organization.slug, @project.slug, @property.id) },
+    { label: "Environments", path: nil }
+  ] %>
+  <div class="mt-6 flex flex-wrap items-end justify-between gap-4">
+    <div><p class="so-eyebrow">Property origins</p><h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950">Environments</h1><p class="mt-3 max-w-3xl text-sm text-slate-600">Each active web property has exactly one primary production origin. Verification is an observation bound to an exact environment origin.</p></div>
+    <% if @property.active? && allowed_to?("properties.manage", project: @project, property: @property) %><%= link_to "Add environment", new_organization_project_property_environment_path(Current.organization.slug, @project.slug, @property.id), class: "so-button so-button-primary" %><% end %>
+  </div>
+
+  <%= form_with url: organization_project_property_environments_path(Current.organization.slug, @project.slug, @property.id), method: :get, class: "mt-8 flex gap-3" do |form| %>
+    <%= form.search_field :q, value: @environment_page.query, placeholder: "Search name, key or kind", maxlength: 80, class: "so-input" %>
+    <%= form.submit "Search", class: "so-button so-button-secondary" %>
+  <% end %>
+
+  <div class="mt-6 grid gap-4">
+    <% @environment_page.entries.each do |environment| %>
+      <article class="so-card p-5">
+        <div class="flex flex-wrap items-start justify-between gap-4">
+          <div><p class="text-xs font-bold uppercase tracking-wide text-slate-500"><%= environment.kind.humanize %> · <span class="font-mono"><%= environment.key %></span></p><h2 class="mt-2 text-lg font-bold text-slate-950"><%= link_to environment.display_name, organization_project_property_environment_path(Current.organization.slug, @project.slug, @property.id, environment.id), class: "hover:text-teal-700" %></h2><p class="mt-2 break-all font-mono text-sm text-slate-700"><%= environment.origin.display_origin %></p></div>
+          <div class="flex gap-2"><% if environment.primary? %><span class="so-badge so-badge-success">Primary</span><% end %><span class="so-badge <%= environment.active? ? "so-badge-success" : "so-badge-neutral" %>"><%= environment.status.humanize %></span></div>
+        </div>
+      </article>
+    <% end %>
+  </div>
+  <% if @environment_page.total_pages > 1 %><p class="mt-5 text-sm text-slate-600">Page <%= @environment_page.page %> of <%= @environment_page.total_pages %></p><% end %>
+</div>

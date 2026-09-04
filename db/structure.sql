@@ -162,6 +162,52 @@ $$;
 
 
 --
+-- Name: enforce_property_primary_environment(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.enforce_property_primary_environment() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  target_property_id uuid;
+  target_organization_id uuid;
+  target_project_id uuid;
+  property_row properties%ROWTYPE;
+  primary_count integer;
+BEGIN
+  IF TG_TABLE_NAME = 'properties' THEN
+    target_property_id := COALESCE(NEW.id, OLD.id);
+    target_organization_id := COALESCE(NEW.organization_id, OLD.organization_id);
+    target_project_id := COALESCE(NEW.project_id, OLD.project_id);
+  ELSE
+    target_property_id := COALESCE(NEW.property_id, OLD.property_id);
+    target_organization_id := COALESCE(NEW.organization_id, OLD.organization_id);
+    target_project_id := COALESCE(NEW.project_id, OLD.project_id);
+  END IF;
+
+  SELECT * INTO property_row FROM properties
+  WHERE id = target_property_id
+    AND organization_id = target_organization_id
+    AND project_id = target_project_id;
+  IF NOT FOUND OR property_row.status <> 'active'
+    OR property_row.kind NOT IN ('website', 'web_application') THEN
+    RETURN COALESCE(NEW, OLD);
+  END IF;
+
+  SELECT count(*) INTO primary_count FROM property_environments
+  WHERE property_id = target_property_id
+    AND organization_id = target_organization_id
+    AND project_id = target_project_id
+    AND "primary" = TRUE AND status = 'active' AND kind = 'production';
+  IF primary_count <> 1 THEN
+    RAISE EXCEPTION 'active website property requires exactly one primary production environment';
+  END IF;
+  RETURN COALESCE(NEW, OLD);
+END;
+$$;
+
+
+--
 -- Name: enforce_usage_catalog_immutability(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -376,6 +422,29 @@ BEGIN
     OR NEW.external_release_key <> OLD.external_release_key
     OR NEW.authorization_scope_type <> OLD.authorization_scope_type THEN
     RAISE EXCEPTION 'project stable identity cannot be changed';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: protect_property_environment_stable_identity(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.protect_property_environment_stable_identity() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF NEW.id IS DISTINCT FROM OLD.id
+    OR NEW.organization_id IS DISTINCT FROM OLD.organization_id
+    OR NEW.project_id IS DISTINCT FROM OLD.project_id
+    OR NEW.property_id IS DISTINCT FROM OLD.property_id
+    OR NEW.property_kind IS DISTINCT FROM OLD.property_kind
+    OR NEW.configuration_version IS DISTINCT FROM OLD.configuration_version
+    OR NEW.key IS DISTINCT FROM OLD.key
+    OR NEW.kind IS DISTINCT FROM OLD.kind THEN
+    RAISE EXCEPTION 'property environment stable identity cannot be changed';
   END IF;
   RETURN NEW;
 END;
@@ -1293,6 +1362,46 @@ CREATE TABLE public.properties (
 
 
 --
+-- Name: property_environments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.property_environments (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_id uuid NOT NULL,
+    property_kind character varying(32) NOT NULL,
+    configuration_version integer DEFAULT 1 NOT NULL,
+    key public.citext NOT NULL,
+    kind character varying(24) NOT NULL,
+    display_name public.citext NOT NULL,
+    "primary" boolean DEFAULT false NOT NULL,
+    status character varying(24) DEFAULT 'active'::character varying NOT NULL,
+    scheme character varying(8) NOT NULL,
+    host public.citext NOT NULL,
+    port integer NOT NULL,
+    origin text NOT NULL,
+    archived_at timestamp(6) with time zone,
+    lock_version integer DEFAULT 0 NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT property_environments_canonical_origin CHECK ((((char_length(origin) >= 8) AND (char_length(origin) <= 2048)) AND (origin = ((((scheme)::text || '://'::text) || lower((host)::text)) ||
+CASE
+    WHEN ((((scheme)::text = 'http'::text) AND (port = 80)) OR (((scheme)::text = 'https'::text) AND (port = 443))) THEN ''::text
+    ELSE (':'::text || (port)::text)
+END)))),
+    CONSTRAINT property_environments_display_name_format CHECK ((((char_length((display_name)::text) >= 2) AND (char_length((display_name)::text) <= 120)) AND ((display_name)::text = btrim((display_name)::text)))),
+    CONSTRAINT property_environments_host_format CHECK ((((host)::text = lower((host)::text)) AND ((host)::text ~ '^[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?$'::text))),
+    CONSTRAINT property_environments_key_format CHECK ((((key)::text ~ '^[a-z][a-z0-9-]{1,62}$'::text) AND ((key)::text = lower((key)::text)))),
+    CONSTRAINT property_environments_kind_allowlist CHECK (((kind)::text = ANY ((ARRAY['production'::character varying, 'staging'::character varying, 'development'::character varying, 'custom'::character varying])::text[]))),
+    CONSTRAINT property_environments_lifecycle CHECK (((((status)::text = 'active'::text) AND (archived_at IS NULL)) OR (((status)::text = 'archived'::text) AND (archived_at IS NOT NULL)))),
+    CONSTRAINT property_environments_primary_shape CHECK ((("primary" = false) OR (((kind)::text = 'production'::text) AND ((status)::text = 'active'::text)))),
+    CONSTRAINT property_environments_property_type CHECK ((((property_kind)::text = ANY ((ARRAY['website'::character varying, 'web_application'::character varying])::text[])) AND (configuration_version = 1))),
+    CONSTRAINT property_environments_transport CHECK ((((scheme)::text = ANY ((ARRAY['http'::character varying, 'https'::character varying])::text[])) AND ((port >= 1) AND (port <= 65535))))
+);
+
+
+--
 -- Name: role_assignments; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2044,6 +2153,14 @@ ALTER TABLE ONLY public.projects
 
 ALTER TABLE ONLY public.properties
     ADD CONSTRAINT properties_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: property_environments property_environments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.property_environments
+    ADD CONSTRAINT property_environments_pkey PRIMARY KEY (id);
 
 
 --
@@ -2833,6 +2950,34 @@ CREATE UNIQUE INDEX index_properties_on_typed_identity ON public.properties USIN
 
 
 --
+-- Name: index_property_environments_on_directory; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_property_environments_on_directory ON public.property_environments USING btree (organization_id, project_id, property_id, status, kind, display_name, id);
+
+
+--
+-- Name: index_property_environments_on_origin; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_property_environments_on_origin ON public.property_environments USING btree (organization_id, project_id, origin);
+
+
+--
+-- Name: index_property_environments_on_primary_production; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_property_environments_on_primary_production ON public.property_environments USING btree (organization_id, project_id, property_id) WHERE (("primary" = true) AND ((status)::text = 'active'::text) AND ((kind)::text = 'production'::text));
+
+
+--
+-- Name: index_property_environments_on_stable_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_property_environments_on_stable_key ON public.property_environments USING btree (organization_id, project_id, property_id, key);
+
+
+--
 -- Name: index_role_assignments_on_active_grant; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3281,6 +3426,27 @@ CREATE TRIGGER properties_protect_stable_identity BEFORE UPDATE ON public.proper
 
 
 --
+-- Name: properties properties_require_primary_environment; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE CONSTRAINT TRIGGER properties_require_primary_environment AFTER INSERT OR UPDATE ON public.properties DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION public.enforce_property_primary_environment();
+
+
+--
+-- Name: property_environments property_environments_protect_stable_identity; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER property_environments_protect_stable_identity BEFORE UPDATE ON public.property_environments FOR EACH ROW EXECUTE FUNCTION public.protect_property_environment_stable_identity();
+
+
+--
+-- Name: property_environments property_environments_require_primary; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE CONSTRAINT TRIGGER property_environments_require_primary AFTER INSERT OR DELETE OR UPDATE ON public.property_environments DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION public.enforce_property_primary_environment();
+
+
+--
 -- Name: usage_events usage_events_immutable_and_consistent; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -3504,6 +3670,14 @@ ALTER TABLE ONLY public.properties
 
 ALTER TABLE ONLY public.properties
     ADD CONSTRAINT fk_properties_same_scope_hierarchy FOREIGN KEY (organization_id, id, authorization_scope_type, project_id, authorization_project_scope_type) REFERENCES public.authorization_scope_references(organization_id, id, scope_type, project_id, project_scope_type) ON DELETE RESTRICT;
+
+
+--
+-- Name: property_environments fk_property_environments_typed_property; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.property_environments
+    ADD CONSTRAINT fk_property_environments_typed_property FOREIGN KEY (organization_id, project_id, property_id, property_kind, configuration_version) REFERENCES public.properties(organization_id, project_id, id, kind, configuration_version) ON DELETE RESTRICT;
 
 
 --
@@ -4113,6 +4287,7 @@ ALTER TABLE ONLY public.website_property_configs
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904133000'),
 ('20260904131000'),
 ('20260904130000'),
 ('20260904123000'),

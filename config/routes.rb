@@ -165,6 +165,28 @@ Rails.application.routes.draw do
   patch "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id/reactivate",
     to: "properties/properties#reactivate",
     as: :reactivate_organization_project_property
+  get "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id/environments",
+    to: "properties/environments#index",
+    as: :organization_project_property_environments
+  get "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id/environments/new",
+    to: "properties/environments#new",
+    as: :new_organization_project_property_environment
+  post "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id/environments",
+    to: "properties/environments#create"
+  get "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id/environments/:environment_id",
+    to: "properties/environments#show",
+    as: :organization_project_property_environment
+  get "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id/environments/:environment_id/edit",
+    to: "properties/environments#edit",
+    as: :edit_organization_project_property_environment
+  patch "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id/environments/:environment_id",
+    to: "properties/environments#update"
+  patch "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id/environments/:environment_id/archive",
+    to: "properties/environments#archive",
+    as: :archive_organization_project_property_environment
+  patch "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id/environments/:environment_id/reactivate",
+    to: "properties/environments#reactivate",
+    as: :reactivate_organization_project_property_environment
   get "dashboard/organizations/:organization_slug", to: "dashboard#index", as: :organization_dashboard
   get "onboarding", to: "onboarding#show", as: :onboarding
   get "dashboard/invitations/review",

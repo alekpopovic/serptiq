@@ -131,8 +131,8 @@ Recommended responsibilities:
 | Entitlements | Typed feature values and overrides |
 | Usage | Usage events, windows, reservations, finalization |
 | Billing | Provider adapters, customers, subscriptions, webhook projections |
-| Projects | Projects, environments, settings |
-| Properties | Project properties and ownership-verification state |
+| Projects | Projects and project settings |
+| Properties | Project properties, property environments and ownership-verification summary state |
 | Verification | Domain ownership challenges and evidence |
 | Crawling | Scans, frontier, URL fetching, robots, sitemaps, links, artifacts |
 | Analysis | Rule registry, rule versions, execution, evidence schemas |

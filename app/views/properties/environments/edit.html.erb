@@ -1,0 +1,14 @@
+<% content_for :title, "Edit environment" %>
+<div class="mx-auto max-w-3xl">
+  <%= render "shared/breadcrumbs", items: [
+    { label: @property.display_name, path: organization_project_property_path(Current.organization.slug, @project.slug, @property.id) },
+    { label: "Environments", path: organization_project_property_environments_path(Current.organization.slug, @project.slug, @property.id) },
+    { label: @environment.display_name, path: organization_project_property_environment_path(Current.organization.slug, @project.slug, @property.id, @environment.id) },
+    { label: "Edit", path: nil }
+  ] %>
+  <h1 class="mt-6 text-3xl font-black tracking-tight text-slate-950">Edit environment</h1>
+  <%= form_with model: @environment, scope: :environment, url: organization_project_property_environment_path(Current.organization.slug, @project.slug, @property.id, @environment.id), method: :patch, class: "mt-8 space-y-6" do |form| %>
+    <%= render "form", form: form, environment: @environment, environment_kinds: @environment_kinds %>
+    <%= form.submit "Save environment", class: "so-button so-button-primary" %>
+  <% end %>
+</div>

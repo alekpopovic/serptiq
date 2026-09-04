@@ -22,7 +22,7 @@
   <div>
     <%= form.label :origin, "Website origin", class: "so-label" %>
     <%= form.url_field :origin, value: configuration[:origin], placeholder: "https://www.example.com", class: "so-input", aria: { describedby: "property-origin-hint" } %>
-    <p id="property-origin-hint" class="so-help">Enter an HTTP(S) origin without credentials, path, query or fragment.</p>
+    <p id="property-origin-hint" class="so-help">Enter a public HTTP(S) DNS origin without credentials, path, query or fragment. Unicode hostnames are stored in ASCII IDNA network form.</p>
   </div>
 </fieldset>
 

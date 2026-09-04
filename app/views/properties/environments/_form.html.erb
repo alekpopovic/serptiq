@@ -1,0 +1,43 @@
+<%= render "shared/error_summary", model: environment, title: "Check the environment details", field_ids: {
+  key: "environment_key", kind: "environment_kind", display_name: "environment_display_name",
+  origin: "environment_origin"
+} %>
+
+<div class="so-alert so-alert-warning">
+  <p><strong>Public targets only.</strong> IP literals, single-label and internal hostnames are unsupported. Saving an origin validates its canonical syntax; scans will separately resolve and re-check every destination against the network-safety policy.</p>
+</div>
+
+<div>
+  <%= form.label :display_name, "Display name", class: "so-label" %>
+  <%= form.text_field :display_name, required: true, maxlength: 120, class: "so-input" %>
+</div>
+
+<% if environment.new_record? %>
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div>
+      <%= form.label :key, "Stable key", class: "so-label" %>
+      <%= form.text_field :key, required: true, maxlength: 63, placeholder: "staging", autocapitalize: "none", spellcheck: false, class: "so-input" %>
+      <p class="so-help">Permanent after creation; lowercase letters, numbers and hyphens.</p>
+    </div>
+    <div>
+      <%= form.label :kind, "Environment kind", class: "so-label" %>
+      <%= form.select :kind, environment_kinds, {}, class: "so-select" %>
+    </div>
+  </div>
+<% else %>
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div><span class="so-label">Stable key</span><p class="mt-2 font-mono text-sm text-slate-700"><%= environment.key %></p></div>
+    <div><span class="so-label">Kind</span><p class="mt-2 text-sm text-slate-700"><%= environment.kind.humanize %></p></div>
+  </div>
+<% end %>
+
+<div>
+  <%= form.label :origin, "HTTP(S) origin", class: "so-label" %>
+  <%= form.url_field :origin, required: true, value: environment.origin, placeholder: "https://staging.example.com", class: "so-input", aria: { describedby: "environment-origin-help" } %>
+  <p id="environment-origin-help" class="so-help">A trailing root slash or hostname dot is collapsed. Paths, queries, fragments and credentials are rejected.</p>
+</div>
+
+<div class="flex items-start gap-3">
+  <%= form.check_box :primary, disabled: environment.persisted? && environment.kind != "production", class: "mt-1 rounded border-slate-300" %>
+  <div><%= form.label :primary, "Primary production environment", class: "text-sm font-semibold text-slate-900" %><p class="so-help">Making another production environment primary updates the property's canonical origin and invalidates earlier verification.</p></div>
+</div>

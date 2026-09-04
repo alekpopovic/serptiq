@@ -253,6 +253,15 @@ Controls:
 - record a redacted network decision;
 - dedicated regression corpus for parser and rebinding cases.
 
+Property environment origins use one immutable value contract before any network activity. It lowercases the
+scheme and DNS identity, converts Unicode names to a stable ASCII IDNA network form, derives a normalized
+Unicode display form, collapses HTTP 80/HTTPS 443, removes one terminal DNS dot and treats only an empty/root
+path as an origin. Credentials, query, fragment, non-root path, malformed labels, IP literals, single-label
+names and known internal naming suffixes are rejected. Host-scope comparisons require equality or a literal
+dot-delimited suffix, so `notexample.com` is never a subdomain of `example.com`. This parser deliberately does
+not claim that a syntactically public hostname resolves to a public address: the crawler boundary must resolve
+and validate every A/AAAA answer and every redirect before connecting.
+
 ### T-08 Denial of service and resource exhaustion
 
 Attack examples:

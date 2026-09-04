@@ -144,8 +144,8 @@ through `Entitlements::Public`, recent destructive-action authentication through
 append-only history through `Auditing::Public` plus the Shared outbox. Project creation registers a scope but
 never creates an implicit role assignment.
 
-Properties owns property identity, typed website/Android/iOS configurations, verification summary state and
-property lifecycle. It consumes immutable project references through `Projects::Public`, registers and
+Properties owns property identity, typed website/Android/iOS configurations, property environments, canonical
+origin values, verification summary state and property lifecycle. It consumes immutable project references through `Projects::Public`, registers and
 resolves property scopes through `Authorization::Public`, checks organization property limits through
 `Entitlements::Public`, and emits append-only history through `Auditing::Public` plus the Shared outbox. The
 delivery layer injects its grouped project rollup reader into Projects so neither domain forms a dependency

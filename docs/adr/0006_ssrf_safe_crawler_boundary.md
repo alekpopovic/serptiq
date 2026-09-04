@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-09-04
 - Owners: Security, Crawling
-- Last reviewed: 2026-09-04 (Prompt 005)
+- Last reviewed: 2026-09-04 (Prompt 052)
 
 ## Context
 
@@ -12,6 +12,11 @@ Customers submit URLs and pages may redirect, change DNS answers or reference ar
 ## Decision
 
 All outbound crawl destinations pass a centralized network-safety policy. Allow only HTTP/HTTPS, normalize hostnames, resolve DNS, reject non-public addresses, connect using validated resolution, re-resolve every redirect, bound redirects/bytes/time and record denials. Run crawl/render workers in networks with defense-in-depth egress restrictions.
+
+Property environment origins are stored in canonical lowercase ASCII IDNA form with effective ports and a
+separate derived Unicode display form. Origin admission rejects credentials, non-root URL components, IP
+literals, unqualified/internal names and ambiguous authority syntax. This admission parser is not SSRF
+authorization; the outbound worker still performs the full resolution and connection policy above.
 
 ## Consequences
 

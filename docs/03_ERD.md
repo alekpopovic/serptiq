@@ -38,6 +38,7 @@ erDiagram
   PROPERTY ||--o| WEBSITE_PROPERTY_CONFIG : configures
   PROPERTY ||--o| ANDROID_PROPERTY_CONFIG : configures
   PROPERTY ||--o| IOS_PROPERTY_CONFIG : configures
+  PROPERTY ||--|{ PROPERTY_ENVIRONMENT : targets
   PROPERTY ||--o{ DOMAIN_VERIFICATION : verifies
 
   PLAN ||--o{ PLAN_VERSION : versions
@@ -685,6 +686,32 @@ fingerprints, locales and store snapshots are separate versioned association/dis
 One-to-one typed configuration with normalized bundle ID and uppercase Team ID. Associated-domain
 declarations, locales and App Store snapshots remain separate versioned discovery records.
 
+### `property_environments`
+
+Tenant- and project-bound web-property environments own the exact origin later verification and scanning
+operate against. Website and web-application properties receive a default production row in the same
+transaction as property creation; Android and iOS properties do not have HTTP origin environments.
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid | stable environment identity |
+| organization_id / project_id / property_id | uuid | composite same-tenant property relationship |
+| property_kind / configuration_version | string / integer | typed-property FK projection |
+| key | citext | immutable normalized key within retained property history |
+| kind | string | production, staging, development or custom; immutable |
+| display_name | citext | bounded customer-facing label |
+| primary | boolean | true only for an active production row |
+| status / archived_at | string / timestamptz | active or archived lifecycle |
+| scheme / host / port / origin | typed columns | canonical ASCII HTTP(S) network identity |
+| lock_version | integer | optimistic mutation version |
+
+A partial unique index permits at most one active primary production row; deferred PostgreSQL constraint
+triggers require exactly one when the parent is an active website-family property. Mutations lock the parent
+property, so concurrent primary changes serialize. Environment origin identity is unique within the project,
+and the primary environment is transactionally mirrored into `website_property_configs` for compatibility.
+Origin or primary changes invalidate the property verification summary; Prompt 053 binds durable proof to
+the exact environment and origin.
+
 ### `domain_verifications`
 
 | Column | Type |
@@ -879,6 +906,8 @@ targets for orphaned and cross-tenant references.
     identity cannot be reassigned.
 17. Every property and typed configuration has the same organization and project as its immutable parent and
     registered Authorization property scope.
+18. Every active website or web-application property has exactly one active primary production environment;
+    every environment is bound by composite foreign key to the same tenant, project and typed property.
 
 ## 12. Retention classes
 

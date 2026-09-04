@@ -26,6 +26,9 @@
   <% unless @property_summary.active? %><div class="so-alert so-alert-warning mt-7"><p>This property is read-only and cannot start new scans.</p></div><% end %>
 
   <div class="mt-8 flex flex-wrap gap-3">
+    <% if @property.kind.in?(%w[website web_application]) %>
+      <%= link_to "Manage environments", organization_project_property_environments_path(Current.organization.slug, @project.slug, @property.id), class: "so-button so-button-secondary" %>
+    <% end %>
     <% if @property_summary.active? && allowed_to?("properties.manage", project: @project, property: @property) %>
       <%= link_to "Edit property", edit_organization_project_property_path(Current.organization.slug, @project.slug, @property.id), class: "so-button so-button-primary" %>
       <%= button_to "Archive property", archive_organization_project_property_path(Current.organization.slug, @project.slug, @property.id), method: :patch, class: "so-button so-button-secondary", form: { data: { turbo_confirm: "Archive this property and disable new scans?" } } %>

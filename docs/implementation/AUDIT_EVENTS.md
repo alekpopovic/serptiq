@@ -28,6 +28,11 @@ Property create, association-configuration update, archive and restore operation
 targets. Configuration audit metadata records only type and changed-field classifications; origins, package
 names, bundle IDs and Team IDs are deliberately excluded.
 
+Property environment create, update, archive and restore operations use same-tenant `PropertyEnvironment`
+targets. Origin and primary changes record only the environment kind, operation and changed-field names; the
+ASCII/Unicode origin, host, stable key and display label are absent from audit metadata and outbox payloads.
+The consistency report checks retained environment targets for orphaned or cross-tenant rows.
+
 Run `bin/tenancy-security` for the required Phase 03 isolation suite and both consistency reports. Operators
 can run `bin/rails auditing:consistency:check` independently; any orphan or known cross-tenant actor/retained
 tenant target causes a non-zero exit. Expired sessions are intentionally excluded because their audit IDs

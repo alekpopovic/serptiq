@@ -17,6 +17,8 @@ module Properties
       inverse_of: :property, dependent: :restrict_with_exception
     has_one :ios_property_config, class_name: "Properties::IosPropertyConfig",
       inverse_of: :property, dependent: :restrict_with_exception
+    has_many :environments, class_name: "Properties::Environment",
+      inverse_of: :property, dependent: :restrict_with_exception
 
     validates :organization_id, :project_id, presence: true
     validates :display_name, presence: true, length: { in: 2..160 }, uniqueness: {

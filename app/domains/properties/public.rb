@@ -16,6 +16,26 @@ module Properties
       TransitionProperty.new(clock: clock).call(**attributes)
     end
 
+    def create_environment(clock: -> { Time.current }, **attributes)
+      CreateEnvironment.new(clock: clock).call(**attributes)
+    end
+
+    def update_environment(clock: -> { Time.current }, **attributes)
+      UpdateEnvironment.new(clock: clock).call(**attributes)
+    end
+
+    def transition_environment(clock: -> { Time.current }, **attributes)
+      TransitionEnvironment.new(clock: clock).call(**attributes)
+    end
+
+    def environment_page(**attributes)
+      EnvironmentDirectory.new.page(**attributes)
+    end
+
+    def environment_details(**attributes)
+      EnvironmentDirectory.new.find(**attributes)
+    end
+
     def property_page(**attributes)
       PropertyDirectory.new.page(**attributes)
     end
@@ -42,6 +62,28 @@ module Properties
         status: property.status,
         verification_status: property.verification_status,
         configuration: property.configuration_record.value
+      )
+    end
+
+    def environment_reference(organization_id:, project_id:, property_id:, environment_id:)
+      environment = Environment.find_by(
+        id: environment_id,
+        property_id: property_id,
+        project_id: project_id,
+        organization_id: organization_id
+      )
+      return unless environment
+
+      EnvironmentReference.new(
+        id: environment.id,
+        organization_id: environment.organization_id,
+        project_id: environment.project_id,
+        property_id: environment.property_id,
+        key: environment.key,
+        kind: environment.kind,
+        status: environment.status,
+        primary: environment.primary?,
+        origin: environment.origin_value
       )
     end
   end

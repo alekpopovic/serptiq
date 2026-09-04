@@ -15,7 +15,8 @@ module Properties
       project = @authorization.project!(actor_membership: actor_membership, project_id: project_id)
       now = @clock.call
       property = nil
-      outbox_event = Property.transaction do
+      outbox_events = []
+      Property.transaction do
         access = @authorization.authorize!(
           actor_membership: actor_membership,
           permission_key: "properties.manage",
@@ -45,20 +46,42 @@ module Properties
           authorization_project_scope_type: "Project"
         )
         persist_configuration!(property, typed_configuration)
+        environment = EnvironmentProvisioning.create_primary!(
+          property: property,
+          configuration: typed_configuration,
+          at: now
+        )
         PropertyAudit.record!(
           action: "property.created",
           actor_membership_id: access.authorization.actor_membership_id,
           property: property,
           operation: "create"
         )
-        PropertyEvent.record!(
+        outbox_events << PropertyEvent.record!(
           property: property,
           event_type: "property.created",
           occurred_at: now,
           actor_membership_id: access.authorization.actor_membership_id
         )
+        if environment
+          EnvironmentAudit.record!(
+            action: "property_environment.created",
+            actor_membership_id: access.authorization.actor_membership_id,
+            environment: environment,
+            operation: "create",
+            changed_fields: %w[origin primary]
+          )
+          outbox_events << EnvironmentEvent.record!(
+            environment: environment,
+            event_type: "property_environment.created",
+            occurred_at: now,
+            actor_membership_id: access.authorization.actor_membership_id
+          )
+        end
       end
-      PropertyEvent.enqueue(outbox_event)
+      outbox_events.each do |event|
+        event.aggregate_type == "Property" ? PropertyEvent.enqueue(event) : EnvironmentEvent.enqueue(event)
+      end
       property
     end
 
