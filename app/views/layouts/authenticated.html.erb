@@ -4,6 +4,7 @@
   { label: "Dashboard", path: organization_path || dashboard_path },
   *(Current.organization ? [
     { label: "Members", path: organization_members_path(Current.organization.slug) },
+    { label: "Teams", path: organization_teams_path(Current.organization.slug) },
     { label: "Organization settings", path: organization_settings_path(Current.organization.slug) }
   ] : [ { label: "Get started", path: onboarding_path } ]),
   { label: "Account details", path: account_profile_path },

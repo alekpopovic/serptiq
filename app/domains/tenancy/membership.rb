@@ -9,6 +9,11 @@ module Tenancy
     belongs_to :organization, class_name: "Tenancy::Organization", inverse_of: :memberships
     has_many :ownerships, class_name: "Tenancy::OrganizationOwnership", inverse_of: :membership,
       dependent: :restrict_with_exception
+    has_many :team_memberships, class_name: "Tenancy::TeamMembership", inverse_of: :membership,
+      dependent: :restrict_with_exception
+    has_many :team_membership_additions, class_name: "Tenancy::TeamMembership",
+      foreign_key: :added_by_membership_id, inverse_of: :added_by_membership,
+      dependent: :restrict_with_exception
 
     validates :user_id, presence: true, uniqueness: { scope: :organization_id }
     validates :status, inclusion: { in: STATUSES }

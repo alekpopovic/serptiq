@@ -32,6 +32,28 @@ Rails.application.routes.draw do
   patch "dashboard/organizations/:organization_slug/members/:id/remove",
     to: "tenancy/members#remove",
     as: :remove_organization_member
+  get "dashboard/organizations/:organization_slug/teams",
+    to: "tenancy/teams#index",
+    as: :organization_teams
+  get "dashboard/organizations/:organization_slug/teams/new",
+    to: "tenancy/teams#new",
+    as: :new_organization_team
+  post "dashboard/organizations/:organization_slug/teams",
+    to: "tenancy/teams#create"
+  get "dashboard/organizations/:organization_slug/teams/:id",
+    to: "tenancy/teams#show",
+    as: :organization_team
+  patch "dashboard/organizations/:organization_slug/teams/:id",
+    to: "tenancy/teams#update"
+  patch "dashboard/organizations/:organization_slug/teams/:id/archive",
+    to: "tenancy/teams#archive",
+    as: :archive_organization_team
+  post "dashboard/organizations/:organization_slug/teams/:id/members",
+    to: "tenancy/teams#add_member",
+    as: :organization_team_members
+  delete "dashboard/organizations/:organization_slug/teams/:id/members/:membership_id",
+    to: "tenancy/teams#remove_member",
+    as: :organization_team_member
   get "dashboard/organizations/:organization_slug", to: "dashboard#index", as: :organization_dashboard
   get "onboarding", to: "onboarding#show", as: :onboarding
   get "dashboard/account/profile", to: "identity/profiles#show", as: :account_profile

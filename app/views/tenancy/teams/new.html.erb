@@ -1,0 +1,23 @@
+<% content_for :title, "Create team" %>
+
+<div class="mx-auto max-w-3xl">
+  <%= render "shared/breadcrumbs", items: [
+    { label: "Teams", path: organization_teams_path(Current.organization.slug) },
+    { label: "Create team", path: nil }
+  ] %>
+  <div class="mt-6">
+    <p class="so-eyebrow">Team</p>
+    <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950">Create a team</h1>
+  </div>
+  <%= form_with model: @team, scope: :team, url: organization_teams_path(Current.organization.slug), class: "so-card mt-8 space-y-6 p-6 sm:p-8" do |form| %>
+    <%= render "shared/error_summary", model: @team, title: "Check the team details", field_ids: { name: "team_name" } %>
+    <div>
+      <%= form.label :name, "Team name", class: "so-label" %>
+      <%= form.text_field :name, required: true, maxlength: 120, class: "so-input" %>
+    </div>
+    <div class="flex gap-3">
+      <%= form.submit "Create team", class: "so-button so-button-primary" %>
+      <%= link_to "Cancel", organization_teams_path(Current.organization.slug), class: "so-button so-button-secondary" %>
+    </div>
+  <% end %>
+</div>

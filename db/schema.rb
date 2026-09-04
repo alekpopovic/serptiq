@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_04_065000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_04_071000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -198,6 +198,38 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_065000) do
     t.check_constraint "user_agent_digest IS NULL OR user_agent_digest::text ~ '^[0-9a-f]{64}$'::text", name: "sessions_user_agent_digest_format"
   end
 
+  create_table "team_memberships", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "added_at", null: false
+    t.uuid "added_by_membership_id", null: false
+    t.datetime "created_at", null: false
+    t.uuid "membership_id", null: false
+    t.uuid "organization_id", null: false
+    t.datetime "removed_at"
+    t.uuid "team_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["organization_id", "membership_id", "removed_at"], name: "index_team_memberships_on_org_member_and_removed"
+    t.index ["organization_id", "team_id", "added_at"], name: "index_team_memberships_on_org_team_and_added"
+    t.index ["team_id", "membership_id"], name: "index_team_memberships_on_active_team_and_member", unique: true, where: "(removed_at IS NULL)"
+    t.check_constraint "removed_at IS NULL OR removed_at >= added_at", name: "team_memberships_timestamp_order"
+  end
+
+  create_table "teams", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "archived_at"
+    t.datetime "created_at", null: false
+    t.integer "lock_version", default: 0, null: false
+    t.citext "name", null: false
+    t.uuid "organization_id", null: false
+    t.string "status", limit: 24, default: "active", null: false
+    t.datetime "updated_at", null: false
+    t.index ["organization_id", "id"], name: "index_teams_on_organization_and_id", unique: true
+    t.index ["organization_id", "name"], name: "index_teams_on_active_organization_and_name", unique: true, where: "(archived_at IS NULL)"
+    t.index ["organization_id", "status", "created_at"], name: "index_teams_on_org_status_and_created"
+    t.index ["organization_id"], name: "index_teams_on_organization_id"
+    t.check_constraint "char_length(name::text) >= 2 AND char_length(name::text) <= 120 AND name::text = btrim(name::text)", name: "teams_name_format"
+    t.check_constraint "status::text = 'active'::text AND archived_at IS NULL OR status::text = 'archived'::text AND archived_at IS NOT NULL", name: "teams_lifecycle_consistency"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'archived'::character varying]::text[])", name: "teams_status_allowlist"
+  end
+
   create_table "users", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "accepted_terms_at"
     t.text "avatar_url"
@@ -225,4 +257,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_065000) do
   add_foreign_key "organizations", "organization_ownerships", column: "current_ownership_id", on_delete: :restrict, deferrable: :deferred
   add_foreign_key "sessions", "sessions", column: "rotated_from_id", on_delete: :restrict
   add_foreign_key "sessions", "users", on_delete: :restrict
+  add_foreign_key "team_memberships", "memberships", column: ["organization_id", "added_by_membership_id"], primary_key: ["organization_id", "id"], name: "fk_team_memberships_same_org_actor", on_delete: :restrict
+  add_foreign_key "team_memberships", "memberships", column: ["organization_id", "membership_id"], primary_key: ["organization_id", "id"], name: "fk_team_memberships_same_org_member", on_delete: :restrict
+  add_foreign_key "team_memberships", "organizations", on_delete: :restrict
+  add_foreign_key "team_memberships", "teams", column: ["organization_id", "team_id"], primary_key: ["organization_id", "id"], name: "fk_team_memberships_same_org_team", on_delete: :restrict
+  add_foreign_key "teams", "organizations", on_delete: :restrict
 end

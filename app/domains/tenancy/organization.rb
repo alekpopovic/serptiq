@@ -14,6 +14,10 @@ module Tenancy
       dependent: :restrict_with_exception
     has_many :slug_aliases, class_name: "Tenancy::OrganizationSlugAlias", inverse_of: :organization,
       dependent: :restrict_with_exception
+    has_many :teams, class_name: "Tenancy::Team", inverse_of: :organization,
+      dependent: :restrict_with_exception
+    has_many :team_memberships, class_name: "Tenancy::TeamMembership",
+      dependent: :restrict_with_exception
     belongs_to :current_ownership,
       class_name: "Tenancy::OrganizationOwnership",
       optional: true

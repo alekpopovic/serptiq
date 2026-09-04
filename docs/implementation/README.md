@@ -55,5 +55,7 @@ Do not pre-populate these reports with fictional implementation or test results.
   organization creation, switching, settings and controlled slug redirects.
 - [`MEMBERSHIP_LIFECYCLE.md`](./MEMBERSHIP_LIFECYCLE.md) defines durable member
   states, last-owner protection, immediate session invalidation and safe attribution.
+- [`TEAMS.md`](./TEAMS.md) defines organization-consistent team membership,
+  archive semantics and the future authorization-principal resolver contract.
 - [`../../tracking/README.md`](../../tracking/README.md) defines prompt evidence,
   recovery and state integrity.

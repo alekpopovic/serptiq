@@ -1,0 +1,38 @@
+<% content_for :title, "Teams" %>
+
+<div class="mx-auto max-w-6xl">
+  <%= render "shared/breadcrumbs", items: [
+    { label: "Dashboard", path: organization_dashboard_path(Current.organization.slug) },
+    { label: Current.organization.name, path: organization_dashboard_path(Current.organization.slug) },
+    { label: "Teams", path: nil }
+  ] %>
+  <div class="mt-6 flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <p class="so-eyebrow">Organization access</p>
+      <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950">Teams</h1>
+      <p class="mt-2 text-sm leading-6 text-slate-600">Teams group active organization members for future scoped role assignments.</p>
+    </div>
+    <%= link_to "Create team", new_organization_team_path(Current.organization.slug), class: "so-button so-button-primary" %>
+  </div>
+
+  <div class="so-table-wrap mt-8" role="region" aria-label="Organization teams" tabindex="0">
+    <table class="so-table">
+      <thead><tr><th scope="col">Team</th><th scope="col">Status</th><th scope="col">Members</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+      <tbody>
+        <% @team_page.entries.each do |team| %>
+          <tr>
+            <th scope="row" class="font-semibold text-slate-950"><%= team.name %></th>
+            <td><span class="so-badge <%= team.active? ? "so-badge-success" : "so-badge-neutral" %>"><%= team.status.humanize %></span></td>
+            <td><%= team.member_count %></td>
+            <td class="text-right"><%= link_to "View", organization_team_path(Current.organization.slug, team.id), class: "so-button so-button-secondary so-button-small" %></td>
+          </tr>
+        <% end %>
+      </tbody>
+    </table>
+  </div>
+  <nav class="so-pagination mt-5" aria-label="Team pages">
+    <% if @team_page.previous_page %><%= link_to "Previous", organization_teams_path(Current.organization.slug, page: @team_page.previous_page) %><% end %>
+    <span aria-current="page"><%= @team_page.page %></span>
+    <% if @team_page.next_page %><%= link_to "Next", organization_teams_path(Current.organization.slug, page: @team_page.next_page) %><% end %>
+  </nav>
+</div>

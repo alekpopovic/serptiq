@@ -56,3 +56,5 @@
 | 2026-09-04T06:34:15Z | 025 | completed | Added accessible organization creation and owner-only settings; safe active-membership switching; suspended-state presentation; controlled historical slug redirects and reserved-slug enforcement. |
 | 2026-09-04T06:34:54Z | 026 | started | Implement membership lifecycle |
 | 2026-09-04T06:47:22Z | 026 | completed | Added durable invited active suspended and removed membership states; locked lifecycle operations; last-owner protection; immediate session revocation; hashed actor/subject audit; paginated member UI and retained attribution. |
+| 2026-09-04T06:47:58Z | 027 | started | Implement teams and team memberships |
+| 2026-09-04T06:58:02Z | 027 | completed | Added organization-scoped teams with composite tenant FKs; locked create rename archive and idempotent membership operations; bounded paginated UI/search; archive semantics and an immutable authorization-principals boundary. |

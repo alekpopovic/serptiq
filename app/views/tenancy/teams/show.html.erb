@@ -1,0 +1,69 @@
+<% content_for :title, "Team details" %>
+
+<div class="mx-auto max-w-5xl">
+  <%= render "shared/breadcrumbs", items: [
+    { label: "Teams", path: organization_teams_path(Current.organization.slug) },
+    { label: @details.team.name, path: nil }
+  ] %>
+  <div class="mt-6 flex flex-wrap items-start justify-between gap-4">
+    <div>
+      <p class="so-eyebrow">Team</p>
+      <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950"><%= @details.team.name %></h1>
+      <p class="mt-2 text-sm text-slate-600"><%= @details.team.member_count %> current team memberships</p>
+    </div>
+    <span class="so-badge <%= @details.team.active? ? "so-badge-success" : "so-badge-neutral" %>"><%= @details.team.status.humanize %></span>
+  </div>
+
+  <% if @details.team.active? %>
+    <div class="mt-8 grid gap-6 lg:grid-cols-2">
+      <%= form_with model: @team, scope: :team, url: organization_team_path(Current.organization.slug, @details.team.id), method: :patch, class: "so-card space-y-5 p-6" do |form| %>
+        <h2 class="font-bold text-slate-950">Rename team</h2>
+        <%= render "shared/error_summary", model: @team, title: "Check the team details", field_ids: { name: "team_name" } %>
+        <div><%= form.label :name, "Team name", class: "so-label" %><%= form.text_field :name, required: true, maxlength: 120, class: "so-input" %></div>
+        <%= form.submit "Save team name", class: "so-button so-button-primary" %>
+      <% end %>
+
+      <section class="so-card p-6" aria-labelledby="add-team-member-title">
+        <h2 id="add-team-member-title" class="font-bold text-slate-950">Add active member</h2>
+        <%= form_with url: organization_team_path(Current.organization.slug, @details.team.id), method: :get, class: "mt-4" do |form| %>
+          <%= form.label :q, "Search organization members", class: "so-label" %>
+          <div class="flex gap-2"><%= form.search_field :q, value: params[:q], maxlength: 80, class: "so-input" %><%= form.submit "Search", class: "so-button so-button-secondary mt-2" %></div>
+        <% end %>
+        <% if @details.candidates.any? %>
+          <%= form_with url: organization_team_members_path(Current.organization.slug, @details.team.id), class: "mt-5 space-y-4" do |form| %>
+            <%= form.label :membership_id, "Member", class: "so-label" %>
+            <%= form.select :membership_id, @details.candidates.map { |member| [ member.display_name, member.id ] }, {}, class: "so-select" %>
+            <%= form.submit "Add member", class: "so-button so-button-primary" %>
+          <% end %>
+        <% else %>
+          <p class="mt-4 text-sm text-slate-600">No matching active organization member is available.</p>
+        <% end %>
+      </section>
+    </div>
+  <% else %>
+    <div class="so-alert so-alert-info mt-8"><p>Archived teams are read-only and contribute no future role grants.</p></div>
+  <% end %>
+
+  <section class="so-card mt-8 p-6" aria-labelledby="team-members-title">
+    <h2 id="team-members-title" class="font-bold text-slate-950">Team members</h2>
+    <ul class="mt-4 divide-y divide-slate-100">
+      <% @details.members.each do |member| %>
+        <li class="flex flex-wrap items-center justify-between gap-4 py-3">
+          <div><span class="font-semibold text-slate-950"><%= member.display_name %></span> <span class="so-badge so-badge-neutral"><%= member.effective? ? "Effective" : member.status.humanize %></span></div>
+          <% if @details.team.active? %>
+            <%= button_to "Remove", organization_team_member_path(Current.organization.slug, @details.team.id, member.id), method: :delete, class: "so-button so-button-secondary so-button-small" %>
+          <% end %>
+        </li>
+      <% end %>
+    </ul>
+    <nav class="so-pagination mt-5" aria-label="Team member pages">
+      <% if @details.previous_member_page %><%= link_to "Previous", organization_team_path(Current.organization.slug, @details.team.id, member_page: @details.previous_member_page, q: params[:q]) %><% end %>
+      <span aria-current="page"><%= @details.member_page %></span>
+      <% if @details.next_member_page %><%= link_to "Next", organization_team_path(Current.organization.slug, @details.team.id, member_page: @details.next_member_page, q: params[:q]) %><% end %>
+    </nav>
+  </section>
+
+  <% if @details.team.active? %>
+    <div class="mt-8"><%= button_to "Archive team", archive_organization_team_path(Current.organization.slug, @details.team.id), method: :patch, class: "so-button so-button-danger", form: { data: { turbo_confirm: "Archive this team and disable its future grants?" } } %></div>
+  <% end %>
+</div>

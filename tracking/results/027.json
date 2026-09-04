@@ -1,0 +1,79 @@
+{
+  "prompt_id": "027",
+  "title": "Implement teams and team memberships",
+  "status": "completed",
+  "started_at": "2026-09-04T06:47:58Z",
+  "finished_at": "2026-09-04T06:58:02Z",
+  "summary": "Added organization-scoped teams with composite tenant FKs; locked create rename archive and idempotent membership operations; bounded paginated UI/search; archive semantics and an immutable authorization-principals boundary.",
+  "tests": [
+    {
+      "command": "bundle exec rails test test/domain/tenancy/team_test.rb test/requests/team_management_test.rb",
+      "outcome": "passed",
+      "notes": "7 runs and 46 assertions"
+    },
+    {
+      "command": "bundle exec rails test test/database/team_membership_concurrency_test.rb",
+      "outcome": "passed",
+      "notes": "1 run and 4 assertions using two PostgreSQL connections and uncached verification"
+    },
+    {
+      "command": "bundle exec rails test test/system/team_management_test.rb",
+      "outcome": "passed",
+      "notes": "1 run and 8 assertions"
+    },
+    {
+      "command": "bundle exec rails db:migrate:redo:primary VERSION=20260904071000",
+      "outcome": "passed",
+      "notes": "team tables constraints indexes and composite FKs reverted and reapplied"
+    },
+    {
+      "command": "bin/quality",
+      "outcome": "passed",
+      "notes": "12 checks with 317 Ruby files and zero security warnings"
+    },
+    {
+      "command": "bundle exec rails test",
+      "outcome": "passed",
+      "notes": "313 runs and 2611 assertions"
+    },
+    {
+      "command": "bundle exec rails test:system",
+      "outcome": "passed",
+      "notes": "16 runs and 77 assertions"
+    },
+    {
+      "command": "bundle exec rails zeitwerk:check",
+      "outcome": "passed",
+      "notes": "application eager loaded successfully"
+    }
+  ],
+  "files_changed": [
+    "app/controllers/tenancy/teams_controller.rb",
+    "app/domains/tenancy",
+    "app/views/layouts/authenticated.html.erb",
+    "app/views/tenancy/teams",
+    "config/routes.rb",
+    "db/migrate/20260904071000_create_teams_and_team_memberships.rb",
+    "db/schema.rb",
+    "docs/03_ERD.md",
+    "docs/implementation/README.md",
+    "docs/implementation/TEAMS.md",
+    "test/database/team_membership_concurrency_test.rb",
+    "test/domain/tenancy/team_test.rb",
+    "test/requests/team_management_test.rb",
+    "test/system/team_management_test.rb"
+  ],
+  "migrations": [
+    "20260904071000 creates teams and team_memberships with lifecycle checks partial uniqueness and same-organization composite foreign keys"
+  ],
+  "decisions": [
+    "archived teams are terminal read-only and grant-inactive; suspended members have dormant associations that resume on reactivation; role logic remains outside Tenancy"
+  ],
+  "risks": [
+    "new empty tables use inline indexes and ordinary DDL locks; no existing rows are rewritten"
+  ],
+  "next_steps": [
+    "Prompt 028 implements secure hashed-token organization invitations"
+  ],
+  "commit": null
+}

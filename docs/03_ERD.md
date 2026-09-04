@@ -241,9 +241,32 @@ the current assignment, and ownership transfer remains a dedicated domain operat
 | revoked_at | timestamptz | |
 | initial_access_spec | jsonb | validated role/scope request |
 
-### `teams` and `team_memberships`
+### `teams`
 
-Teams belong to one organization. A team membership references a membership from the same organization. Enforce same-tenant consistency in service logic and, where practical, composite foreign keys.
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid | PK |
+| organization_id | uuid | FK |
+| name | citext | unique among active teams in the organization |
+| status | string | active, archived |
+| archived_at | timestamptz | required when archived |
+| lock_version | integer | optimistic lifecycle locking |
+
+### `team_memberships`
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid | PK |
+| organization_id | uuid | denormalized tenant boundary |
+| team_id | uuid | same-organization composite FK |
+| membership_id | uuid | same-organization composite FK |
+| added_by_membership_id | uuid | same-organization composite FK |
+| added_at | timestamptz | |
+| removed_at | timestamptz | nullable historical removal |
+
+Unique active `(team_id, membership_id)`. Archived teams and inactive organization
+members contribute no authorization principals. Rows remain for history; reactivated
+members regain an otherwise-active team association.
 
 ## 4. Authorization tables
 
