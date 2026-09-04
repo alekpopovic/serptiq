@@ -109,5 +109,7 @@ domain_operations:
   Tenancy::Public.transition_organization: { kind: permission, permission: organization.delete }
   Tenancy::Public.ownership_transfer_candidates: { kind: permission, permission: organization.transfer }
   Tenancy::Public.transfer_ownership: { kind: permission, permission: organization.transfer }
+  Tenancy::Public.verify_owner_invariant!: { kind: context, reason: enforces_current_owner_relationship }
+  Tenancy::Public.ownership_consistency_issues: { kind: system, reason: operator_diagnostic }
   Authorization::Public.assign_role: { kind: permission, permission: roles.assign }
   Authorization::Public.revoke_role: { kind: permission, permission: roles.assign }

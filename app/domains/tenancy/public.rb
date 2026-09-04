@@ -211,6 +211,14 @@ module Tenancy
       TransferOwnership.new.call(**attributes)
     end
 
+    def verify_owner_invariant!(organization_id:)
+      OwnerInvariant.new.lock!(organization_id: organization_id)
+    end
+
+    def ownership_consistency_issues
+      OwnershipConsistency.new.call
+    end
+
     def with_organization_context(user_id:, organization_id:)
       user = Identity::Public.find_user!(id: user_id)
       context = resolve_organization_context(user: user, selector: organization_id)

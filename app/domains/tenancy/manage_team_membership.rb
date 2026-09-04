@@ -65,8 +65,9 @@ module Tenancy
     def lock_context(actor, team_id, authorization)
       raise OrganizationAccessDenied unless actor.is_a?(Membership)
 
+      state = OwnerInvariant.new.lock!(organization_id: actor.organization_id)
       locked_actor = Membership.lock.find(actor.id)
-      organization = Organization.lock.find(locked_actor.organization_id)
+      organization = state.organization
       AuthorizeMembershipAccess.new.call(
         membership: locked_actor, permission_key: "teams.manage", authorization: authorization
       )

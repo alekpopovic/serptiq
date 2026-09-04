@@ -18,6 +18,12 @@ class PublicErrorPresentation
 
     def identity_details(error)
       case error
+      when Tenancy::LastOwnerConflict
+        {
+          title: "Transfer ownership first",
+          message: "The current owner cannot be suspended or removed. Transfer ownership to another active member, then try again.",
+          action: :home
+        }
       when Identity::ProviderError
         provider_details(error)
       when Identity::ExpiredOauthTransaction, Identity::ConsumedOauthTransaction,

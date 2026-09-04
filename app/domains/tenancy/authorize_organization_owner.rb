@@ -5,13 +5,10 @@ module Tenancy
     def call(membership:)
       raise OrganizationAccessDenied unless membership.is_a?(Membership) && membership.active?
 
-      organization = Organization.find(membership.organization_id)
-      owned = organization.active? && OrganizationOwnership.where(
-        organization_id: organization.id,
-        membership_id: membership.id,
-        ended_at: nil
-      ).exists?
-      raise OrganizationAccessDenied unless owned
+      state = OwnerInvariant.new.lock!(organization_id: membership.organization_id)
+      OwnerInvariant.new.require_current_owner!(state: state, actor_membership_id: membership.id)
+      organization = state.organization
+      raise OrganizationAccessDenied unless organization.active?
 
       organization
     rescue ActiveRecord::RecordNotFound

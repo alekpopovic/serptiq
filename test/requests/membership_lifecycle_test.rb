@@ -75,7 +75,9 @@ class MembershipLifecycleRequestTest < ActionDispatch::IntegrationTest
     assert foreign.membership.reload.active?
 
     patch suspend_organization_member_path(@owner.organization.slug, @owner.membership.id)
-    assert_response :forbidden
+    assert_response :conflict
+    assert_select "h1", text: "Transfer ownership first"
+    assert_includes response.body, "Transfer ownership to another active member"
     assert @owner.membership.reload.active?
   end
 

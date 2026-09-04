@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_04_080000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_04_082000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -29,7 +29,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_080000) do
     t.check_constraint "expires_at > window_started_at", name: "authentication_rate_limits_bounded_window"
     t.check_constraint "key_digest::text ~ '^[0-9a-f]{64}$'::text", name: "authentication_rate_limits_key_digest_format"
     t.check_constraint "request_count > 0", name: "authentication_rate_limits_positive_count"
-    t.check_constraint "scope::text = ANY (ARRAY['oauth_start_ip'::character varying, 'oauth_link_session'::character varying, 'oauth_callback_failure_ip'::character varying, 'session_action_session'::character varying, 'account_security_session'::character varying]::text[])", name: "authentication_rate_limits_scope_allowlist"
+    t.check_constraint "scope::text = ANY (ARRAY['oauth_start_ip'::character varying::text, 'oauth_link_session'::character varying::text, 'oauth_callback_failure_ip'::character varying::text, 'session_action_session'::character varying::text, 'account_security_session'::character varying::text])", name: "authentication_rate_limits_scope_allowlist"
   end
 
   create_table "authorization_catalog_revisions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -61,7 +61,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_080000) do
     t.index ["organization_id", "id", "scope_type"], name: "index_authorization_scopes_on_org_id_and_type", unique: true
     t.index ["organization_id", "project_id"], name: "index_authorization_scopes_on_org_and_project"
     t.check_constraint "scope_type::text = 'Organization'::text AND id = organization_id AND project_id IS NULL AND project_scope_type IS NULL OR scope_type::text = 'Project'::text AND id <> organization_id AND project_id IS NULL AND project_scope_type IS NULL OR scope_type::text = 'Property'::text AND id <> organization_id AND project_id IS NOT NULL AND project_scope_type::text = 'Project'::text AND id <> project_id", name: "authorization_scopes_shape"
-    t.check_constraint "scope_type::text = ANY (ARRAY['Organization'::character varying, 'Project'::character varying, 'Property'::character varying]::text[])", name: "authorization_scopes_type_allowlist"
+    t.check_constraint "scope_type::text = ANY (ARRAY['Organization'::character varying::text, 'Project'::character varying::text, 'Property'::character varying::text])", name: "authorization_scopes_type_allowlist"
     t.check_constraint "status::text = 'active'::text AND archived_at IS NULL OR status::text = 'archived'::text AND archived_at IS NOT NULL", name: "authorization_scopes_lifecycle"
   end
 
@@ -86,7 +86,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_080000) do
     t.check_constraint "char_length(provider_subject::text) >= 1 AND char_length(provider_subject::text) <= 255 AND provider_subject::text = btrim(provider_subject::text)", name: "identities_subject_format"
     t.check_constraint "email IS NULL OR char_length(email::text) >= 3 AND char_length(email::text) <= 320 AND email::text = lower(email::text)", name: "identities_normalized_email"
     t.check_constraint "jsonb_typeof(profile) = 'object'::text AND octet_length(profile::text) <= 8192", name: "identities_profile_object"
-    t.check_constraint "provider::text = ANY (ARRAY['google'::character varying, 'github'::character varying]::text[])", name: "identities_provider_allowlist"
+    t.check_constraint "provider::text = ANY (ARRAY['google'::character varying::text, 'github'::character varying::text])", name: "identities_provider_allowlist"
     t.check_constraint "revoked_at IS NULL OR revoked_at >= created_at", name: "identities_revocation_follows_creation"
   end
 
@@ -103,7 +103,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_080000) do
     t.check_constraint "expires_at > window_started_at", name: "invitation_rate_limits_bounded_window"
     t.check_constraint "key_digest::text ~ '^[0-9a-f]{64}$'::text", name: "invitation_rate_limits_key_digest_format"
     t.check_constraint "request_count > 0", name: "invitation_rate_limits_positive_count"
-    t.check_constraint "scope::text = ANY (ARRAY['issue_actor'::character varying, 'issue_destination'::character varying, 'accept_ip'::character varying]::text[])", name: "invitation_rate_limits_scope_allowlist"
+    t.check_constraint "scope::text = ANY (ARRAY['issue_actor'::character varying::text, 'issue_destination'::character varying::text, 'accept_ip'::character varying::text])", name: "invitation_rate_limits_scope_allowlist"
   end
 
   create_table "invitations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -130,9 +130,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_080000) do
     t.index ["token_digest"], name: "index_invitations_on_token_digest", unique: true
     t.check_constraint "char_length(email::text) >= 3 AND char_length(email::text) <= 320 AND email::text = lower(btrim(email::text))", name: "invitations_email_format"
     t.check_constraint "expires_at > created_at AND expires_at <= (created_at + 'P30D'::interval)", name: "invitations_expiry_window"
-    t.check_constraint "initial_role_key IS NULL AND initial_scope_type IS NULL AND initial_scope_id IS NULL OR (initial_role_key::text = ANY (ARRAY['organization_admin'::character varying, 'billing_admin'::character varying, 'seo_lead'::character varying, 'developer'::character varying, 'content_editor'::character varying, 'analyst'::character varying, 'viewer'::character varying]::text[])) AND initial_scope_type::text = 'Organization'::text AND initial_scope_id = organization_id", name: "invitations_initial_access_consistency"
+    t.check_constraint "initial_role_key IS NULL AND initial_scope_type IS NULL AND initial_scope_id IS NULL OR (initial_role_key::text = ANY (ARRAY['organization_admin'::character varying::text, 'billing_admin'::character varying::text, 'seo_lead'::character varying::text, 'developer'::character varying::text, 'content_editor'::character varying::text, 'analyst'::character varying::text, 'viewer'::character varying::text])) AND initial_scope_type::text = 'Organization'::text AND initial_scope_id = organization_id", name: "invitations_initial_access_consistency"
     t.check_constraint "status::text = 'pending'::text AND accepted_at IS NULL AND accepted_by_membership_id IS NULL AND revoked_at IS NULL AND expired_at IS NULL AND superseded_at IS NULL OR status::text = 'accepted'::text AND accepted_at IS NOT NULL AND accepted_by_membership_id IS NOT NULL AND revoked_at IS NULL AND expired_at IS NULL AND superseded_at IS NULL OR status::text = 'revoked'::text AND revoked_at IS NOT NULL AND accepted_at IS NULL AND accepted_by_membership_id IS NULL AND expired_at IS NULL AND superseded_at IS NULL OR status::text = 'expired'::text AND expired_at IS NOT NULL AND accepted_at IS NULL AND accepted_by_membership_id IS NULL AND revoked_at IS NULL AND superseded_at IS NULL OR status::text = 'superseded'::text AND superseded_at IS NOT NULL AND accepted_at IS NULL AND accepted_by_membership_id IS NULL AND revoked_at IS NULL AND expired_at IS NULL", name: "invitations_lifecycle_consistency"
-    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying, 'accepted'::character varying, 'revoked'::character varying, 'expired'::character varying, 'superseded'::character varying]::text[])", name: "invitations_status_allowlist"
+    t.check_constraint "status::text = ANY (ARRAY['pending'::character varying::text, 'accepted'::character varying::text, 'revoked'::character varying::text, 'expired'::character varying::text, 'superseded'::character varying::text])", name: "invitations_status_allowlist"
     t.check_constraint "token_digest::text ~ '^[0-9a-f]{64}$'::text", name: "invitations_token_digest_format"
   end
 
@@ -148,6 +148,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_080000) do
     t.datetime "suspended_at"
     t.datetime "updated_at", null: false
     t.uuid "user_id", null: false
+    t.index ["organization_id", "id", "status"], name: "index_memberships_on_org_id_status", unique: true
     t.index ["organization_id", "id"], name: "index_memberships_on_organization_and_id", unique: true
     t.index ["organization_id", "status", "created_at"], name: "index_memberships_on_org_status_and_created"
     t.index ["organization_id", "user_id"], name: "index_memberships_on_organization_id_and_user_id", unique: true
@@ -155,7 +156,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_080000) do
     t.index ["user_id", "status", "organization_id"], name: "index_memberships_on_user_status_and_org"
     t.check_constraint "char_length(display_name::text) >= 1 AND char_length(display_name::text) <= 160 AND display_name::text = btrim(display_name::text)", name: "memberships_display_name_format"
     t.check_constraint "status::text = 'invited'::text AND accepted_at IS NULL AND suspended_at IS NULL AND removed_at IS NULL OR status::text = 'active'::text AND accepted_at IS NOT NULL AND suspended_at IS NULL AND removed_at IS NULL OR status::text = 'suspended'::text AND accepted_at IS NOT NULL AND suspended_at IS NOT NULL AND removed_at IS NULL OR status::text = 'removed'::text AND suspended_at IS NULL AND removed_at IS NOT NULL", name: "memberships_lifecycle_consistency"
-    t.check_constraint "status::text = ANY (ARRAY['invited'::character varying, 'active'::character varying, 'suspended'::character varying, 'removed'::character varying]::text[])", name: "memberships_status_allowlist"
+    t.check_constraint "status::text = ANY (ARRAY['invited'::character varying::text, 'active'::character varying::text, 'suspended'::character varying::text, 'removed'::character varying::text])", name: "memberships_status_allowlist"
   end
 
   create_table "oauth_transactions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -191,7 +192,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_080000) do
     t.check_constraint "nonce_digest IS NULL OR nonce_digest::text ~ '^[0-9a-f]{64}$'::text", name: "oauth_transactions_nonce_digest_format"
     t.check_constraint "pkce_verifier_digest::text ~ '^[0-9a-f]{64}$'::text", name: "oauth_transactions_pkce_digest_format"
     t.check_constraint "provider::text <> 'google'::text OR nonce_digest IS NOT NULL", name: "oauth_transactions_google_nonce_required"
-    t.check_constraint "provider::text = ANY (ARRAY['google'::character varying, 'github'::character varying]::text[])", name: "oauth_transactions_provider_allowlist"
+    t.check_constraint "provider::text = ANY (ARRAY['google'::character varying::text, 'github'::character varying::text])", name: "oauth_transactions_provider_allowlist"
     t.check_constraint "return_to ~ '^/dashboard(?:/[A-Za-z0-9_-]+)*$'::text AND char_length(return_to) <= 2048", name: "oauth_transactions_safe_return_path"
     t.check_constraint "state_digest::text ~ '^[0-9a-f]{64}$'::text", name: "oauth_transactions_state_digest_format"
   end
@@ -199,13 +200,17 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_080000) do
   create_table "organization_ownerships", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "assigned_at", null: false
     t.datetime "created_at", null: false
+    t.boolean "current", default: true, null: false
     t.datetime "ended_at"
     t.uuid "membership_id", null: false
+    t.string "membership_status", limit: 32, default: "active"
     t.uuid "organization_id", null: false
     t.datetime "updated_at", null: false
     t.index ["membership_id"], name: "index_organization_ownerships_on_active_membership", where: "(ended_at IS NULL)"
+    t.index ["organization_id", "id", "current"], name: "index_ownerships_on_org_id_current", unique: true
     t.index ["organization_id"], name: "index_organization_ownerships_on_active_org", unique: true, where: "(ended_at IS NULL)"
     t.index ["organization_id"], name: "index_organization_ownerships_on_organization_id"
+    t.check_constraint "current = true AND ended_at IS NULL AND membership_status::text = 'active'::text OR current = false AND ended_at IS NOT NULL AND membership_status IS NULL", name: "organization_ownerships_current_state"
     t.check_constraint "ended_at IS NULL OR ended_at >= assigned_at", name: "organization_ownerships_timestamp_order"
   end
 
@@ -223,6 +228,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_080000) do
 
   create_table "organizations", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "created_at", null: false
+    t.boolean "current_ownership_active", default: true, null: false
     t.uuid "current_ownership_id", null: false
     t.string "data_region", limit: 32, default: "global", null: false
     t.string "default_locale", limit: 16, default: "en", null: false
@@ -237,12 +243,13 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_080000) do
     t.datetime "updated_at", null: false
     t.index ["slug"], name: "index_organizations_on_active_slug", unique: true, where: "(deleted_at IS NULL)"
     t.check_constraint "char_length(name::text) >= 2 AND char_length(name::text) <= 160 AND name::text = btrim(name::text)", name: "organizations_name_format"
+    t.check_constraint "current_ownership_active = true", name: "organizations_current_ownership_active"
     t.check_constraint "data_region::text ~ '^[a-z][a-z0-9_-]{1,31}$'::text", name: "organizations_data_region_format"
     t.check_constraint "default_locale::text ~ '^[a-z]{2}(?:-[A-Z]{2})?$'::text", name: "organizations_locale_format"
     t.check_constraint "slug::text <> ALL (ARRAY['account'::text, 'billing'::text, 'invitations'::text, 'members'::text, 'new'::text, 'projects'::text, 'roles'::text, 'security'::text, 'settings'::text, 'switch'::text, 'teams'::text])", name: "organizations_slug_not_reserved"
     t.check_constraint "slug::text ~ '^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$'::text", name: "organizations_slug_format"
     t.check_constraint "status::text = 'active'::text AND suspended_at IS NULL AND deletion_requested_at IS NULL AND deleted_at IS NULL OR status::text = 'suspended'::text AND suspended_at IS NOT NULL AND deletion_requested_at IS NULL AND deleted_at IS NULL OR status::text = 'pending_deletion'::text AND deletion_requested_at IS NOT NULL AND deleted_at IS NULL OR status::text = 'deleted'::text AND deletion_requested_at IS NOT NULL AND deleted_at IS NOT NULL AND deleted_at >= deletion_requested_at", name: "organizations_lifecycle_consistency"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'suspended'::character varying, 'pending_deletion'::character varying, 'deleted'::character varying]::text[])", name: "organizations_status_allowlist"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'suspended'::character varying::text, 'pending_deletion'::character varying::text, 'deleted'::character varying::text])", name: "organizations_status_allowlist"
   end
 
   create_table "permissions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -260,8 +267,8 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_080000) do
     t.check_constraint "char_length(category::text) >= 2 AND char_length(category::text) <= 64 AND category::text = btrim(category::text)", name: "permissions_category_format"
     t.check_constraint "char_length(description) >= 1 AND char_length(description) <= 500 AND description = btrim(description)", name: "permissions_description_format"
     t.check_constraint "key::text ~ '^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$'::text", name: "permissions_key_format"
-    t.check_constraint "risk_level::text = ANY (ARRAY['low'::character varying, 'medium'::character varying, 'high'::character varying, 'critical'::character varying]::text[])", name: "permissions_risk_allowlist"
-    t.check_constraint "scope::text = ANY (ARRAY['organization'::character varying, 'project'::character varying]::text[])", name: "permissions_scope_allowlist"
+    t.check_constraint "risk_level::text = ANY (ARRAY['low'::character varying::text, 'medium'::character varying::text, 'high'::character varying::text, 'critical'::character varying::text])", name: "permissions_risk_allowlist"
+    t.check_constraint "scope::text = ANY (ARRAY['organization'::character varying::text, 'project'::character varying::text])", name: "permissions_scope_allowlist"
   end
 
   create_table "role_assignments", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -292,7 +299,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_080000) do
     t.check_constraint "revoked_at IS NULL AND revoked_by_membership_id IS NULL OR revoked_at IS NOT NULL AND revoked_by_membership_id IS NOT NULL", name: "role_assignments_revocation_consistency"
     t.check_constraint "revoked_at IS NULL OR revoked_at >= created_at", name: "role_assignments_revocation_after_creation"
     t.check_constraint "role_system = true AND role_organization_id IS NULL OR role_system = false AND role_organization_id = organization_id", name: "role_assignments_role_tenant"
-    t.check_constraint "scope_type::text = ANY (ARRAY['Organization'::character varying, 'Project'::character varying, 'Property'::character varying]::text[])", name: "role_assignments_scope_type_allowlist"
+    t.check_constraint "scope_type::text = ANY (ARRAY['Organization'::character varying::text, 'Project'::character varying::text, 'Property'::character varying::text])", name: "role_assignments_scope_type_allowlist"
   end
 
   create_table "role_permissions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -324,7 +331,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_080000) do
     t.check_constraint "assignable_scopes = ARRAY['organization'::character varying] OR assignable_scopes = ARRAY['project'::character varying] OR assignable_scopes = ARRAY['organization'::character varying, 'project'::character varying]", name: "roles_assignable_scopes_allowlist"
     t.check_constraint "char_length(name::text) >= 2 AND char_length(name::text) <= 80 AND name::text = btrim(name::text)", name: "roles_name_format"
     t.check_constraint "key::text ~ '^[a-z][a-z0-9_]{1,63}$'::text", name: "roles_key_format"
-    t.check_constraint "system = true AND organization_id IS NULL AND mutable = false AND archived_at IS NULL AND catalog_checksum::text ~ '^[0-9a-f]{64}$'::text AND (key::text = ANY (ARRAY['owner'::character varying, 'organization_admin'::character varying, 'billing_admin'::character varying, 'seo_lead'::character varying, 'developer'::character varying, 'content_editor'::character varying, 'analyst'::character varying, 'viewer'::character varying]::text[])) OR system = false AND organization_id IS NOT NULL AND mutable = true AND catalog_checksum IS NULL AND (key::text <> ALL (ARRAY['owner'::character varying, 'organization_admin'::character varying, 'billing_admin'::character varying, 'seo_lead'::character varying, 'developer'::character varying, 'content_editor'::character varying, 'analyst'::character varying, 'viewer'::character varying]::text[]))", name: "roles_ownership_consistency"
+    t.check_constraint "system = true AND organization_id IS NULL AND mutable = false AND archived_at IS NULL AND catalog_checksum::text ~ '^[0-9a-f]{64}$'::text AND (key::text = ANY (ARRAY['owner'::character varying::text, 'organization_admin'::character varying::text, 'billing_admin'::character varying::text, 'seo_lead'::character varying::text, 'developer'::character varying::text, 'content_editor'::character varying::text, 'analyst'::character varying::text, 'viewer'::character varying::text])) OR system = false AND organization_id IS NOT NULL AND mutable = true AND catalog_checksum IS NULL AND (key::text <> ALL (ARRAY['owner'::character varying::text, 'organization_admin'::character varying::text, 'billing_admin'::character varying::text, 'seo_lead'::character varying::text, 'developer'::character varying::text, 'content_editor'::character varying::text, 'analyst'::character varying::text, 'viewer'::character varying::text]))", name: "roles_ownership_consistency"
   end
 
   create_table "sessions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -349,11 +356,11 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_080000) do
     t.index ["user_id", "expires_at"], name: "index_sessions_on_user_id_and_expires_at"
     t.index ["user_id"], name: "index_sessions_on_user_id"
     t.check_constraint "authenticated_at <= last_seen_at", name: "sessions_authentication_before_last_seen"
-    t.check_constraint "client_name::text = ANY (ARRAY['Chrome'::character varying, 'Edge'::character varying, 'Firefox'::character varying, 'Safari'::character varying, 'Other client'::character varying, 'Unknown client'::character varying]::text[])", name: "sessions_client_name_allowlist"
-    t.check_constraint "device_type::text = ANY (ARRAY['Desktop'::character varying, 'Mobile'::character varying, 'Tablet'::character varying, 'Unknown'::character varying]::text[])", name: "sessions_device_type_allowlist"
+    t.check_constraint "client_name::text = ANY (ARRAY['Chrome'::character varying::text, 'Edge'::character varying::text, 'Firefox'::character varying::text, 'Safari'::character varying::text, 'Other client'::character varying::text, 'Unknown client'::character varying::text])", name: "sessions_client_name_allowlist"
+    t.check_constraint "device_type::text = ANY (ARRAY['Desktop'::character varying::text, 'Mobile'::character varying::text, 'Tablet'::character varying::text, 'Unknown'::character varying::text])", name: "sessions_device_type_allowlist"
     t.check_constraint "expires_at > last_seen_at", name: "sessions_expiry_after_last_seen"
     t.check_constraint "ip_address_digest IS NULL OR ip_address_digest::text ~ '^[0-9a-f]{64}$'::text", name: "sessions_ip_digest_format"
-    t.check_constraint "revoke_reason IS NULL OR (revoke_reason::text = ANY (ARRAY['logout'::character varying, 'rotated'::character varying, 'privilege_changed'::character varying, 'user_inactive'::character varying, 'administrative'::character varying]::text[]))", name: "sessions_revoke_reason_allowlist"
+    t.check_constraint "revoke_reason IS NULL OR (revoke_reason::text = ANY (ARRAY['logout'::character varying::text, 'rotated'::character varying::text, 'privilege_changed'::character varying::text, 'user_inactive'::character varying::text, 'administrative'::character varying::text]))", name: "sessions_revoke_reason_allowlist"
     t.check_constraint "revoked_at IS NULL AND revoke_reason IS NULL OR revoked_at IS NOT NULL AND revoke_reason IS NOT NULL", name: "sessions_revocation_consistency"
     t.check_constraint "token_digest::text ~ '^[0-9a-f]{64}$'::text", name: "sessions_token_digest_format"
     t.check_constraint "user_agent_digest IS NULL OR user_agent_digest::text ~ '^[0-9a-f]{64}$'::text", name: "sessions_user_agent_digest_format"
@@ -388,7 +395,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_080000) do
     t.index ["organization_id"], name: "index_teams_on_organization_id"
     t.check_constraint "char_length(name::text) >= 2 AND char_length(name::text) <= 120 AND name::text = btrim(name::text)", name: "teams_name_format"
     t.check_constraint "status::text = 'active'::text AND archived_at IS NULL OR status::text = 'archived'::text AND archived_at IS NOT NULL", name: "teams_lifecycle_consistency"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'archived'::character varying]::text[])", name: "teams_status_allowlist"
+    t.check_constraint "status::text = ANY (ARRAY['active'::character varying::text, 'archived'::character varying::text])", name: "teams_status_allowlist"
   end
 
   create_table "users", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -417,10 +424,12 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_080000) do
   add_foreign_key "memberships", "organizations", on_delete: :restrict
   add_foreign_key "memberships", "users", on_delete: :restrict
   add_foreign_key "oauth_transactions", "sessions", column: "link_session_id", on_delete: :restrict
+  add_foreign_key "organization_ownerships", "memberships", column: ["organization_id", "membership_id", "membership_status"], primary_key: ["organization_id", "id", "status"], name: "fk_current_ownership_active_membership", on_delete: :restrict, deferrable: :deferred
   add_foreign_key "organization_ownerships", "memberships", column: ["organization_id", "membership_id"], primary_key: ["organization_id", "id"], name: "fk_ownerships_same_organization_membership", on_delete: :restrict
   add_foreign_key "organization_ownerships", "organizations", on_delete: :restrict
   add_foreign_key "organization_slug_aliases", "organizations", on_delete: :restrict
   add_foreign_key "organizations", "organization_ownerships", column: "current_ownership_id", on_delete: :restrict, deferrable: :deferred
+  add_foreign_key "organizations", "organization_ownerships", column: ["id", "current_ownership_id", "current_ownership_active"], primary_key: ["organization_id", "id", "current"], name: "fk_organizations_same_active_ownership", on_delete: :restrict, deferrable: :deferred
   add_foreign_key "role_assignments", "authorization_scope_references", column: ["organization_id", "scope_id", "scope_type"], primary_key: ["organization_id", "id", "scope_type"], name: "fk_role_assignments_same_org_scope", on_delete: :restrict
   add_foreign_key "role_assignments", "memberships", column: ["organization_id", "granted_by_membership_id"], primary_key: ["organization_id", "id"], name: "fk_role_assignments_same_org_grantor", on_delete: :restrict
   add_foreign_key "role_assignments", "memberships", column: ["organization_id", "membership_grantee_id"], primary_key: ["organization_id", "id"], name: "fk_role_assignments_same_org_membership", on_delete: :restrict

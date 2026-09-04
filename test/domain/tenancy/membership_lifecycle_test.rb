@@ -108,14 +108,14 @@ class TenancyMembershipLifecycleTest < ActiveSupport::TestCase
     owner = create_organization_for(slug: "owner-protection")
     foreign = create_organization_for(slug: "foreign-membership")
 
-    error = assert_raises(Tenancy::OrganizationAccessDenied) do
+    error = assert_raises(Tenancy::LastOwnerConflict) do
       Tenancy::Public.change_membership_status(
         actor_membership: owner.membership,
         target_membership_id: owner.membership.id,
         operation: "suspend"
       )
     end
-    assert_equal "last_owner_protected", error.reason_code
+    assert_equal "last_owner_transfer_required", error.reason_code
     assert owner.membership.reload.active?
 
     assert_raises(Tenancy::OrganizationAccessDenied) do

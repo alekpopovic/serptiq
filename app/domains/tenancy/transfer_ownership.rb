@@ -21,16 +21,16 @@ module Tenancy
           user_id: actor_membership.user_id,
           clock: @clock
         )
-        organization = Organization.lock.find(actor_membership.organization_id)
+        owner_state = OwnerInvariant.new.lock!(organization_id: actor_membership.organization_id)
+        organization = owner_state.organization
         actor = Membership.lock.find_by!(id: actor_membership.id, organization_id: organization.id)
         AuthorizeMembershipAccess.new.call(
           membership: actor,
           permission_key: "organization.transfer",
           authorization: authorization
         )
-        previous = OrganizationOwnership.lock.find(organization.current_ownership_id)
-        raise OwnershipTransferDenied.new(reason_code: "current_owner_required") unless
-          previous.organization_id == organization.id && previous.membership_id == actor.id && previous.active?
+        OwnerInvariant.new.require_current_owner!(state: owner_state, actor_membership_id: actor.id)
+        previous = owner_state.ownership
 
         target = Membership.lock.find_by!(id: target_membership_id, organization_id: organization.id)
         raise OwnershipTransferDenied.new(reason_code: "ownership_target_inactive") unless target.active?
@@ -58,11 +58,13 @@ module Tenancy
         organization: organization,
         membership: target,
         assigned_at: now,
-        ended_at: now
+        ended_at: now,
+        current: false,
+        membership_status: nil
       )
       organization.update!(current_ownership: replacement)
-      previous.update!(ended_at: now)
-      replacement.update!(ended_at: nil)
+      previous.update!(ended_at: now, current: false, membership_status: nil)
+      replacement.update!(ended_at: nil, current: true, membership_status: "active")
       revoked = @identity.sessions_after_ownership_received!(user_id: target.user_id, clock: @clock)
       issued = @identity.sessions_after_ownership_transfer!(
         current_session: session,

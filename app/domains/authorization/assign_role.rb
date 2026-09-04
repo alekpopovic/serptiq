@@ -22,6 +22,7 @@ module Authorization
       raise AssignmentInvalid.new(reason_code: "assignment_expiry_invalid") if expires_at && expires_at <= now
 
       assignment = RoleAssignment.transaction do
+        Tenancy::Public.verify_owner_invariant!(organization_id: organization_id)
         actor = active_actor!(organization_id, actor_id)
         principal_type, principal = @principal_resolver.resolve(
           organization_id: organization_id, grantee_type: normalized_type, grantee_id: grantee_id

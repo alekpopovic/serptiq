@@ -21,14 +21,21 @@ module Tenancy
       operation = operation.to_s
       transition = TRANSITIONS.fetch(operation) { raise InvalidMembershipTransition }
       target = Membership.transaction do
+        owner_state = OwnerInvariant.new.lock!(organization_id: actor_membership&.organization_id)
         actor = lock_actor(actor_membership)
-        organization = Organization.lock.find(actor.organization_id)
+        raise OrganizationAccessDenied unless actor.organization_id == owner_state.organization.id
+
+        organization = owner_state.organization
         permission_key = operation == "remove" ? "members.remove" : "members.update"
         AuthorizeMembershipAccess.new.call(
           membership: actor, permission_key: permission_key, authorization: authorization
         )
         target = Membership.lock.find_by!(id: target_membership_id, organization_id: organization.id)
-        block_current_owner!(target, organization)
+        OwnerInvariant.new.protect_deactivation!(
+          state: owner_state,
+          target_membership_id: target.id,
+          actor_membership_id: actor.id
+        )
 
         destination = transition[target.status]
         raise InvalidMembershipTransition unless destination
@@ -59,19 +66,6 @@ module Tenancy
       actor
     rescue ActiveRecord::RecordNotFound
       raise OrganizationAccessDenied, cause: nil
-    end
-
-    def block_current_owner!(target, organization)
-      return unless organization.current_ownership.membership_id == target.id
-
-      Audit.emit(
-        "membership.owner_invariant_blocked",
-        outcome: "denied",
-        operation: "membership_change",
-        reason_code: "last_owner_protected",
-        subject_membership_id: target.id
-      )
-      raise OrganizationAccessDenied.new(reason_code: "last_owner_protected")
     end
 
     def apply_transition(target, destination, now)

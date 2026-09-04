@@ -15,9 +15,12 @@ module Tenancy
 
     def call(actor_membership:, to:)
       organization = Organization.transaction do
-        membership = Membership.lock.find(actor_membership&.id)
-        target = Organization.lock.find(membership.organization_id)
-        authorize_owner!(membership, target)
+        state = OwnerInvariant.new.lock!(organization_id: actor_membership&.organization_id)
+        membership = OwnerInvariant.new.require_current_owner!(
+          state: state,
+          actor_membership_id: actor_membership&.id
+        )
+        target = state.organization
         destination = to.to_s
         raise InvalidOrganizationTransition unless TRANSITIONS.fetch(target.status).include?(destination)
 
@@ -40,15 +43,6 @@ module Tenancy
     end
 
     private
-
-    def authorize_owner!(membership, organization)
-      valid = membership.active? && OrganizationOwnership.where(
-        organization_id: organization.id,
-        membership_id: membership.id,
-        ended_at: nil
-      ).exists?
-      raise OrganizationAccessDenied unless valid
-    end
 
     def apply_transition(organization, destination, now)
       organization.status = destination

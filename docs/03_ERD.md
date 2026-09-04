@@ -169,6 +169,7 @@ Unique: `(provider, provider_subject)`. Avoid automatically merging accounts mer
 | time_zone | string | |
 | data_region | string | future-compatible |
 | current_ownership_id | uuid | deferred FK to the current ownership assignment |
+| current_ownership_active | boolean | fixed true marker for the active composite FK |
 | suspended_at | timestamptz | required while suspended |
 | deletion_requested_at | timestamptz | required once deletion is pending |
 | deleted_at | timestamptz | |
@@ -223,9 +224,14 @@ Ownership is a dedicated, durable assignment rather than an ordinary RBAC grant.
 | membership_id | uuid | same-organization composite FK |
 | assigned_at | timestamptz | |
 | ended_at | timestamptz | null only for the active owner |
+| current | boolean | true exactly when `ended_at` is null; composite FK projection |
+| membership_status | string | active for current ownership, null for history; composite FK projection |
 
 Unique active ownership per organization. `organizations.current_ownership_id` references
-the current assignment, and ownership transfer remains a dedicated domain operation.
+the same-organization current assignment through a deferred composite FK. A second deferred
+composite FK requires the current assignment's membership to remain active. Ownership transfer
+remains a dedicated domain operation; marker columns are constrained projections rather than
+independent lifecycle state.
 
 ### `invitations`
 

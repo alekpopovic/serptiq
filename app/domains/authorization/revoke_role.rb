@@ -13,6 +13,7 @@ module Authorization
       organization_id = actor_membership.organization_id.to_s
       actor_id = actor_membership.id.to_s
       assignment = RoleAssignment.transaction do
+        Tenancy::Public.verify_owner_invariant!(organization_id: organization_id)
         actor = active_actor!(organization_id, actor_id)
         record = RoleAssignment.lock.find_by!(id: assignment_id, organization_id: organization_id)
         scope = scope!(record)

@@ -55,7 +55,8 @@ module Tenancy
     private
 
     def lock_organization(actor, authorization)
-      organization = Organization.lock.find(actor&.organization_id)
+      state = OwnerInvariant.new.lock!(organization_id: actor&.organization_id)
+      organization = state.organization
       AuthorizeMembershipAccess.new.call(
         membership: actor, permission_key: "teams.manage", authorization: authorization
       )
