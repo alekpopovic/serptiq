@@ -73,14 +73,29 @@ begin
   permission_keys = permission_rows.map { |row| row.fetch("key") }
   fail_if(permission_rows.length != 57, "expected 57 permissions, got #{permission_rows.length}")
   fail_if(permission_keys.uniq.length != permission_keys.length, "duplicate permission key")
+  permission_rows.each do |permission|
+    key = permission.fetch("key")
+    fail_if(permission.fetch("category").to_s.strip.empty?, "permission #{key} lacks category")
+    fail_if(permission.fetch("description").to_s.strip.empty?, "permission #{key} lacks description")
+    fail_if(!%w[organization project].include?(permission.fetch("scope")), "permission #{key} has invalid scope")
+    fail_if(!%w[low medium high critical].include?(permission.fetch("risk")), "permission #{key} has invalid risk")
+  end
   roles = permissions.fetch("system_roles")
   fail_if(roles.length != 8, "expected 8 system roles, got #{roles.length}")
   role_keys = roles.map { |row| row.fetch("key") }
   fail_if(role_keys.uniq.length != role_keys.length, "duplicate system role key")
   roles.each do |role|
-    unknown = role.fetch("permissions") - permission_keys
+    grants = role.fetch("permissions")
+    fail_if(grants.uniq.length != grants.length, "role #{role.fetch("key")} has duplicate permissions")
+    scopes = role.fetch("assignable_scopes")
+    fail_if(scopes.empty? || scopes.uniq.length != scopes.length || (scopes - %w[organization project]).any?,
+      "role #{role.fetch("key")} has invalid assignable scopes")
+    unknown = grants - permission_keys
     fail_if(!unknown.empty?, "role #{role.fetch("key")} has unknown permissions: #{unknown.join(", ")}")
   end
+  owner = roles.find { |role| role.fetch("key") == "owner" }
+  fail_if(owner.nil? || owner.fetch("permissions").sort != permission_keys.sort,
+    "owner role must include every permission")
 
   plans = load_yaml(ROOT.join("config_blueprints", "plans.yml"))
   plan_rows = plans.fetch("plans")

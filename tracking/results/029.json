@@ -1,0 +1,88 @@
+{
+  "prompt_id": "029",
+  "title": "Seed permissions and immutable system roles",
+  "status": "completed",
+  "started_at": "2026-09-04T07:21:20Z",
+  "finished_at": "2026-09-04T07:34:54Z",
+  "summary": "Implemented the governed 57-permission catalog and eight immutable system-role templates with explicit risk/scope metadata, strict YAML semantics, PostgreSQL ownership constraints, idempotent advisory-locked synchronization, rename/removal protection, immutable checksum revisions, db:seed integration and a development matrix report that is tested against the blueprint documentation.",
+  "tests": [
+    {
+      "command": "RAILS_ENV=test DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_006_test QUEUE_DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_006_test_queue CACHE_DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_006_test_cache CABLE_DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_006_test_cable SEARCHOPS_PROCESS_ROLE=worker_default mise exec ruby@3.4.10 -- bin/rails test test/domain/authorization",
+      "outcome": "passed",
+      "notes": "11 runs, 86 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "RAILS_ENV=test DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_006_test QUEUE_DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_006_test_queue CACHE_DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_006_test_cache CABLE_DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_006_test_cable SEARCHOPS_PROCESS_ROLE=worker_default mise exec ruby@3.4.10 -- bin/rails test",
+      "outcome": "passed",
+      "notes": "337 runs, 2779 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "RAILS_ENV=test DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_006_test QUEUE_DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_006_test_queue CACHE_DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_006_test_cache CABLE_DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_006_test_cable SEARCHOPS_PROCESS_ROLE=worker_default mise exec ruby@3.4.10 -- bin/rails test:system",
+      "outcome": "passed",
+      "notes": "17 runs, 86 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "RAILS_ENV=test DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_006_test QUEUE_DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_006_test_queue CACHE_DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_006_test_cache CABLE_DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_006_test_cable SEARCHOPS_PROCESS_ROLE=worker_default mise exec ruby@3.4.10 -- bin/rails db:migrate:redo:primary VERSION=20260904075000",
+      "outcome": "passed",
+      "notes": "permissions, roles, role_permissions and catalog revisions reverted and reapplied with all indexes, FKs and CHECKs"
+    },
+    {
+      "command": "two consecutive authorization:catalog:sync tasks with the recorded PostgreSQL environment",
+      "outcome": "passed",
+      "notes": "first sync recorded 57 permissions, 8 roles, 229 grants and 295 changes; second recorded 0 changes at sha256 c51bfccc6a36b53a49b4f7c0d1af3cc05ba6f24570c11c21da64ce848fe657a9"
+    },
+    {
+      "command": "RAILS_ENV=test with recorded PostgreSQL URLs mise exec ruby@3.4.10 -- bin/rails db:seed",
+      "outcome": "passed",
+      "notes": "idempotent seed completed with no error"
+    },
+    {
+      "command": "SEARCHOPS_PROCESS_ROLE=worker_default mise exec ruby@3.4.10 -- bin/quality",
+      "outcome": "passed",
+      "notes": "12 checks, 363 Ruby files, 39 ERB files, valid 57-permission/8-role blueprint, zero Brakeman warnings and zero advisory findings"
+    },
+    {
+      "command": "ruby tracking/scripts/validate_blueprint.rb",
+      "outcome": "passed",
+      "notes": "120 prompts, 57 permissions, 8 roles, 5 plans, 96 rules, 10 ADRs and 4 schemas valid"
+    },
+    {
+      "command": "ruby tracking/scripts/prompt_tracker.rb validate",
+      "outcome": "passed",
+      "notes": "120 prompts; catalog and state consistent before completion"
+    }
+  ],
+  "files_changed": [
+    "README.md",
+    "app/domains/authorization",
+    "config_blueprints/permissions.yml",
+    "db/migrate/20260904075000_create_authorization_catalog.rb",
+    "db/schema.rb",
+    "db/seeds.rb",
+    "docs/03_ERD.md",
+    "docs/04_RBAC_PERMISSION_MATRIX.md",
+    "docs/implementation/AUTHORIZATION_CATALOG.md",
+    "lib/tasks/authorization_catalog.rake",
+    "test/domain/authorization",
+    "tracking/scripts/validate_blueprint.rb"
+  ],
+  "migrations": [
+    "20260904075000 creates four empty authorization catalog tables with UUID keys",
+    "uniqueness",
+    "foreign keys",
+    "global-system versus organization-custom ownership CHECKs",
+    "scope/risk/checksum constraints",
+    "and no existing-table rewrite"
+  ],
+  "decisions": [
+    "permission scope metadata is organization-only or project-safe; stable keys cannot disappear during sync; system role metadata and grants are ordinary-application read-only while the advisory-locked catalog sync is the sole controlled reconciliation path; authorization remains permission-based and never role-name-based"
+  ],
+  "risks": [
+    "A privileged direct database operator can bypass model immutability; revision checksums and deployment review are the detection/governance boundary. A reviewed future YAML revision may deliberately remove a system-role grant",
+    "so grant reductions require explicit security review. Role assignments and effective permission decisions are intentionally deferred to subsequent prompts."
+  ],
+  "next_steps": [
+    "Prompt 030 implements tenant-safe role assignments and converts accepted invitation role intent into effective grants"
+  ],
+  "commit": null
+}

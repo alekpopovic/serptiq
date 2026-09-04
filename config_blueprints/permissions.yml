@@ -4,230 +4,287 @@ permissions:
   category: Organization
   description: View organization profile and settings
   risk: low
+  scope: organization
 - key: organization.update
   category: Organization
   description: Update non-destructive organization settings
   risk: medium
+  scope: organization
 - key: organization.transfer
   category: Organization
   description: Transfer organization ownership
   risk: critical
+  scope: organization
 - key: organization.delete
   category: Organization
   description: Request organization deletion
   risk: critical
+  scope: organization
 - key: members.read
   category: Membership
   description: View members and invitations
   risk: low
+  scope: organization
 - key: members.invite
   category: Membership
   description: Invite members
   risk: high
+  scope: organization
 - key: members.update
   category: Membership
   description: Suspend or update membership settings
   risk: high
+  scope: organization
 - key: members.remove
   category: Membership
   description: Remove members
   risk: high
+  scope: organization
 - key: teams.read
   category: Authorization
   description: View teams
   risk: low
+  scope: organization
 - key: teams.manage
   category: Authorization
   description: Create and manage teams
   risk: medium
+  scope: organization
 - key: roles.read
   category: Authorization
   description: View roles and permissions
   risk: low
+  scope: organization
 - key: roles.manage
   category: Authorization
   description: Create or modify custom roles
   risk: critical
+  scope: organization
 - key: roles.assign
   category: Authorization
   description: Grant or revoke role assignments
   risk: critical
+  scope: organization
 - key: billing.read
   category: Billing
   description: View subscription, invoices, and billing state
   risk: medium
+  scope: organization
 - key: billing.manage
   category: Billing
   description: Start checkout, change, cancel, or resume subscription
   risk: critical
+  scope: organization
 - key: plans.read
   category: Billing
   description: View available plans and effective entitlements
   risk: low
+  scope: organization
 - key: usage.read
   category: Usage
   description: View quotas, reservations, and usage
   risk: low
+  scope: project
 - key: projects.read
   category: Projects
   description: View projects
   risk: low
+  scope: project
 - key: projects.create
   category: Projects
   description: Create a project
   risk: medium
+  scope: organization
 - key: projects.update
   category: Projects
   description: Update project settings
   risk: medium
+  scope: project
 - key: projects.archive
   category: Projects
   description: Archive or restore a project
   risk: high
+  scope: project
 - key: projects.delete
   category: Projects
   description: Request permanent project deletion
   risk: critical
+  scope: project
 - key: properties.read
   category: Properties
   description: View project properties
   risk: low
+  scope: project
 - key: properties.manage
   category: Properties
   description: Create and update properties
   risk: high
+  scope: project
 - key: properties.verify
   category: Properties
   description: Create and execute ownership verification
   risk: high
+  scope: project
 - key: scans.read
   category: Scanning
   description: View scans and scan evidence
   risk: low
+  scope: project
 - key: scans.run
   category: Scanning
   description: Run manual or targeted scans
   risk: medium
+  scope: project
 - key: scans.configure
   category: Scanning
   description: Change crawl, render, and scheduling policy
   risk: high
+  scope: project
 - key: scans.cancel
   category: Scanning
   description: Cancel active scans
   risk: medium
+  scope: project
 - key: findings.read
   category: Findings
   description: View findings and evidence
   risk: low
+  scope: project
 - key: findings.triage
   category: Findings
   description: Change triage classification
   risk: medium
+  scope: project
 - key: findings.suppress
   category: Findings
   description: Suppress or mark false positive/risk accepted
   risk: high
+  scope: project
 - key: issues.read
   category: Issues
   description: View issue workflow
   risk: low
+  scope: project
 - key: issues.manage
   category: Issues
   description: Create and change issue status/details
   risk: medium
+  scope: project
 - key: issues.assign
   category: Issues
   description: Assign members or teams
   risk: medium
+  scope: project
 - key: issues.comment
   category: Issues
   description: Add and edit own comments
   risk: low
+  scope: project
 - key: issues.verify
   category: Issues
   description: Request or approve verification flows
   risk: medium
+  scope: project
 - key: integrations.read
   category: Integrations
   description: View connected providers and health
   risk: low
+  scope: organization
 - key: integrations.manage
   category: Integrations
   description: Connect, update, or revoke integrations
   risk: critical
+  scope: organization
 - key: releases.read
   category: Releases
   description: View releases and gate results
   risk: low
+  scope: project
 - key: releases.manage
   category: Releases
   description: Register and update releases
   risk: high
+  scope: project
 - key: release_gates.manage
   category: Releases
   description: Configure blocking/advisory gate policies
   risk: critical
+  scope: project
 - key: reports.read
   category: Reporting
   description: View generated reports
   risk: low
+  scope: project
 - key: reports.generate
   category: Reporting
   description: Generate reports
   risk: medium
+  scope: project
 - key: reports.export
   category: Reporting
   description: Download or export reports
   risk: medium
+  scope: project
 - key: reports.schedule
   category: Reporting
   description: Configure scheduled reports
   risk: high
+  scope: project
 - key: reports.branding
   category: Reporting
   description: Configure white-label report branding
   risk: high
+  scope: organization
 - key: notifications.read
   category: Notifications
   description: View notification policies/endpoints
   risk: low
+  scope: project
 - key: notifications.manage
   category: Notifications
   description: Configure notification channels and rules
   risk: high
+  scope: project
 - key: api_keys.read
   category: Developer
   description: View API key metadata
   risk: medium
+  scope: project
 - key: api_keys.manage
   category: Developer
   description: Create or revoke API keys
   risk: critical
+  scope: project
 - key: webhooks.read
   category: Developer
   description: View outgoing webhook configuration/deliveries
   risk: medium
+  scope: project
 - key: webhooks.manage
   category: Developer
   description: Create, change, replay, or revoke webhooks
   risk: critical
+  scope: project
 - key: audit_log.read
   category: Audit
   description: View audit log
   risk: high
+  scope: organization
 - key: audit_log.export
   category: Audit
   description: Export audit events
   risk: critical
+  scope: organization
 - key: data.export
   category: Privacy
   description: Request organization data export
   risk: critical
+  scope: organization
 - key: data.delete
   category: Privacy
   description: Request project/user/organization data deletion
   risk: critical
+  scope: organization
 system_roles:
 - key: owner
   name: Owner

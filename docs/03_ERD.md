@@ -298,9 +298,11 @@ Global registry.
 | id | uuid |
 | key | string |
 | category | string |
+| scope | string | organization-only or project-safe |
 | description | text |
 | risk_level | string |
 | active | boolean |
+| catalog_checksum | string | SHA-256 of the applied governed catalog |
 
 Unique `key`.
 
@@ -316,11 +318,33 @@ System templates may have `organization_id = null`; organization custom roles ha
 | name | string |
 | system | boolean |
 | mutable | boolean |
+| assignable_scopes | string[] | organization and/or project |
+| catalog_checksum | string | required for system templates; null for custom roles |
 | archived_at | timestamptz nullable |
+
+System templates have no organization owner, are never mutable or archived, and use one of
+the eight reserved keys. Custom roles require exactly one organization, remain mutable, and
+cannot reuse a reserved system key. These ownership rules are enforced with database CHECKs.
 
 ### `role_permissions`
 
-Unique `(role_id, permission_id)`.
+Unique `(role_id, permission_id)`. Grants attached to a system role are catalog-managed and
+immutable through ordinary model/application operations.
+
+### `authorization_catalog_revisions`
+
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid | PK |
+| schema_version | integer | positive source schema revision |
+| checksum | string | unique SHA-256 of the exact YAML bytes |
+| source_path | string | fixed governed repository path |
+| permission_count | integer | synchronized row count |
+| role_count | integer | synchronized template count |
+| synced_at | timestamptz | first successful application time |
+
+Revision rows are immutable application audit evidence. Reapplying an identical checksum does
+not create another row or churn catalog timestamps.
 
 ### `role_assignments`
 

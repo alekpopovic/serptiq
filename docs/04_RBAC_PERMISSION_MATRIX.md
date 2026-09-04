@@ -80,65 +80,65 @@ Legend: **✓** default grant, **—** not granted. Owners receive every custome
 
 ## 3. Permission registry
 
-| Key | Category | Risk | Meaning |
-|---|---|---:|---|
-| `organization.read` | Organization | low | View organization profile and settings |
-| `organization.update` | Organization | medium | Update non-destructive organization settings |
-| `organization.transfer` | Organization | critical | Transfer organization ownership |
-| `organization.delete` | Organization | critical | Request organization deletion |
-| `members.read` | Membership | low | View members and invitations |
-| `members.invite` | Membership | high | Invite members |
-| `members.update` | Membership | high | Suspend or update membership settings |
-| `members.remove` | Membership | high | Remove members |
-| `teams.read` | Authorization | low | View teams |
-| `teams.manage` | Authorization | medium | Create and manage teams |
-| `roles.read` | Authorization | low | View roles and permissions |
-| `roles.manage` | Authorization | critical | Create or modify custom roles |
-| `roles.assign` | Authorization | critical | Grant or revoke role assignments |
-| `billing.read` | Billing | medium | View subscription, invoices, and billing state |
-| `billing.manage` | Billing | critical | Start checkout, change, cancel, or resume subscription |
-| `plans.read` | Billing | low | View available plans and effective entitlements |
-| `usage.read` | Usage | low | View quotas, reservations, and usage |
-| `projects.read` | Projects | low | View projects |
-| `projects.create` | Projects | medium | Create a project |
-| `projects.update` | Projects | medium | Update project settings |
-| `projects.archive` | Projects | high | Archive or restore a project |
-| `projects.delete` | Projects | critical | Request permanent project deletion |
-| `properties.read` | Properties | low | View project properties |
-| `properties.manage` | Properties | high | Create and update properties |
-| `properties.verify` | Properties | high | Create and execute ownership verification |
-| `scans.read` | Scanning | low | View scans and scan evidence |
-| `scans.run` | Scanning | medium | Run manual or targeted scans |
-| `scans.configure` | Scanning | high | Change crawl, render, and scheduling policy |
-| `scans.cancel` | Scanning | medium | Cancel active scans |
-| `findings.read` | Findings | low | View findings and evidence |
-| `findings.triage` | Findings | medium | Change triage classification |
-| `findings.suppress` | Findings | high | Suppress or mark false positive/risk accepted |
-| `issues.read` | Issues | low | View issue workflow |
-| `issues.manage` | Issues | medium | Create and change issue status/details |
-| `issues.assign` | Issues | medium | Assign members or teams |
-| `issues.comment` | Issues | low | Add and edit own comments |
-| `issues.verify` | Issues | medium | Request or approve verification flows |
-| `integrations.read` | Integrations | low | View connected providers and health |
-| `integrations.manage` | Integrations | critical | Connect, update, or revoke integrations |
-| `releases.read` | Releases | low | View releases and gate results |
-| `releases.manage` | Releases | high | Register and update releases |
-| `release_gates.manage` | Releases | critical | Configure blocking/advisory gate policies |
-| `reports.read` | Reporting | low | View generated reports |
-| `reports.generate` | Reporting | medium | Generate reports |
-| `reports.export` | Reporting | medium | Download or export reports |
-| `reports.schedule` | Reporting | high | Configure scheduled reports |
-| `reports.branding` | Reporting | high | Configure white-label report branding |
-| `notifications.read` | Notifications | low | View notification policies/endpoints |
-| `notifications.manage` | Notifications | high | Configure notification channels and rules |
-| `api_keys.read` | Developer | medium | View API key metadata |
-| `api_keys.manage` | Developer | critical | Create or revoke API keys |
-| `webhooks.read` | Developer | medium | View outgoing webhook configuration/deliveries |
-| `webhooks.manage` | Developer | critical | Create, change, replay, or revoke webhooks |
-| `audit_log.read` | Audit | high | View audit log |
-| `audit_log.export` | Audit | critical | Export audit events |
-| `data.export` | Privacy | critical | Request organization data export |
-| `data.delete` | Privacy | critical | Request project/user/organization data deletion |
+| Key | Category | Risk | Scope | Meaning |
+|---|---|---:|---|---|
+| `organization.read` | Organization | low | organization | View organization profile and settings |
+| `organization.update` | Organization | medium | organization | Update non-destructive organization settings |
+| `organization.transfer` | Organization | critical | organization | Transfer organization ownership |
+| `organization.delete` | Organization | critical | organization | Request organization deletion |
+| `members.read` | Membership | low | organization | View members and invitations |
+| `members.invite` | Membership | high | organization | Invite members |
+| `members.update` | Membership | high | organization | Suspend or update membership settings |
+| `members.remove` | Membership | high | organization | Remove members |
+| `teams.read` | Authorization | low | organization | View teams |
+| `teams.manage` | Authorization | medium | organization | Create and manage teams |
+| `roles.read` | Authorization | low | organization | View roles and permissions |
+| `roles.manage` | Authorization | critical | organization | Create or modify custom roles |
+| `roles.assign` | Authorization | critical | organization | Grant or revoke role assignments |
+| `billing.read` | Billing | medium | organization | View subscription, invoices, and billing state |
+| `billing.manage` | Billing | critical | organization | Start checkout, change, cancel, or resume subscription |
+| `plans.read` | Billing | low | organization | View available plans and effective entitlements |
+| `usage.read` | Usage | low | project | View quotas, reservations, and usage |
+| `projects.read` | Projects | low | project | View projects |
+| `projects.create` | Projects | medium | organization | Create a project |
+| `projects.update` | Projects | medium | project | Update project settings |
+| `projects.archive` | Projects | high | project | Archive or restore a project |
+| `projects.delete` | Projects | critical | project | Request permanent project deletion |
+| `properties.read` | Properties | low | project | View project properties |
+| `properties.manage` | Properties | high | project | Create and update properties |
+| `properties.verify` | Properties | high | project | Create and execute ownership verification |
+| `scans.read` | Scanning | low | project | View scans and scan evidence |
+| `scans.run` | Scanning | medium | project | Run manual or targeted scans |
+| `scans.configure` | Scanning | high | project | Change crawl, render, and scheduling policy |
+| `scans.cancel` | Scanning | medium | project | Cancel active scans |
+| `findings.read` | Findings | low | project | View findings and evidence |
+| `findings.triage` | Findings | medium | project | Change triage classification |
+| `findings.suppress` | Findings | high | project | Suppress or mark false positive/risk accepted |
+| `issues.read` | Issues | low | project | View issue workflow |
+| `issues.manage` | Issues | medium | project | Create and change issue status/details |
+| `issues.assign` | Issues | medium | project | Assign members or teams |
+| `issues.comment` | Issues | low | project | Add and edit own comments |
+| `issues.verify` | Issues | medium | project | Request or approve verification flows |
+| `integrations.read` | Integrations | low | organization | View connected providers and health |
+| `integrations.manage` | Integrations | critical | organization | Connect, update, or revoke integrations |
+| `releases.read` | Releases | low | project | View releases and gate results |
+| `releases.manage` | Releases | high | project | Register and update releases |
+| `release_gates.manage` | Releases | critical | project | Configure blocking/advisory gate policies |
+| `reports.read` | Reporting | low | project | View generated reports |
+| `reports.generate` | Reporting | medium | project | Generate reports |
+| `reports.export` | Reporting | medium | project | Download or export reports |
+| `reports.schedule` | Reporting | high | project | Configure scheduled reports |
+| `reports.branding` | Reporting | high | organization | Configure white-label report branding |
+| `notifications.read` | Notifications | low | project | View notification policies/endpoints |
+| `notifications.manage` | Notifications | high | project | Configure notification channels and rules |
+| `api_keys.read` | Developer | medium | project | View API key metadata |
+| `api_keys.manage` | Developer | critical | project | Create or revoke API keys |
+| `webhooks.read` | Developer | medium | project | View outgoing webhook configuration/deliveries |
+| `webhooks.manage` | Developer | critical | project | Create, change, replay, or revoke webhooks |
+| `audit_log.read` | Audit | high | organization | View audit log |
+| `audit_log.export` | Audit | critical | organization | Export audit events |
+| `data.export` | Privacy | critical | organization | Request organization data export |
+| `data.delete` | Privacy | critical | organization | Request project/user/organization data deletion |
 
 ## 4. Scope rules
 

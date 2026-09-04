@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_04_073000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_04_075000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -30,6 +30,22 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_073000) do
     t.check_constraint "key_digest::text ~ '^[0-9a-f]{64}$'::text", name: "authentication_rate_limits_key_digest_format"
     t.check_constraint "request_count > 0", name: "authentication_rate_limits_positive_count"
     t.check_constraint "scope::text = ANY (ARRAY['oauth_start_ip'::character varying, 'oauth_link_session'::character varying, 'oauth_callback_failure_ip'::character varying, 'session_action_session'::character varying, 'account_security_session'::character varying]::text[])", name: "authentication_rate_limits_scope_allowlist"
+  end
+
+  create_table "authorization_catalog_revisions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.string "checksum", limit: 64, null: false
+    t.datetime "created_at", null: false
+    t.integer "permission_count", null: false
+    t.integer "role_count", null: false
+    t.integer "schema_version", null: false
+    t.string "source_path", limit: 255, null: false
+    t.datetime "synced_at", null: false
+    t.datetime "updated_at", null: false
+    t.index ["checksum"], name: "index_authorization_catalog_revisions_on_checksum", unique: true
+    t.check_constraint "checksum::text ~ '^[0-9a-f]{64}$'::text", name: "authorization_catalog_revisions_checksum_format"
+    t.check_constraint "permission_count > 0 AND role_count > 0", name: "authorization_catalog_revisions_positive_counts"
+    t.check_constraint "schema_version > 0", name: "authorization_catalog_revisions_positive_schema"
+    t.check_constraint "source_path::text = 'config_blueprints/permissions.yml'::text", name: "authorization_catalog_revisions_source_path"
   end
 
   create_table "identities", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
@@ -212,6 +228,56 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_073000) do
     t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'suspended'::character varying, 'pending_deletion'::character varying, 'deleted'::character varying]::text[])", name: "organizations_status_allowlist"
   end
 
+  create_table "permissions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.boolean "active", default: true, null: false
+    t.string "catalog_checksum", limit: 64, null: false
+    t.string "category", limit: 64, null: false
+    t.datetime "created_at", null: false
+    t.text "description", null: false
+    t.string "key", limit: 128, null: false
+    t.string "risk_level", limit: 16, null: false
+    t.string "scope", limit: 32, null: false
+    t.datetime "updated_at", null: false
+    t.index ["key"], name: "index_permissions_on_key", unique: true
+    t.check_constraint "catalog_checksum::text ~ '^[0-9a-f]{64}$'::text", name: "permissions_catalog_checksum_format"
+    t.check_constraint "char_length(category::text) >= 2 AND char_length(category::text) <= 64 AND category::text = btrim(category::text)", name: "permissions_category_format"
+    t.check_constraint "char_length(description) >= 1 AND char_length(description) <= 500 AND description = btrim(description)", name: "permissions_description_format"
+    t.check_constraint "key::text ~ '^[a-z][a-z0-9_]*(\\.[a-z][a-z0-9_]*)+$'::text", name: "permissions_key_format"
+    t.check_constraint "risk_level::text = ANY (ARRAY['low'::character varying, 'medium'::character varying, 'high'::character varying, 'critical'::character varying]::text[])", name: "permissions_risk_allowlist"
+    t.check_constraint "scope::text = ANY (ARRAY['organization'::character varying, 'project'::character varying]::text[])", name: "permissions_scope_allowlist"
+  end
+
+  create_table "role_permissions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.uuid "permission_id", null: false
+    t.uuid "role_id", null: false
+    t.datetime "updated_at", null: false
+    t.index ["permission_id"], name: "index_role_permissions_on_permission_id"
+    t.index ["role_id", "permission_id"], name: "index_role_permissions_on_role_id_and_permission_id", unique: true
+    t.index ["role_id"], name: "index_role_permissions_on_role_id"
+  end
+
+  create_table "roles", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "archived_at"
+    t.string "assignable_scopes", default: [], null: false, array: true
+    t.string "catalog_checksum", limit: 64
+    t.datetime "created_at", null: false
+    t.string "key", limit: 64, null: false
+    t.boolean "mutable", default: true, null: false
+    t.string "name", limit: 80, null: false
+    t.uuid "organization_id"
+    t.boolean "system", default: false, null: false
+    t.datetime "updated_at", null: false
+    t.index ["key"], name: "index_roles_on_system_key", unique: true, where: "(system = true)"
+    t.index ["organization_id", "id"], name: "index_roles_on_organization_and_id", unique: true
+    t.index ["organization_id", "key"], name: "index_roles_on_organization_and_key", unique: true, where: "(system = false)"
+    t.index ["organization_id"], name: "index_roles_on_organization_id"
+    t.check_constraint "assignable_scopes = ARRAY['organization'::character varying] OR assignable_scopes = ARRAY['project'::character varying] OR assignable_scopes = ARRAY['organization'::character varying, 'project'::character varying]", name: "roles_assignable_scopes_allowlist"
+    t.check_constraint "char_length(name::text) >= 2 AND char_length(name::text) <= 80 AND name::text = btrim(name::text)", name: "roles_name_format"
+    t.check_constraint "key::text ~ '^[a-z][a-z0-9_]{1,63}$'::text", name: "roles_key_format"
+    t.check_constraint "system = true AND organization_id IS NULL AND mutable = false AND archived_at IS NULL AND catalog_checksum::text ~ '^[0-9a-f]{64}$'::text AND (key::text = ANY (ARRAY['owner'::character varying, 'organization_admin'::character varying, 'billing_admin'::character varying, 'seo_lead'::character varying, 'developer'::character varying, 'content_editor'::character varying, 'analyst'::character varying, 'viewer'::character varying]::text[])) OR system = false AND organization_id IS NOT NULL AND mutable = true AND catalog_checksum IS NULL AND (key::text <> ALL (ARRAY['owner'::character varying, 'organization_admin'::character varying, 'billing_admin'::character varying, 'seo_lead'::character varying, 'developer'::character varying, 'content_editor'::character varying, 'analyst'::character varying, 'viewer'::character varying]::text[]))", name: "roles_ownership_consistency"
+  end
+
   create_table "sessions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "authenticated_at", null: false
     t.string "client_name", limit: 32, default: "Unknown client", null: false
@@ -304,6 +370,9 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_073000) do
   add_foreign_key "organization_ownerships", "organizations", on_delete: :restrict
   add_foreign_key "organization_slug_aliases", "organizations", on_delete: :restrict
   add_foreign_key "organizations", "organization_ownerships", column: "current_ownership_id", on_delete: :restrict, deferrable: :deferred
+  add_foreign_key "role_permissions", "permissions", on_delete: :restrict
+  add_foreign_key "role_permissions", "roles", on_delete: :restrict
+  add_foreign_key "roles", "organizations", on_delete: :restrict
   add_foreign_key "sessions", "sessions", column: "rotated_from_id", on_delete: :restrict
   add_foreign_key "sessions", "users", on_delete: :restrict
   add_foreign_key "team_memberships", "memberships", column: ["organization_id", "added_by_membership_id"], primary_key: ["organization_id", "id"], name: "fk_team_memberships_same_org_actor", on_delete: :restrict

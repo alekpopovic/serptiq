@@ -71,6 +71,10 @@ One-time organization invitation issuance, verified-email acceptance, token/cook
 rate limits, expiration, and operational behavior are documented in
 [`docs/implementation/SECURE_INVITATIONS.md`](./docs/implementation/SECURE_INVITATIONS.md).
 
+The 57-key permission registry, eight immutable system-role templates, guarded idempotent
+catalog sync, checksums, and development matrix report are documented in
+[`docs/implementation/AUTHORIZATION_CATALOG.md`](./docs/implementation/AUTHORIZATION_CATALOG.md).
+
 Load-balancer liveness/readiness behavior, safe release provenance and private
 worker heartbeat inspection are documented in
 [`docs/implementation/HEALTH_ENDPOINTS.md`](./docs/implementation/HEALTH_ENDPOINTS.md).
