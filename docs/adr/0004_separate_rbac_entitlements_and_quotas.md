@@ -2,6 +2,8 @@
 
 - Status: Accepted
 - Date: 2026-09-04
+- Owners: Authorization, Entitlements, Usage
+- Last reviewed: 2026-09-04 (Prompt 005)
 
 ## Context
 

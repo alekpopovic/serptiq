@@ -2,6 +2,8 @@
 
 - Status: Accepted
 - Date: 2026-09-04
+- Owners: Billing
+- Last reviewed: 2026-09-04 (Prompt 005)
 
 ## Context
 

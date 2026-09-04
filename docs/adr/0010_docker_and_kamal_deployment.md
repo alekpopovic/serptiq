@@ -2,6 +2,8 @@
 
 - Status: Accepted
 - Date: 2026-09-04
+- Owners: Platform
+- Last reviewed: 2026-09-04 (Prompt 005)
 
 ## Context
 
@@ -17,3 +19,9 @@ Build immutable Docker images and deploy to virtual machines using Kamal. Use ma
 - Host provisioning, patching and monitoring still require automation/runbooks.
 - Kubernetes remains a future option only if scheduling, scale or organizational needs justify it.
 - Images, migrations, health checks and rollback behavior are release gates.
+
+## Implementation status
+
+The Rails generator supplied an initial Dockerfile and Kamal configuration.
+They are scaffolding only; Prompt 116 owns hardening, role topology, provenance
+and production verification.

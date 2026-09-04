@@ -12,3 +12,16 @@ Expected final file:
 - `PRODUCTION_MVP_ACCEPTANCE.md`
 
 Do not pre-populate these reports with fictional implementation or test results.
+
+## Architecture governance
+
+- [`../adr/README.md`](../adr/README.md) indexes accepted decisions, owners,
+  review dates and implementation status.
+- [`../adr/ADR_TEMPLATE.md`](../adr/ADR_TEMPLATE.md) is the required starting
+  structure for a new durable decision.
+- [`MODULE_BOUNDARIES.md`](./MODULE_BOUNDARIES.md) defines enforceable module
+  ownership and dependencies.
+- [`CONFIGURATION.md`](./CONFIGURATION.md) defines public/secret configuration,
+  redaction and key rotation.
+- [`../../tracking/README.md`](../../tracking/README.md) defines prompt evidence,
+  recovery and state integrity.

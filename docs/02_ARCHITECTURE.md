@@ -102,6 +102,7 @@ app/
     usage/
     billing/
     projects/
+    properties/
     verification/
     crawling/
     analysis/
@@ -112,7 +113,9 @@ app/
     releases/
     reporting/
     notifications/
-    audit/
+    auditing/
+    integrations/
+    administration/
   policies/
   components/
 ```
@@ -128,7 +131,8 @@ Recommended responsibilities:
 | Entitlements | Typed feature values and overrides |
 | Usage | Usage events, windows, reservations, finalization |
 | Billing | Provider adapters, customers, subscriptions, webhook projections |
-| Projects | Projects, properties, environments, settings |
+| Projects | Projects, environments, settings |
+| Properties | Project properties and ownership-verification state |
 | Verification | Domain ownership challenges and evidence |
 | Crawling | Scans, frontier, URL fetching, robots, sitemaps, links, artifacts |
 | Analysis | Rule registry, rule versions, execution, evidence schemas |
@@ -139,7 +143,9 @@ Recommended responsibilities:
 | Releases | Releases, baselines, comparisons, gates, status publishers |
 | Reporting | Immutable report snapshots and deliveries |
 | Notifications | Notification policies, endpoints, deliveries |
-| Audit | Append-only audit events and security-relevant activity |
+| Auditing | Append-only audit events and security-relevant activity |
+| Integrations | External connections, encrypted credentials and provider imports |
+| Administration | Privileged cross-domain operational workflows |
 
 ## 4. Dependency rules
 
@@ -158,7 +164,7 @@ Projects ─► AppDiscovery ─────────────────
 Projects ─► Releases ─► Crawling/Analysis ─────► Findings
 
 Reporting and Notifications consume documented read models/events.
-Audit consumes security and domain events, never owns business decisions.
+Auditing consumes security and domain events, never owns business decisions.
 ```
 
 Rules:

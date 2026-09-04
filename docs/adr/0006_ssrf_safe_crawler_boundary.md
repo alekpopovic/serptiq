@@ -2,6 +2,8 @@
 
 - Status: Accepted
 - Date: 2026-09-04
+- Owners: Security, Crawling
+- Last reviewed: 2026-09-04 (Prompt 005)
 
 ## Context
 

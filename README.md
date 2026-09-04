@@ -53,6 +53,11 @@ mise exec ruby@3.4.10 -- rails _8.1.3.1_ new \
 
 Ruby 3.4.10 and Rails 8.1.3.1 were selected after checking the official release indexes and Rails compatibility guidance on 2026-09-04. Later prompts refine database topology, CI, security tooling, and operational configuration.
 
+Architecture decisions and their implementation status are indexed in
+[`docs/adr/README.md`](./docs/adr/README.md). New durable decisions start from
+[`docs/adr/ADR_TEMPLATE.md`](./docs/adr/ADR_TEMPLATE.md); module dependency rules
+remain in [`docs/implementation/MODULE_BOUNDARIES.md`](./docs/implementation/MODULE_BOUNDARIES.md).
+
 ## Package map
 
 ```text

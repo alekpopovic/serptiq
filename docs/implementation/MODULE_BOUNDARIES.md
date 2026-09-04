@@ -5,6 +5,9 @@ monolith. All modules run in the same Rails process and use the same PostgreSQL
 database. A boundary expresses code ownership and dependency direction; it is
 not a network or deployment boundary.
 
+This contract implements [ADR 0001](../adr/0001_modular_rails_monolith.md) and
+is governed by the [ADR index and lifecycle](../adr/README.md).
+
 The machine-readable dependency graph is in `config/architecture.yml`. Run
 `script/check_architecture` (or `bin/rails architecture:check`) before merging a
 change that adds or changes a cross-module reference.
@@ -24,16 +27,20 @@ contain domain decisions.
 | `tenancy` | `Tenancy` | Organizations, memberships, invitations and teams |
 | `authorization` | `Authorization` | Permissions, roles and access decisions |
 | `billing` | `Billing` | Provider adapters, customers, subscriptions and webhook projections |
+| `plans` | `Plans` | Plans and immutable published plan versions |
 | `entitlements` | `Entitlements` | Typed organization feature values and overrides |
 | `usage` | `Usage` | Usage windows, events, reservations and finalization |
 | `projects` | `Projects` | Projects, environments and project settings |
 | `properties` | `Properties` | Project properties and ownership-verification state |
+| `verification` | `Verification` | Ownership challenges, evidence and verification lifecycle |
 | `crawling` | `Crawling` | Scans, frontier, fetch policy, robots, sitemaps, links and artifacts |
+| `analysis` | `Analysis` | Versioned rule registry, execution and evidence contracts |
 | `auditing` | `Auditing` | Append-only security and domain audit records |
 | `findings` | `Findings` | Finding identity, occurrences, evidence, priority and trends |
 | `issues` | `Issues` | Workflow, assignment, comments, suppressions and verification |
 | `app_discovery` | `AppDiscovery` | Android/iOS associations and store-listing audits |
 | `integrations` | `Integrations` | External connections, encrypted credentials and provider imports |
+| `search_data` | `SearchData` | Search Console, URL Inspection, CrUX and Lighthouse source data |
 | `releases` | `Releases` | Releases, baselines, comparisons, gates and status publication |
 | `reporting` | `Reporting` | Immutable report snapshots and deliveries |
 | `notifications` | `Notifications` | Notification rules, endpoints and delivery attempts |
@@ -44,6 +51,11 @@ contain domain decisions.
 not expose project internals. `Auditing` is the code namespace for the `Audit`
 capability named in the architecture blueprint. `Administration` may compose
 public APIs from all modules but does not own their business rules.
+
+This combined catalog preserves both the foundational architecture capabilities
+and the explicit boundaries established by Prompt 002. Unrecognized module
+directories are not an approved extension mechanism; add a reviewed catalog
+entry and dependency rules before adding code.
 
 Do not create a module directory merely as a placeholder. Its first class must
 have a documented owner and purpose. Database tables remain under Rails'

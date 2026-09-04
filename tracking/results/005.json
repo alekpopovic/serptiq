@@ -1,0 +1,91 @@
+{
+  "prompt_id": "005",
+  "title": "Finalize ADR index and architecture guardrails",
+  "status": "completed",
+  "started_at": "2026-09-04T01:18:12Z",
+  "finished_at": "2026-09-04T01:24:18Z",
+  "summary": "Created governed ADR lifecycle/index/template and PR risk checklist, added an automated ADR link/metadata guardrail, reviewed all ten decisions against the repository, and reconciled the complete module catalog.",
+  "tests": [
+    {
+      "command": "mise exec ruby@3.4.10 -- script/check_adr_index",
+      "outcome": "passed",
+      "notes": "all 10 indexed ADR links, statuses, owners, review dates, and template sections valid"
+    },
+    {
+      "command": "DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_test mise exec ruby@3.4.10 -- bundle exec rails test",
+      "outcome": "passed",
+      "notes": "19 runs, 151 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "mise exec ruby@3.4.10 -- bundle exec rubocop --cache false script/check_adr_index script/support/adr_index_checker.rb test/documentation/adr_index_checker_test.rb",
+      "outcome": "passed",
+      "notes": "3 files inspected, no offenses"
+    },
+    {
+      "command": "mise exec ruby@3.4.10 -- script/check_architecture",
+      "outcome": "passed",
+      "notes": "combined module catalog and dependencies valid"
+    },
+    {
+      "command": "ruby tracking/scripts/test_prompt_tracker.rb",
+      "outcome": "passed",
+      "notes": "12 runs, 122 assertions, 0 failures"
+    },
+    {
+      "command": "ruby tracking/scripts/validate_blueprint.rb",
+      "outcome": "passed",
+      "notes": "blueprint valid with 10 ADRs"
+    },
+    {
+      "command": "mise exec ruby@3.4.10 -- bundle exec rails zeitwerk:check",
+      "outcome": "passed",
+      "notes": "All is good"
+    },
+    {
+      "command": "ruby tracking/scripts/prompt_tracker.rb validate",
+      "outcome": "passed",
+      "notes": "120 prompts; catalog and state consistent"
+    }
+  ],
+  "files_changed": [
+    ".github/PULL_REQUEST_TEMPLATE.md",
+    ".github/workflows/ci.yml",
+    "README.md",
+    "config/architecture.yml",
+    "docs/02_ARCHITECTURE.md",
+    "docs/adr/0001_modular_rails_monolith.md",
+    "docs/adr/0002_postgresql_and_solid_stack.md",
+    "docs/adr/0003_native_social_authentication.md",
+    "docs/adr/0004_separate_rbac_entitlements_and_quotas.md",
+    "docs/adr/0005_object_storage_for_large_artifacts.md",
+    "docs/adr/0006_ssrf_safe_crawler_boundary.md",
+    "docs/adr/0007_isolated_browser_workers.md",
+    "docs/adr/0008_provider_neutral_billing.md",
+    "docs/adr/0009_versioned_rule_engine_and_evidence.md",
+    "docs/adr/0010_docker_and_kamal_deployment.md",
+    "docs/adr/ADR_TEMPLATE.md",
+    "docs/adr/README.md",
+    "docs/implementation/CONFIGURATION.md",
+    "docs/implementation/MODULE_BOUNDARIES.md",
+    "docs/implementation/README.md",
+    "script/check_adr_index",
+    "script/support/adr_index_checker.rb",
+    "test/documentation/adr_index_checker_test.rb",
+    "tracking/DECISIONS.md",
+    "tracking/state.json",
+    "tracking/EXECUTION_LOG.md",
+    "tracking/execution_log.jsonl"
+  ],
+  "migrations": [],
+  "decisions": [
+    "Enforce the union of blueprint and Prompt 002 module catalogs; keep generated local storage and development in-process adapters explicitly pre-production until Prompts 007 and 070"
+  ],
+  "risks": [
+    "Production Active Storage remains local until Prompt 070 and development Solid topology remains pending Prompt 007; both gaps are indexed and recorded in tracking/DECISIONS.md. No general markdown linter is installed",
+    "so available link verification is the repository ADR checker."
+  ],
+  "next_steps": [
+    "Prompt 006"
+  ],
+  "commit": null
+}

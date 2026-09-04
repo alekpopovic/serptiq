@@ -12,3 +12,5 @@
 | 2026-09-04T01:12:22Z | 003 | completed | Added typed fail-fast configuration for development, test, staging and production; separated runtime/credential secrets from public YAML settings; integrated parameter/header/URL/event redaction; documented configuration inventory and rotation. |
 | 2026-09-04T01:13:50Z | 004 | started | Integrate and verify the prompt execution tracker |
 | 2026-09-04T01:16:56Z | 004 | completed | Hardened tracker catalog/state/result validation, aligned the result JSON schema, expanded isolated mutation/concurrency/corruption tests, documented honest recovery, and added a read-only CI tracker job. |
+| 2026-09-04T01:18:12Z | 005 | started | Finalize ADR index and architecture guardrails |
+| 2026-09-04T01:24:18Z | 005 | completed | Created governed ADR lifecycle/index/template and PR risk checklist, added an automated ADR link/metadata guardrail, reviewed all ten decisions against the repository, and reconciled the complete module catalog. |

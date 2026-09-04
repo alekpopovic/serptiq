@@ -1,0 +1,17 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "pathname"
+require_relative "support/adr_index_checker"
+
+directory = ARGV.empty? ? Pathname(__dir__).join("..", "docs", "adr") : Pathname(ARGV.fetch(0))
+errors = Searchops::Documentation::AdrIndexChecker.new(directory: directory).errors
+
+if errors.empty?
+  puts "ADR index: passed"
+  exit 0
+end
+
+warn "ADR index: #{errors.size} error(s)"
+errors.each { |error| warn "- #{error}" }
+exit 1

@@ -24,10 +24,13 @@ modules:
     allowed_dependencies: [identity, tenancy, entitlements, usage, shared]
   billing:
     namespace: Billing
-    allowed_dependencies: [entitlements, shared]
+    allowed_dependencies: [plans, entitlements, shared]
+  plans:
+    namespace: Plans
+    allowed_dependencies: [shared]
   entitlements:
     namespace: Entitlements
-    allowed_dependencies: [shared]
+    allowed_dependencies: [plans, shared]
   usage:
     namespace: Usage
     allowed_dependencies: [entitlements, shared]
@@ -37,15 +40,21 @@ modules:
   properties:
     namespace: Properties
     allowed_dependencies: [projects, authorization, entitlements, usage, shared]
+  verification:
+    namespace: Verification
+    allowed_dependencies: [projects, properties, authorization, shared]
   crawling:
     namespace: Crawling
     allowed_dependencies: [projects, properties, authorization, entitlements, usage, shared]
+  analysis:
+    namespace: Analysis
+    allowed_dependencies: [crawling, shared]
   auditing:
     namespace: Auditing
     allowed_dependencies: [shared]
   findings:
     namespace: Findings
-    allowed_dependencies: [projects, properties, crawling, shared]
+    allowed_dependencies: [projects, properties, crawling, analysis, search_data, app_discovery, shared]
   issues:
     namespace: Issues
     allowed_dependencies: [projects, findings, authorization, shared]
@@ -55,6 +64,9 @@ modules:
   integrations:
     namespace: Integrations
     allowed_dependencies: [identity, tenancy, projects, properties, authorization, shared]
+  search_data:
+    namespace: SearchData
+    allowed_dependencies: [projects, properties, integrations, authorization, entitlements, usage, shared]
   releases:
     namespace: Releases
     allowed_dependencies: [projects, crawling, findings, authorization, entitlements, usage, shared]
@@ -71,16 +83,20 @@ modules:
       - tenancy
       - authorization
       - billing
+      - plans
       - entitlements
       - usage
       - projects
       - properties
+      - verification
       - crawling
+      - analysis
       - auditing
       - findings
       - issues
       - app_discovery
       - integrations
+      - search_data
       - releases
       - reporting
       - notifications

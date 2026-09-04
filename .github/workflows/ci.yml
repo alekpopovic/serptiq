@@ -24,6 +24,9 @@ jobs:
       - name: Test prompt tracker in isolated temporary repositories
         run: ruby tracking/scripts/test_prompt_tracker.rb
 
+      - name: Check ADR index and required metadata
+        run: ruby script/check_adr_index
+
   scan_ruby:
     runs-on: ubuntu-latest
 

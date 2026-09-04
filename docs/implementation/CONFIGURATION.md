@@ -5,6 +5,9 @@ types fail every environment; staging and production additionally fail before
 serving traffic when critical settings are absent or unsafe. Validation errors
 contain setting names and constraints, never supplied values.
 
+Foundational decisions and their current implementation status are listed in
+the [ADR index](../adr/README.md).
+
 ## Sources and precedence
 
 Public settings use this highest-to-lowest precedence:

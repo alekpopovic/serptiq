@@ -2,6 +2,8 @@
 
 - Status: Accepted
 - Date: 2026-09-04
+- Owners: Platform, Crawling
+- Last reviewed: 2026-09-04 (Prompt 005)
 
 ## Context
 
@@ -17,3 +19,10 @@ Store large artifacts in private S3-compatible object storage. PostgreSQL stores
 - Object lifecycle and deletion reconciliation become required operations.
 - Tenant-safe keys and authorization tests are mandatory.
 - Provider portability is maintained through an artifact-store adapter.
+
+## Implementation status
+
+Prompt 003 added typed S3-compatible settings and requires bucket/region in
+protected environments. The generated Rails production environment still uses
+local Active Storage until the private artifact-store work in Prompt 070; this
+is a documented pre-production gap, not a change to the decision.
