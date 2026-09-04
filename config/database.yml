@@ -15,6 +15,7 @@ default: &default
 development:
   primary:
     <<: *default
+    schema_format: sql
     database: searchops_development
     max_connections: <%= Integer(ENV.fetch("SEARCHOPS_PRIMARY_DATABASE_POOL", ENV.fetch("RAILS_MAX_THREADS", 5))) %>
     application_name: searchops-development-<%= ENV.fetch("SEARCHOPS_PROCESS_ROLE", "web") %>-primary
@@ -52,6 +53,7 @@ development:
 test:
   primary:
     <<: *default
+    schema_format: sql
     database: searchops_test
     max_connections: <%= Integer(ENV.fetch("SEARCHOPS_PRIMARY_DATABASE_POOL", ENV.fetch("RAILS_MAX_THREADS", 5))) %>
     application_name: searchops-test-<%= ENV.fetch("SEARCHOPS_PROCESS_ROLE", "test") %>-primary
@@ -89,6 +91,7 @@ test:
 staging:
   primary:
     <<: *default
+    schema_format: sql
     <% if ENV["DATABASE_URL"] %>
     url: <%= ENV.fetch("DATABASE_URL") %>
     <% else %>
@@ -146,6 +149,7 @@ staging:
 production:
   primary:
     <<: *default
+    schema_format: sql
     <% if ENV["DATABASE_URL"] %>
     url: <%= ENV.fetch("DATABASE_URL") %>
     <% else %>

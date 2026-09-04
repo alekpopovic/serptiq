@@ -27,7 +27,7 @@ modules:
     allowed_dependencies: [plans, entitlements, shared]
   plans:
     namespace: Plans
-    allowed_dependencies: [shared]
+    allowed_dependencies: [auditing, shared]
   entitlements:
     namespace: Entitlements
     allowed_dependencies: [plans, shared]

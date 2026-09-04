@@ -28,6 +28,13 @@ all four URLs at explicitly named empty test databases, then use `db:drop`,
 `db:create`, and `db:prepare`; never aim `db:drop` at shared/staging/production
 URLs.
 
+The primary database uses `db/structure.sql`, because PostgreSQL functions,
+triggers and deferrable integrity constraints are executable parts of the data
+contract. Queue, Cache and Cable keep their upstream Ruby schema files. Local
+and CI database setup therefore require PostgreSQL client tools compatible
+with the server major version (`psql` for loading and `pg_dump` for refreshing
+the primary structure dump).
+
 Local default names are:
 
 | Environment | Primary | Queue | Cache | Cable |

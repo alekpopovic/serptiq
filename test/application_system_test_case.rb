@@ -11,6 +11,8 @@ class ApplicationSystemTestCase < ActionDispatch::SystemTestCase
     options.add_option("goog:loggingPrefs", { browser: "ALL" })
   end
 
+  setup { Authorization::Public.sync_catalog }
+
   def take_failed_screenshot
     capture_browser_console if failed? && Capybara::Session.instance_created?
     super

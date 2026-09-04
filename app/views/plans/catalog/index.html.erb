@@ -1,0 +1,81 @@
+<% content_for :title, "Plan catalog administration" %>
+
+<div class="mx-auto max-w-6xl">
+  <%= render "shared/breadcrumbs", items: [
+    { label: "Dashboard", path: dashboard_path },
+    { label: "Plan catalog", path: nil }
+  ] %>
+
+  <div class="mt-6">
+    <p class="so-eyebrow">Platform administration</p>
+    <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950">Plan catalog</h1>
+    <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+      Versioned commercial metadata sourced from the governed catalog. Published snapshots are immutable;
+      price or entitlement changes require a new version.
+    </p>
+  </div>
+
+  <div class="so-card mt-8 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+        <thead class="bg-slate-50 text-xs uppercase tracking-wide text-slate-500">
+          <tr>
+            <th class="px-5 py-3">Plan</th>
+            <th class="px-5 py-3">Version</th>
+            <th class="px-5 py-3">Status</th>
+            <th class="px-5 py-3">Monthly</th>
+            <th class="px-5 py-3">Annual</th>
+            <th class="px-5 py-3">Effective</th>
+            <th class="px-5 py-3">Controlled action</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-slate-100 bg-white">
+          <% @entries.each do |entry| %>
+            <tr>
+              <td class="px-5 py-4">
+                <p class="font-semibold text-slate-950"><%= entry.display_name %></p>
+                <p class="font-mono text-xs text-slate-500"><%= entry.plan_key %></p>
+              </td>
+              <td class="px-5 py-4"><%= entry.version %></td>
+              <td class="px-5 py-4"><span class="so-badge so-badge-neutral"><%= entry.status %></span></td>
+              <% if entry.custom_pricing? %>
+                <td class="px-5 py-4" colspan="2">Custom pricing</td>
+              <% else %>
+                <td class="px-5 py-4"><%= number_to_currency(entry.monthly_price_cents / 100.0, unit: "€") %></td>
+                <td class="px-5 py-4"><%= number_to_currency(entry.annual_price_cents / 100.0, unit: "€") %></td>
+              <% end %>
+              <td class="whitespace-nowrap px-5 py-4 text-slate-600"><%= entry.effective_at&.to_fs(:short) || "—" %></td>
+              <td class="min-w-72 px-5 py-4">
+                <% if @publish_decision.allow? && entry.status == "draft" %>
+                  <%= form_with url: publish_admin_plan_version_path(entry.plan_key, entry.version), method: :post,
+                    class: "flex items-end gap-2" do |form| %>
+                    <div class="flex-1">
+                      <%= label_tag "publish_confirmation_#{entry.plan_key}_#{entry.version}",
+                        "Type PUBLISH #{entry.plan_key} VERSION #{entry.version}", class: "so-label text-xs" %>
+                      <%= form.text_field :confirmation, required: true, autocomplete: "off", class: "so-input",
+                        id: "publish_confirmation_#{entry.plan_key}_#{entry.version}" %>
+                    </div>
+                    <%= form.submit "Publish", class: "so-button so-button-primary so-button-small" %>
+                  <% end %>
+                <% elsif @publish_decision.allow? && entry.status == "published" %>
+                  <%= form_with url: retire_admin_plan_version_path(entry.plan_key, entry.version), method: :patch,
+                    class: "flex items-end gap-2" do |form| %>
+                    <div class="flex-1">
+                      <%= label_tag "retire_confirmation_#{entry.plan_key}_#{entry.version}",
+                        "Type RETIRE #{entry.plan_key} VERSION #{entry.version}", class: "so-label text-xs" %>
+                      <%= form.text_field :confirmation, required: true, autocomplete: "off", class: "so-input",
+                        id: "retire_confirmation_#{entry.plan_key}_#{entry.version}" %>
+                    </div>
+                    <%= form.submit "Retire", class: "so-button so-button-secondary so-button-small" %>
+                  <% end %>
+                <% else %>
+                  <span class="text-sm text-slate-500">Read only</span>
+                <% end %>
+              </td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>

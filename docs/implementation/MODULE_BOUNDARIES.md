@@ -94,10 +94,15 @@ Cross-module state changes use a target module public operation or a documented
 outbox event. Reporting and Notifications consume stable read models/events.
 Auditing consumes shared event envelopes and never makes business decisions.
 
-Identity, Tenancy and Authorization may call the narrow `Auditing::Public.record!` append-only sink with
+Identity, Tenancy, Authorization and Plans may call the narrow `Auditing::Public.record!` append-only sink with
 validated scalar identifiers and bounded metadata. Auditing never calls back into those modules; its
 operator consistency report uses database relationship projections only and does not authorize customer
 behavior.
+
+Billing owns subscription persistence and obtains immutable commercial snapshots only through
+`Plans::Public`. Plans owns the provider-neutral catalog and must not depend on Billing or store provider
+price/variant identifiers. Platform catalog grants are distinct from organization RBAC: an organization owner
+does not gain authority to publish global pricing.
 
 ## Shared primitives
 

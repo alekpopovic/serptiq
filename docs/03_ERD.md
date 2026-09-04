@@ -396,15 +396,22 @@ Stable commercial family: free, starter, growth, agency, enterprise.
 | id | uuid | |
 | plan_id | uuid | |
 | version | integer | monotonically increasing per plan |
-| status | string | draft, active, retired |
+| status | string | draft, published, retired, grandfathered |
+| display_name | string | historical presentation snapshot |
+| positioning | string | historical presentation snapshot |
 | currency | string | |
 | monthly_price_cents | integer | display/commercial metadata |
 | annual_price_cents | integer | nullable |
-| provider_mapping | jsonb | variant/price IDs per environment |
+| pricing_kind | string | fixed or custom |
+| entitlements_snapshot | jsonb | validated governed-catalog snapshot |
+| catalog_checksum | string | SHA-256 of the plan definition |
 | effective_at | timestamptz | |
+| published_at | timestamptz | |
 | retired_at | timestamptz | |
 
-Unique `(plan_id, version)`. Activated versions are immutable.
+Unique `(plan_id, version)`. Non-draft versions are immutable at both the model and PostgreSQL trigger
+boundaries. Provider price/variant identifiers belong to environment-scoped Billing mappings, not this
+provider-neutral Plans record.
 
 ### `entitlement_definitions`
 
@@ -435,20 +442,20 @@ One canonical billing customer per organization/provider/environment.
 |---|---|---|
 | id | uuid | |
 | organization_id | uuid | |
-| billing_customer_id | uuid | |
-| provider | string | |
-| provider_subscription_id | string | unique per provider/environment |
 | plan_version_id | uuid | local effective version |
-| provider_status | string | raw canonicalized provider status |
-| access_state | string | full, grace, read_only, blocked |
-| current_period_start | timestamptz | |
-| current_period_end | timestamptz | |
-| trial_ends_at | timestamptz | |
-| cancel_at_period_end | boolean | |
-| canceled_at | timestamptz | |
+| plan_key_snapshot | string | historical stable key |
+| plan_version_snapshot | integer | historical version number |
+| plan_display_name_snapshot | string | historical display value |
+| currency_snapshot | string | historical pricing currency |
+| pricing_kind_snapshot | string | fixed or custom |
+| price_cents_snapshot | bigint | selected interval price; null for custom |
+| status | string | active, inactive |
+| billing_interval | string | monthly, annual, custom |
+| started_at | timestamptz | |
 | ended_at | timestamptz | |
-| provider_updated_at | timestamptz | event ordering |
-| lock_version | integer | optimistic locking |
+
+This initial provider-neutral reference is extended by Billing provider projections in later billing prompts;
+provider identifiers and raw provider state remain owned by Billing.
 
 ### `billing_webhook_events`
 

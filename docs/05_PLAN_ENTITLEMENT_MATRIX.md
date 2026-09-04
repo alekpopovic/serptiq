@@ -135,3 +135,22 @@ Provider status and application `access_state` are separate fields.
 - Provider outage does not reset or grant unlimited quota.
 - Administrative credits use audited adjustment events, never counter mutation.
 - Usage counters are derived or transactionally maintained from immutable events and reservations.
+
+## 9. Plan-version migration and grandfathering policy
+
+- `config_blueprints/plans.yml` is the governed commercial source. Validate it with
+  `bin/rails plans:catalog:validate` and preview changes with `DRY_RUN=1 bin/rails plans:catalog:sync`.
+- Synchronization creates or updates drafts only. Any checksum difference for a published, retired or
+  grandfathered version is rejected; change the per-plan version number instead.
+- Publishing requires the platform-scoped `plan_catalog.publish` grant, recent authentication and the exact
+  confirmation phrase displayed by the administration screen. Publish and retire outcomes are audited.
+- Existing subscriptions retain their exact `plan_version_id` and copied display/pricing metadata when a new
+  draft or published version appears. No catalog sync silently migrates customer state.
+- Grandfathering means the old immutable version remains usable by subscriptions already attached to it but
+  is not a target for new subscriptions. An explicit, audited migration must select subscriptions, preserve a
+  before/after record and define rollback and customer communication before moving them.
+- Provider price or variant identifiers are environment-specific Billing mappings. They must never be added
+  to the provider-neutral plan catalog or used as commercial branching keys.
+
+The initial migration creates new, empty tables and takes only catalog-level locks. Apply it before catalog
+sync; the PostgreSQL trigger installed by the migration is required for direct-SQL immutability enforcement.

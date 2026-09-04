@@ -8,6 +8,13 @@ Rails.application.routes.draw do
   get "auth/github/callback", to: "identity/github_oauth#callback", as: :github_oauth_callback
   delete "logout", to: "identity/sessions#destroy", as: :logout
   get "dashboard", to: "dashboard#index", as: :dashboard
+  get "dashboard/admin/plans", to: "plans/catalog#index", as: :admin_plan_catalog
+  post "dashboard/admin/plans/:plan_key/versions/:version/publish",
+    to: "plans/catalog#publish",
+    as: :publish_admin_plan_version
+  patch "dashboard/admin/plans/:plan_key/versions/:version/retire",
+    to: "plans/catalog#retire",
+    as: :retire_admin_plan_version
   get "dashboard/organizations/new", to: "tenancy/organizations#new", as: :new_organization
   post "dashboard/organizations", to: "tenancy/organizations#create", as: :organizations
   get "dashboard/organizations/:organization_slug/switch",
