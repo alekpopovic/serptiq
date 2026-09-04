@@ -47,7 +47,7 @@ A runtime role is not a microservice. It uses the same code and domain contracts
 
 | Concern | Decision |
 |---|---|
-| Language | Ruby 3.4.10 baseline |
+| Language | Ruby 4.0.5 baseline |
 | Framework | Rails 8.1.3.1 baseline |
 | Database | PostgreSQL |
 | Web UI | ERB, Hotwire, Turbo, Stimulus, Tailwind CSS |

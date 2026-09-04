@@ -1,0 +1,7 @@
+CREATE DATABASE searchops_development_queue;
+CREATE DATABASE searchops_development_cache;
+CREATE DATABASE searchops_development_cable;
+CREATE DATABASE searchops_test;
+CREATE DATABASE searchops_test_queue;
+CREATE DATABASE searchops_test_cache;
+CREATE DATABASE searchops_test_cable;

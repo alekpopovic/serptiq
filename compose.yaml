@@ -1,0 +1,74 @@
+name: searchops
+
+services:
+  db:
+    image: postgres:17.10-alpine@sha256:742f40ea20b9ff2ff31db5458d127452988a2164df9e17441e191f3b72252193
+    environment:
+      POSTGRES_DB: searchops_development
+      POSTGRES_HOST_AUTH_METHOD: trust
+      POSTGRES_USER: searchops
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U searchops -d searchops_development"]
+      interval: 2s
+      timeout: 5s
+      retries: 15
+    volumes:
+      - searchops_postgres:/var/lib/postgresql/data
+      - ./docker/postgres/init-databases.sql:/docker-entrypoint-initdb.d/10-searchops-databases.sql:ro
+
+  web:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      args:
+        RUBY_VERSION: "4.0.5"
+    image: searchops:development-ruby-4.0.5
+    environment:
+      CABLE_DATABASE_URL: postgresql://searchops@db:5432/searchops_development_cable
+      CACHE_DATABASE_URL: postgresql://searchops@db:5432/searchops_development_cache
+      DATABASE_URL: postgresql://searchops@db:5432/searchops_development
+      QUEUE_DATABASE_URL: postgresql://searchops@db:5432/searchops_development_queue
+      RAILS_ENV: development
+      SEARCHOPS_PROCESS_ROLE: web
+    depends_on:
+      db:
+        condition: service_healthy
+    init: true
+    ports:
+      - "127.0.0.1:${SEARCHOPS_WEB_PORT:-3000}:3000"
+    volumes:
+      - .:/rails
+    healthcheck:
+      test: ["CMD-SHELL", "curl --fail --silent http://127.0.0.1:3000/up >/dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 30s
+    stop_grace_period: 30s
+
+  test:
+    profiles: ["test"]
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      args:
+        RUBY_VERSION: "4.0.5"
+    image: searchops:development-ruby-4.0.5
+    entrypoint: ["/rails/bin/compose-test-entrypoint"]
+    command: ["./bin/rails", "test"]
+    environment:
+      CABLE_DATABASE_URL: postgresql://searchops@db:5432/searchops_test_cable
+      CACHE_DATABASE_URL: postgresql://searchops@db:5432/searchops_test_cache
+      DATABASE_URL: postgresql://searchops@db:5432/searchops_test
+      QUEUE_DATABASE_URL: postgresql://searchops@db:5432/searchops_test_queue
+      RAILS_ENV: test
+      SEARCHOPS_PROCESS_ROLE: worker_default
+    depends_on:
+      db:
+        condition: service_healthy
+    init: true
+    volumes:
+      - .:/rails
+
+volumes:
+  searchops_postgres:

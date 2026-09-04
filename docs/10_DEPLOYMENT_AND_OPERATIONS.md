@@ -18,6 +18,14 @@ All roles come from the same commit, lockfile and container image. This keeps th
 
 The recommended first production shape is Docker plus Kamal on virtual machines, managed PostgreSQL, S3-compatible object storage, a container registry, DNS/TLS, email delivery and an error/observability provider. Kubernetes is intentionally outside the MVP.
 
+For local development and verification, `compose.yaml` builds `Dockerfile.dev`
+with Ruby 4.0.5 and runs the web process against one internal PostgreSQL
+instance containing separate primary, queue, cache and cable databases. The
+exact lifecycle and test commands are documented in
+[`implementation/CONTAINERS.md`](./implementation/CONTAINERS.md). This local
+topology does not replace the production separation and secret-injection rules
+below.
+
 ## 2. Environment separation
 
 Use distinct production and staging resources for:

@@ -22,6 +22,7 @@ Build immutable Docker images and deploy to virtual machines using Kamal. Use ma
 
 ## Implementation status
 
-The Rails generator supplied an initial Dockerfile and Kamal configuration.
-They are scaffolding only; Prompt 116 owns hardening, role topology, provenance
-and production verification.
+The original production Dockerfile remains separate and digest-pinned on Ruby
+4.0.5. A focused `Dockerfile.dev` and `compose.yaml` provide an isolated local
+web/test plus PostgreSQL topology. Prompt 116 still owns production hardening,
+complete role topology, provenance, SBOM/scanning and deployment verification.

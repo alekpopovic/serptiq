@@ -8,7 +8,7 @@ the workflow manually.
 
 ## Jobs and local equivalents
 
-Run commands from the repository root with Ruby 3.4.10, Node.js 24.20.0 and
+Run commands from the repository root with Ruby 4.0.5, Node.js 24.20.0 and
 PostgreSQL 17 available. The database-backed commands use the four test URLs
 documented in [DATABASES.md](./DATABASES.md).
 

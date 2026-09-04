@@ -4,10 +4,10 @@ require "test_helper"
 
 class IdentityIdentityUnlinkerTest < ActiveSupport::TestCase
   setup do
-    @now = 1.second.from_now.change(usec: 0)
     @user = create_identity_user
     @google = create_provider_identity(user: @user, provider: "google", provider_subject: "google-subject")
     @github = create_provider_identity(user: @user, provider: "github", provider_subject: "123456")
+    @now = [ @google.created_at, @github.created_at ].max.change(usec: 0) + 1.second
     @issued = issue_identity_session(user: @user, at: @now - 1.minute)
   end
 

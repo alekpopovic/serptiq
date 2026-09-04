@@ -20,13 +20,13 @@ class ReleaseInformationTest < ActiveSupport::TestCase
     payload = Shared::ReleaseInformation.call(
       settings: settings,
       environment: "production",
-      ruby_version: "3.4.10",
+      ruby_version: "4.0.5",
       rails_version: "8.1.3.1"
     )
 
     assert_equal "0123456789abcdef0123456789abcdef01234567", payload.dig(:release, :commit)
     assert_equal "2026-09-04T01:15:00Z", payload.dig(:release, :build_time)
-    assert_equal({ ruby: "3.4.10", rails: "8.1.3.1" }, payload.fetch(:runtime))
+    assert_equal({ ruby: "4.0.5", rails: "8.1.3.1" }, payload.fetch(:runtime))
     refute_match(/private|database|secret|postgresql/, payload.to_s)
   end
 

@@ -42,6 +42,20 @@ Status celog projekta:
 ruby tracking/scripts/prompt_tracker.rb status
 ```
 
+## Lokalno pokretanje kroz Docker Compose
+
+Ruby 4.0.5 aplikacija i sve PostgreSQL baze pokreću se komandama:
+
+```bash
+docker compose up --build --wait db web
+curl --fail http://127.0.0.1:3000/up
+docker compose --profile test run --rm test
+docker compose down
+```
+
+PostgreSQL port nije izložen hostu, a podaci ostaju u imenovanom Docker volume-u
+dok se izričito ne uklone sa `docker compose down --volumes`.
+
 Prompt se ne označava kao završen dok implementacija, testovi, dokumentacija i tracker nisu usklađeni.
 
 ## Važna odluka

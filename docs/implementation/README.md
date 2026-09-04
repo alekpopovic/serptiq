@@ -35,6 +35,8 @@ Do not pre-populate these reports with fictional implementation or test results.
   tenant/provider boundaries and failure artifacts.
 - [`CI.md`](./CI.md) defines the merge gate, immutable dependency pins,
   branch-protection settings and local job equivalents.
+- [`CONTAINERS.md`](./CONTAINERS.md) defines the Ruby 4.0.5 Docker images,
+  local Compose lifecycle, database isolation and container verification.
 - [`OBSERVABILITY.md`](./OBSERVABILITY.md) defines public error codes,
   structured event fields, correlation lifecycle and prohibited log data.
 - [`HEALTH_ENDPOINTS.md`](./HEALTH_ENDPOINTS.md) defines public liveness,

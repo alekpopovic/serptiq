@@ -2,6 +2,7 @@ require "test_helper"
 
 class ApplicationBaselineTest < ActiveSupport::TestCase
   test "uses the pinned Rails release and PostgreSQL adapter" do
+    assert_equal "4.0.5", RUBY_VERSION
     assert_equal "8.1.3.1", Rails.version
     assert_equal "postgresql", ActiveRecord::Base.connection_db_config.adapter
   end

@@ -6,7 +6,7 @@ This package is an implementation blueprint for a multi-tenant SearchOps SaaS th
 
 ## Baseline stack
 
-- Ruby 3.4.10
+- Ruby 4.0.5
 - Ruby on Rails 8.1.3.1
 - PostgreSQL as the only application, queue, cache, and cable database technology
 - Solid Queue, Solid Cache, and Solid Cable
@@ -20,7 +20,7 @@ This package is an implementation blueprint for a multi-tenant SearchOps SaaS th
 - Native application-owned sessions and provider adapters for Google OpenID Connect and GitHub OAuth
 - No Devise, OmniAuth, Doorkeeper, Sidekiq, Redis, Elasticsearch, or Kubernetes in the MVP
 
-The exact patch versions are a dated baseline from 2026-09-04. Prompt 001 requires a compatibility and security check before pinning dependencies.
+The exact patch versions are a dated baseline from 2026-09-04 and are pinned in the repository and container image.
 
 ## Quick start
 
@@ -28,13 +28,28 @@ Read [`CODEX_START_HERE.md`](./CODEX_START_HERE.md), then run the tracker valida
 
 ## Application development setup
 
-The application baseline is Ruby 3.4.10, Bundler 4.0.14, Rails 8.1.3.1, Node.js 24.20.0, and PostgreSQL. Install the pinned runtimes with your version manager, provide a local PostgreSQL connection through `DATABASE_URL` when the defaults do not apply, then run:
+The application baseline is Ruby 4.0.5, Bundler 4.0.14, Rails 8.1.3.1, Node.js 24.20.0, and PostgreSQL. Install the pinned runtimes with your version manager, provide a local PostgreSQL connection through `DATABASE_URL` when the defaults do not apply, then run:
 
 ```bash
 bundle _4.0.14_ install
 bin/rails db:prepare
 bin/dev
 ```
+
+For an isolated local stack, Docker Compose builds `Dockerfile.dev` with Ruby
+4.0.5, starts PostgreSQL and prepares all application databases:
+
+```bash
+docker compose up --build --wait db web
+curl --fail http://127.0.0.1:3000/up
+docker compose --profile test run --rm test
+docker compose down
+```
+
+The database is not published to the host. Compose data persists in a named
+volume until it is intentionally removed with `docker compose down --volumes`.
+See [`docs/implementation/CONTAINERS.md`](./docs/implementation/CONTAINERS.md)
+for lifecycle and verification commands.
 
 Copy `.env.example` only as a list of supported variable names; provide real values through an ignored local file or a secret manager and never commit them. The typed settings, precedence, production requirements, redaction rules, and rotation process are documented in [`docs/implementation/CONFIGURATION.md`](./docs/implementation/CONFIGURATION.md).
 
@@ -82,7 +97,7 @@ worker heartbeat inspection are documented in
 The initial Rails scaffold was generated outside the repository and merged without overwriting the blueprint:
 
 ```bash
-mise exec ruby@3.4.10 -- rails _8.1.3.1_ new \
+mise exec ruby@4.0.5 -- rails _8.1.3.1_ new \
   /tmp/searchops-rails-001.P9eESQ \
   --name searchops \
   --database=postgresql \
@@ -92,7 +107,7 @@ mise exec ruby@3.4.10 -- rails _8.1.3.1_ new \
   --skip-bundle
 ```
 
-Ruby 3.4.10 and Rails 8.1.3.1 were selected after checking the official release indexes and Rails compatibility guidance on 2026-09-04. Later prompts refine database topology, CI, security tooling, and operational configuration.
+The application runtime was subsequently upgraded and verified on Ruby 4.0.5 while retaining Rails 8.1.3.1. Later prompts refine database topology, CI, security tooling, and operational configuration.
 
 Architecture decisions and their implementation status are indexed in
 [`docs/adr/README.md`](./docs/adr/README.md). New durable decisions start from
