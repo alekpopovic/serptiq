@@ -42,7 +42,7 @@ modules:
     allowed_dependencies: [projects, authorization, entitlements, usage, auditing, shared]
   verification:
     namespace: Verification
-    allowed_dependencies: [projects, properties, authorization, shared]
+    allowed_dependencies: [projects, properties, authorization, auditing, shared]
   crawling:
     namespace: Crawling
     allowed_dependencies: [projects, properties, authorization, entitlements, usage, shared]

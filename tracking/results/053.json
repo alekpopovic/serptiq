@@ -1,0 +1,25 @@
+{
+  "prompt_id": "053",
+  "title": "Create the domain verification aggregate and lifecycle",
+  "status": "completed",
+  "started_at": "2026-09-04T20:37:03Z",
+  "finished_at": "2026-09-04T21:16:34Z",
+  "summary": "Implemented tenant-bound domain verification challenges and append-only attempts for DNS TXT, HTML file, meta tag, and Search Console adapters, with exact-origin DB protection, secure derived proof material, lifecycle/rate/freshness policies, safe evidence, audits/outbox events, property projections, authorization-aware UI, and documentation.",
+  "tests": [
+    {
+      "command": "PASS: mise exec -- bin/quality (14/14); focused verification/properties/audit Rails tests (44 runs, 235 assertions); verification system test (1 run, 6 assertions); full Rails test (699 runs, 5382 assertions); full system test (34 runs, 162 assertions). One initial full-suite run had a transient pre-existing Identity timestamp error; isolated rerun passed (2 runs, 7 assertions) and the repeated full suite passed.",
+      "outcome": "passed",
+      "notes": "Recorded through legacy --tests option."
+    }
+  ],
+  "files_changed": [],
+  "migrations": [],
+  "decisions": [],
+  "risks": [
+    "none reported"
+  ],
+  "next_steps": [
+    "follow the dependency graph"
+  ],
+  "commit": null
+}

@@ -91,6 +91,13 @@ controllers:
       update: *manage_property_environments
       archive: *manage_property_environments
       reactivate: *manage_property_environments
+  Verification::ChallengesController:
+    source: app/controllers/verification/challenges_controller.rb
+    actions:
+      show: &verify_property_environment { kind: permission, permission: properties.verify }
+      create: *verify_property_environment
+      attempt: *verify_property_environment
+      revoke: *verify_property_environment
   Tenancy::InvitationAcceptancesController:
     source: app/controllers/tenancy/invitation_acceptances_controller.rb
     actions:
@@ -248,6 +255,9 @@ domain_operations:
   Properties::Public.transition_environment: { kind: permission, permission: properties.manage }
   Properties::Public.environment_page: { kind: permission, permission: properties.read }
   Properties::Public.environment_details: { kind: permission, permission: properties.read }
+  Properties::Public.apply_verification_summary:
+    kind: context
+    reason: exact_primary_environment_verification_summary_projection
   Properties::Public.environment_reference:
     kind: context
     reason: explicit_tenant_project_property_environment_projection_for_downstream_modules
@@ -261,6 +271,13 @@ domain_operations:
   Properties::Public.reference:
     kind: context
     reason: explicit_tenant_project_property_projection_for_downstream_modules
+  Verification::Public.issue_challenge: { kind: permission, permission: properties.verify }
+  Verification::Public.attempt_challenge: { kind: permission, permission: properties.verify }
+  Verification::Public.revoke_challenge: { kind: permission, permission: properties.verify }
+  Verification::Public.challenge_details: { kind: permission, permission: properties.verify }
+  Verification::Public.fresh_verification:
+    kind: context
+    reason: explicit_tenant_environment_freshness_projection_for_authorized_scan_admission
   Billing::Public.create_subscription_reference:
     kind: context
     reason: explicit_tenant_and_published_plan_projection

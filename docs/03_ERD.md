@@ -39,7 +39,8 @@ erDiagram
   PROPERTY ||--o| ANDROID_PROPERTY_CONFIG : configures
   PROPERTY ||--o| IOS_PROPERTY_CONFIG : configures
   PROPERTY ||--|{ PROPERTY_ENVIRONMENT : targets
-  PROPERTY ||--o{ DOMAIN_VERIFICATION : verifies
+  PROPERTY_ENVIRONMENT ||--o{ DOMAIN_VERIFICATION : verifies
+  DOMAIN_VERIFICATION ||--o{ DOMAIN_VERIFICATION_ATTEMPT : records
 
   PLAN ||--o{ PLAN_VERSION : versions
   PLAN_VERSION ||--o{ PLAN_ENTITLEMENT : contains
@@ -714,20 +715,32 @@ the exact environment and origin.
 
 ### `domain_verifications`
 
-| Column | Type |
-|---|---|
-| id | uuid |
-| organization_id | uuid |
-| property_id | uuid |
-| method | string |
-| challenge_digest | string |
-| expected_location | text |
-| state | string |
-| attempted_at | timestamptz |
-| verified_at | timestamptz |
-| expires_at | timestamptz |
-| revoked_at | timestamptz |
-| evidence | jsonb |
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid | stable challenge identity and token derivation input |
+| organization_id / project_id / property_id / environment_id | uuid | exact composite tenant/environment binding |
+| issued_by_membership_id | uuid | same-organization issuer |
+| method | string | DNS TXT, HTML file, meta tag or Search Console adapter key |
+| challenge_digest | string | SHA-256 digest of application-key-derived high-entropy proof value |
+| expected_location / bound_origin | text | immutable exact proof target and canonical origin snapshot |
+| state | string | pending, verified, failed, expired or revoked |
+| attempt_count / attempted_at | integer / timestamptz | locked rate-limit and retry state |
+| verified_at / failed_at / expired_at / revoked_at | timestamptz | auditable lifecycle timestamps |
+| expires_at | timestamptz | pending deadline or maximum verified lifetime |
+| failure_category | string | bounded category only for terminal failure |
+| evidence | jsonb | bounded allowlisted status/count observations; never bodies or tokens |
+| lock_version | integer | optimistic lifecycle locking |
+
+At most one pending or verified challenge exists per environment. Immutable binding triggers prevent moving
+a challenge to another tenant, resource, method or origin. An origin update revokes current challenges at the
+database boundary and resets the primary property's summary. The exact instruction value is re-derived only
+for an authorized `properties.verify` reader; PostgreSQL stores no recoverable raw proof value.
+
+### `domain_verification_attempts`
+
+Append-only attempt evidence carries the same tenant/project/property/environment identity, challenge ID,
+monotonic sequence, verified/failed outcome, bounded failure category, allowlisted evidence and attempt time.
+A composite foreign key prevents cross-tenant challenge substitution and a trigger rejects update/delete.
 
 ## 7. Integration tables
 
@@ -908,6 +921,8 @@ targets for orphaned and cross-tenant references.
     registered Authorization property scope.
 18. Every active website or web-application property has exactly one active primary production environment;
     every environment is bound by composite foreign key to the same tenant, project and typed property.
+19. Every verification challenge and attempt belongs to exactly one tenant-bound property environment;
+    challenge bindings and attempt history are immutable, and origin changes revoke current proof.
 
 ## 12. Retention classes
 

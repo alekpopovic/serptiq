@@ -370,6 +370,39 @@ $$;
 
 
 --
+-- Name: invalidate_origin_bound_verifications(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.invalidate_origin_bound_verifications() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF NEW.origin IS DISTINCT FROM OLD.origin THEN
+    UPDATE domain_verifications
+    SET state = 'revoked', revoked_at = CURRENT_TIMESTAMP,
+      failed_at = NULL, expired_at = NULL, failure_category = NULL,
+      lock_version = lock_version + 1, updated_at = CURRENT_TIMESTAMP
+    WHERE organization_id = NEW.organization_id
+      AND project_id = NEW.project_id
+      AND property_id = NEW.property_id
+      AND environment_id = NEW.id
+      AND bound_origin IS DISTINCT FROM NEW.origin
+      AND state IN ('pending', 'verified');
+
+    UPDATE properties
+    SET verification_status = 'unverified', verified_at = NULL,
+      lock_version = lock_version + 1, updated_at = CURRENT_TIMESTAMP
+    WHERE organization_id = NEW.organization_id
+      AND project_id = NEW.project_id
+      AND id = NEW.property_id
+      AND NEW."primary" = TRUE;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: lock_usage_quota_pool(uuid); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -397,6 +430,19 @@ $$;
 
 
 --
+-- Name: prevent_domain_verification_attempt_mutation(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.prevent_domain_verification_attempt_mutation() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  RAISE EXCEPTION 'domain verification attempts are append-only';
+END;
+$$;
+
+
+--
 -- Name: prevent_plan_deletion(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -405,6 +451,32 @@ CREATE FUNCTION public.prevent_plan_deletion() RETURNS trigger
     AS $$
 BEGIN
   RAISE EXCEPTION 'stable commercial plans cannot be deleted' USING ERRCODE = '23514';
+END;
+$$;
+
+
+--
+-- Name: protect_domain_verification_binding(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.protect_domain_verification_binding() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF NEW.id IS DISTINCT FROM OLD.id
+    OR NEW.organization_id IS DISTINCT FROM OLD.organization_id
+    OR NEW.project_id IS DISTINCT FROM OLD.project_id
+    OR NEW.property_id IS DISTINCT FROM OLD.property_id
+    OR NEW.environment_id IS DISTINCT FROM OLD.environment_id
+    OR NEW.issued_by_membership_id IS DISTINCT FROM OLD.issued_by_membership_id
+    OR NEW.method IS DISTINCT FROM OLD.method
+    OR NEW.challenge_digest IS DISTINCT FROM OLD.challenge_digest
+    OR NEW.expected_location IS DISTINCT FROM OLD.expected_location
+    OR NEW.bound_origin IS DISTINCT FROM OLD.bound_origin
+    OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+    RAISE EXCEPTION 'domain verification binding cannot be changed';
+  END IF;
+  RETURN NEW;
 END;
 $$;
 
@@ -467,6 +539,30 @@ BEGIN
     OR NEW.authorization_scope_type IS DISTINCT FROM OLD.authorization_scope_type
     OR NEW.authorization_project_scope_type IS DISTINCT FROM OLD.authorization_project_scope_type THEN
     RAISE EXCEPTION 'property stable identity cannot be changed';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: validate_domain_verification_origin(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.validate_domain_verification_origin() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  PERFORM 1 FROM property_environments
+  WHERE organization_id = NEW.organization_id
+    AND project_id = NEW.project_id
+    AND property_id = NEW.property_id
+    AND id = NEW.environment_id
+    AND status = 'active'
+    AND origin = NEW.bound_origin
+  FOR KEY SHARE;
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'domain verification origin does not match active environment';
   END IF;
   RETURN NEW;
 END;
@@ -840,6 +936,68 @@ CREATE TABLE public.billing_webhook_events (
     CONSTRAINT billing_webhooks_result_allowlist CHECK (((processing_result IS NULL) OR ((processing_result)::text = ANY (ARRAY[('applied'::character varying)::text, ('stale'::character varying)::text, ('observed'::character varying)::text, ('ignored'::character varying)::text])))),
     CONSTRAINT billing_webhooks_state_allowlist CHECK (((state)::text = ANY (ARRAY[('pending'::character varying)::text, ('processing'::character varying)::text, ('processed'::character varying)::text, ('retryable'::character varying)::text, ('dead_letter'::character varying)::text]))),
     CONSTRAINT billing_webhooks_subscription_tenant_present CHECK (((subscription_id IS NULL) OR (organization_id IS NOT NULL)))
+);
+
+
+--
+-- Name: domain_verification_attempts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.domain_verification_attempts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_id uuid NOT NULL,
+    environment_id uuid NOT NULL,
+    domain_verification_id uuid NOT NULL,
+    sequence integer NOT NULL,
+    outcome character varying(24) NOT NULL,
+    failure_category character varying(48),
+    evidence jsonb DEFAULT '{}'::jsonb NOT NULL,
+    attempted_at timestamp(6) with time zone NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT domain_verification_attempts_evidence_shape CHECK (((jsonb_typeof(evidence) = 'object'::text) AND (octet_length((evidence)::text) <= 4096))),
+    CONSTRAINT domain_verification_attempts_failure_shape CHECK (((((outcome)::text = 'verified'::text) AND (failure_category IS NULL)) OR (((outcome)::text = 'failed'::text) AND (failure_category IS NOT NULL)))),
+    CONSTRAINT domain_verification_attempts_outcome CHECK (((sequence > 0) AND ((outcome)::text = ANY ((ARRAY['verified'::character varying, 'failed'::character varying])::text[]))))
+);
+
+
+--
+-- Name: domain_verifications; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.domain_verifications (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_id uuid NOT NULL,
+    environment_id uuid NOT NULL,
+    issued_by_membership_id uuid NOT NULL,
+    method character varying(32) NOT NULL,
+    challenge_digest character varying(64) NOT NULL,
+    expected_location text NOT NULL,
+    bound_origin text NOT NULL,
+    state character varying(24) DEFAULT 'pending'::character varying NOT NULL,
+    attempt_count integer DEFAULT 0 NOT NULL,
+    attempted_at timestamp(6) with time zone,
+    verified_at timestamp(6) with time zone,
+    failed_at timestamp(6) with time zone,
+    expired_at timestamp(6) with time zone,
+    revoked_at timestamp(6) with time zone,
+    expires_at timestamp(6) with time zone NOT NULL,
+    failure_category character varying(48),
+    evidence jsonb DEFAULT '{}'::jsonb NOT NULL,
+    lock_version integer DEFAULT 0 NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT domain_verifications_attempt_shape CHECK (((attempt_count >= 0) AND (((attempt_count = 0) AND (attempted_at IS NULL)) OR ((attempt_count > 0) AND (attempted_at IS NOT NULL))))),
+    CONSTRAINT domain_verifications_bounded_binding CHECK ((((char_length(expected_location) >= 1) AND (char_length(expected_location) <= 2048)) AND ((char_length(bound_origin) >= 8) AND (char_length(bound_origin) <= 2048)))),
+    CONSTRAINT domain_verifications_digest_format CHECK (((challenge_digest)::text ~ '^[0-9a-f]{64}$'::text)),
+    CONSTRAINT domain_verifications_evidence_shape CHECK (((jsonb_typeof(evidence) = 'object'::text) AND (octet_length((evidence)::text) <= 4096))),
+    CONSTRAINT domain_verifications_expiry_order CHECK ((expires_at > created_at)),
+    CONSTRAINT domain_verifications_lifecycle CHECK (((((state)::text = 'pending'::text) AND (verified_at IS NULL) AND (failed_at IS NULL) AND (expired_at IS NULL) AND (revoked_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'verified'::text) AND (verified_at IS NOT NULL) AND (failed_at IS NULL) AND (expired_at IS NULL) AND (revoked_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'failed'::text) AND (verified_at IS NULL) AND (failed_at IS NOT NULL) AND (expired_at IS NULL) AND (revoked_at IS NULL) AND (failure_category IS NOT NULL)) OR (((state)::text = 'expired'::text) AND (failed_at IS NULL) AND (expired_at IS NOT NULL) AND (revoked_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'revoked'::text) AND (failed_at IS NULL) AND (expired_at IS NULL) AND (revoked_at IS NOT NULL) AND (failure_category IS NULL)))),
+    CONSTRAINT domain_verifications_method_allowlist CHECK (((method)::text = ANY ((ARRAY['dns_txt'::character varying, 'html_file'::character varying, 'meta_tag'::character varying, 'search_console'::character varying])::text[]))),
+    CONSTRAINT domain_verifications_state_allowlist CHECK (((state)::text = ANY ((ARRAY['pending'::character varying, 'verified'::character varying, 'failed'::character varying, 'expired'::character varying, 'revoked'::character varying])::text[])))
 );
 
 
@@ -1996,6 +2154,22 @@ ALTER TABLE ONLY public.billing_webhook_events
 
 
 --
+-- Name: domain_verification_attempts domain_verification_attempts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.domain_verification_attempts
+    ADD CONSTRAINT domain_verification_attempts_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: domain_verifications domain_verifications_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.domain_verifications
+    ADD CONSTRAINT domain_verifications_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: entitlement_definitions entitlement_definitions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2544,6 +2718,34 @@ CREATE INDEX index_billing_webhooks_on_tenant_received ON public.billing_webhook
 
 
 --
+-- Name: index_domain_verifications_on_challenge_digest; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_domain_verifications_on_challenge_digest ON public.domain_verifications USING btree (challenge_digest);
+
+
+--
+-- Name: index_domain_verifications_on_current_environment; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_domain_verifications_on_current_environment ON public.domain_verifications USING btree (organization_id, environment_id) WHERE ((state)::text = ANY ((ARRAY['pending'::character varying, 'verified'::character varying])::text[]));
+
+
+--
+-- Name: index_domain_verifications_on_environment_state; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_domain_verifications_on_environment_state ON public.domain_verifications USING btree (organization_id, project_id, property_id, environment_id, state, created_at);
+
+
+--
+-- Name: index_domain_verifications_on_tenant_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_domain_verifications_on_tenant_identity ON public.domain_verifications USING btree (organization_id, project_id, property_id, environment_id, id);
+
+
+--
 -- Name: index_entitlement_contexts_on_active_organization; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2978,6 +3180,13 @@ CREATE UNIQUE INDEX index_property_environments_on_stable_key ON public.property
 
 
 --
+-- Name: index_property_environments_on_tenant_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_property_environments_on_tenant_identity ON public.property_environments USING btree (organization_id, project_id, property_id, id);
+
+
+--
 -- Name: index_role_assignments_on_active_grant; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3363,6 +3572,20 @@ CREATE UNIQUE INDEX index_users_on_active_normalized_email ON public.users USING
 
 
 --
+-- Name: index_verification_attempts_on_environment; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_verification_attempts_on_environment ON public.domain_verification_attempts USING btree (organization_id, project_id, property_id, environment_id, attempted_at);
+
+
+--
+-- Name: index_verification_attempts_on_sequence; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_verification_attempts_on_sequence ON public.domain_verification_attempts USING btree (domain_verification_id, sequence);
+
+
+--
 -- Name: index_website_configs_on_normalized_origin; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3374,6 +3597,27 @@ CREATE UNIQUE INDEX index_website_configs_on_normalized_origin ON public.website
 --
 
 CREATE TRIGGER billing_customers_immutable_mapping BEFORE DELETE OR UPDATE ON public.billing_customers FOR EACH ROW EXECUTE FUNCTION public.enforce_billing_customer_mapping_immutability();
+
+
+--
+-- Name: domain_verification_attempts domain_verification_attempts_immutable; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER domain_verification_attempts_immutable BEFORE DELETE OR UPDATE ON public.domain_verification_attempts FOR EACH ROW EXECUTE FUNCTION public.prevent_domain_verification_attempt_mutation();
+
+
+--
+-- Name: domain_verifications domain_verifications_protect_binding; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER domain_verifications_protect_binding BEFORE UPDATE ON public.domain_verifications FOR EACH ROW EXECUTE FUNCTION public.protect_domain_verification_binding();
+
+
+--
+-- Name: domain_verifications domain_verifications_validate_origin; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER domain_verifications_validate_origin BEFORE INSERT ON public.domain_verifications FOR EACH ROW EXECUTE FUNCTION public.validate_domain_verification_origin();
 
 
 --
@@ -3430,6 +3674,13 @@ CREATE TRIGGER properties_protect_stable_identity BEFORE UPDATE ON public.proper
 --
 
 CREATE CONSTRAINT TRIGGER properties_require_primary_environment AFTER INSERT OR UPDATE ON public.properties DEFERRABLE INITIALLY DEFERRED FOR EACH ROW EXECUTE FUNCTION public.enforce_property_primary_environment();
+
+
+--
+-- Name: property_environments property_environments_invalidate_verifications; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER property_environments_invalidate_verifications AFTER UPDATE OF origin ON public.property_environments FOR EACH ROW EXECUTE FUNCTION public.invalidate_origin_bound_verifications();
 
 
 --
@@ -3566,6 +3817,22 @@ ALTER TABLE ONLY public.billing_webhook_events
 
 ALTER TABLE ONLY public.organization_ownerships
     ADD CONSTRAINT fk_current_ownership_active_membership FOREIGN KEY (organization_id, membership_id, membership_status) REFERENCES public.memberships(organization_id, id, status) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED;
+
+
+--
+-- Name: domain_verifications fk_domain_verifications_tenant_environment; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.domain_verifications
+    ADD CONSTRAINT fk_domain_verifications_tenant_environment FOREIGN KEY (organization_id, project_id, property_id, environment_id) REFERENCES public.property_environments(organization_id, project_id, property_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: domain_verifications fk_domain_verifications_tenant_issuer; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.domain_verifications
+    ADD CONSTRAINT fk_domain_verifications_tenant_issuer FOREIGN KEY (organization_id, issued_by_membership_id) REFERENCES public.memberships(organization_id, id) ON DELETE RESTRICT;
 
 
 --
@@ -4273,6 +4540,14 @@ ALTER TABLE ONLY public.usage_windows
 
 
 --
+-- Name: domain_verification_attempts fk_verification_attempts_tenant_challenge; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.domain_verification_attempts
+    ADD CONSTRAINT fk_verification_attempts_tenant_challenge FOREIGN KEY (organization_id, project_id, property_id, environment_id, domain_verification_id) REFERENCES public.domain_verifications(organization_id, project_id, property_id, environment_id, id) ON DELETE RESTRICT;
+
+
+--
 -- Name: website_property_configs fk_website_property_configs_typed_property; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4287,6 +4562,7 @@ ALTER TABLE ONLY public.website_property_configs
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904140000'),
 ('20260904133000'),
 ('20260904131000'),
 ('20260904130000'),

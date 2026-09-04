@@ -1,0 +1,61 @@
+<% content_for :title, "Verify #{@environment.display_name}" %>
+
+<div class="mx-auto max-w-5xl">
+  <%= render "shared/breadcrumbs", items: [
+    { label: @property.display_name, path: organization_project_property_path(Current.organization.slug, @project.slug, @property.id) },
+    { label: "Environments", path: organization_project_property_environments_path(Current.organization.slug, @project.slug, @property.id) },
+    { label: @environment.display_name, path: organization_project_property_environment_path(Current.organization.slug, @project.slug, @property.id, @environment.id) },
+    { label: "Verification", path: nil }
+  ] %>
+
+  <div class="mt-6">
+    <p class="so-eyebrow">Proof of control</p>
+    <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950">Verify <%= @environment.display_name %></h1>
+    <p class="mt-3 max-w-3xl text-sm leading-6 text-slate-600">Verification is an observed, expiring proof for the exact origin <span class="font-mono"><%= @environment.origin_value.display_origin %></span>. It does not guarantee that every URL is safe.</p>
+  </div>
+
+  <% if @form_error %><div class="so-alert so-alert-danger mt-6" role="alert"><p><%= @form_error %></p></div><% end %>
+
+  <section class="so-card mt-8 p-6" aria-labelledby="issue-verification-title">
+    <h2 id="issue-verification-title" class="font-bold text-slate-950">Choose a verification method</h2>
+    <%= form_with url: organization_project_property_environment_verification_path(Current.organization.slug, @project.slug, @property.id, @environment.id), scope: :verification, class: "mt-4 flex flex-wrap items-end gap-3" do |form| %>
+      <div>
+        <%= form.label :method, "Method", class: "so-label" %>
+        <%= form.select :method, @verification_methods.map { |key, label| [ label, key ] }, {}, class: "so-input mt-1" %>
+      </div>
+      <%= form.submit "Issue challenge", class: "so-button so-button-primary" %>
+    <% end %>
+    <p class="mt-3 text-xs leading-5 text-slate-500">Issuing a new challenge revokes the current challenge for this environment. Search Console succeeds only after an adapter confirms the connected account and exact property match.</p>
+  </section>
+
+  <% if @challenge_summary %>
+    <section class="so-card mt-8 p-6" aria-labelledby="current-challenge-title">
+      <div class="flex flex-wrap items-start justify-between gap-3">
+        <div><p class="so-eyebrow"><%= @challenge_summary.instructions.label %></p><h2 id="current-challenge-title" class="mt-1 text-xl font-black text-slate-950">Current instructions</h2></div>
+        <span class="so-badge <%= @challenge_summary.verified? ? "so-badge-success" : "so-badge-neutral" %>"><%= @challenge_summary.state.humanize %></span>
+      </div>
+      <dl class="mt-5 grid gap-4 text-sm">
+        <div><dt class="text-slate-500">Exact location</dt><dd class="mt-1 break-all font-mono text-slate-950"><%= @challenge_summary.instructions.location %></dd></div>
+        <% unless @challenge_summary.method == "search_console" %><div><dt class="text-slate-500">Exact value</dt><dd class="mt-1 break-all rounded-lg bg-slate-950 p-3 font-mono text-white"><%= @challenge_summary.instructions.value %></dd></div><% end %>
+        <div><dt class="text-slate-500">Expires</dt><dd class="mt-1"><%= @challenge_summary.expires_at.to_fs(:long) %></dd></div>
+      </dl>
+      <ol class="mt-5 list-decimal space-y-2 pl-5 text-sm text-slate-700"><% @challenge_summary.instructions.steps.each do |step| %><li><%= step %></li><% end %></ol>
+
+      <div class="mt-6 flex flex-wrap gap-3">
+        <% if @challenge_summary.pending? %>
+          <%= button_to "Retry verification", attempt_organization_project_property_environment_verification_path(Current.organization.slug, @project.slug, @property.id, @environment.id, @challenge_summary.id), method: :post, class: "so-button so-button-primary" %>
+        <% end %>
+        <% if @challenge_summary.pending? || @challenge_summary.verified? %>
+          <%= button_to "Revoke verification", revoke_organization_project_property_environment_verification_path(Current.organization.slug, @project.slug, @property.id, @environment.id, @challenge_summary.id), method: :patch, class: "so-button so-button-secondary", form: { data: { turbo_confirm: "Revoke this proof of control?" } } %>
+        <% end %>
+      </div>
+
+      <% if @challenge_summary.attempts.any? %>
+        <h3 class="mt-8 font-bold text-slate-950">Recent safe evidence</h3>
+        <ul class="mt-3 divide-y divide-slate-200 text-sm"><% @challenge_summary.attempts.each do |attempt| %><li class="py-3"><span class="font-semibold"><%= attempt.outcome.humanize %></span> · attempt <%= attempt.sequence %><% if attempt.failure_category %> · <%= attempt.failure_category.humanize %><% end %><span class="block text-xs text-slate-500">Only bounded status/count observations are retained; response bodies and proof tokens are not stored.</span></li><% end %></ul>
+      <% end %>
+    </section>
+  <% end %>
+
+  <div class="mt-8"><%= link_to "Back to environment", organization_project_property_environment_path(Current.organization.slug, @project.slug, @property.id, @environment.id), class: "so-button so-button-secondary" %></div>
+</div>

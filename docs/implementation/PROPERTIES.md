@@ -31,6 +31,10 @@ classification and stable aggregate IDs, never host/origin values. Prompt 053 ow
 invalidation and exact origin-bound verification evidence. Creating a property or environment never proves
 ownership; verification remains an explicit observed, expiring and revocable state.
 
+Durable proof is owned by `Verification`. Primary-environment challenge transitions project a compatibility
+summary back to the property. Origin mutation resets that summary and revokes the exact bound challenge in
+PostgreSQL even when callbacks are bypassed.
+
 ## Authorization and limits
 
 Creation and mutation require `properties.manage` at the active parent project or exact property scope;

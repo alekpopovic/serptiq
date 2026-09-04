@@ -36,6 +36,10 @@ module Properties
       EnvironmentDirectory.new.find(**attributes)
     end
 
+    def apply_verification_summary(**attributes)
+      VerificationSummaryProjection.new.call(**attributes)
+    end
+
     def property_page(**attributes)
       PropertyDirectory.new.page(**attributes)
     end

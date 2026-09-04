@@ -20,6 +20,9 @@ Property-environment reads inherit `properties.read`; create, origin/primary upd
 inherit `properties.manage` at organization, project or exact property scope. Environments do not introduce a
 broader authorization scope of their own.
 
+Exact ownership challenge instructions, retry evidence and revocation require `properties.verify` at the
+organization, project or exact property scope. `properties.read` alone never reveals challenge material.
+
 ## 2. Default role matrix
 
 | Permission | Owner | Organization Admin | Billing Admin | SEO Lead | Developer | Content Editor | Analyst | Viewer |

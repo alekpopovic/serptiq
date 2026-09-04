@@ -406,6 +406,19 @@ A domain verification challenge:
 
 Search Console ownership may be trusted only after the connected account and exact property match are verified.
 
+The implementation derives each user-visible proof value from an application key and the immutable random
+challenge identity, then stores only its SHA-256 digest. Exact instructions are available only behind
+`properties.verify`; audit/outbox records contain method, lifecycle and bounded failure category but never the
+origin, response body, provider payload or proof value. Adapter evidence is restricted to booleans and bounded
+counts/status codes. HTML and meta adapters accept only an exact-origin network fetcher contract; canonical
+origin parsing alone is never treated as SSRF authorization.
+
+Attempts reserve a monotonic sequence under row lock, enforce a minimum interval and fail terminally after a
+bounded number of mismatches. A process interruption can consume a sequence without fabricating evidence; a
+later retry remains possible after the interval. Verified proof has a maximum lifetime, while high-volume and
+render workloads require stricter freshness (seven days and 24 hours respectively). Origin mutation revokes
+current bound proof in PostgreSQL even if application callbacks are bypassed.
+
 ## 7. Browser isolation profile
 
 Minimum production expectations:

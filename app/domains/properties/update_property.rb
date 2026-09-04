@@ -43,6 +43,7 @@ module Properties
             at: @clock.call
           )
         end
+        property.reload if environment
         changed = property_changes.any? || config_changes.any?
         property.touch(time: @clock.call) if changed && property_changes.empty?
 

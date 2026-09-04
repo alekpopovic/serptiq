@@ -101,4 +101,30 @@ class AuditConsistencyReportTest < ActiveSupport::TestCase
     assert_includes Auditing::Public.consistency_issues,
       Auditing::ConsistencyIssue.new(audit_event_id: event.id, reason_code: "target_cross_tenant")
   end
+
+  test "reports a domain verification target from another tenant" do
+    Authorization::Public.sync_catalog
+    enable_project_limit(@foreign)
+    enable_property_limits(@foreign)
+    project = create_project_for(@foreign, slug: "foreign-audit-verification-project")
+    property = create_property_for(@foreign, project: project)
+    challenge = Verification::Public.issue_challenge(
+      actor_membership: @foreign.membership,
+      project_id: project.id,
+      property_id: property.id,
+      environment_id: property.environments.sole.id,
+      method: "dns_txt"
+    ).challenge
+    event = Auditing::Public.record!(
+      organization_id: @owner.organization.id,
+      actor_membership_id: @owner.membership.id,
+      action: "verification.reviewed",
+      target_type: "DomainVerification",
+      target_id: challenge.id,
+      result: "denied"
+    )
+
+    assert_includes Auditing::Public.consistency_issues,
+      Auditing::ConsistencyIssue.new(audit_event_id: event.id, reason_code: "target_cross_tenant")
+  end
 end

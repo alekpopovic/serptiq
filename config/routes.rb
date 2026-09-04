@@ -187,6 +187,17 @@ Rails.application.routes.draw do
   patch "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id/environments/:environment_id/reactivate",
     to: "properties/environments#reactivate",
     as: :reactivate_organization_project_property_environment
+  get "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id/environments/:environment_id/verification",
+    to: "verification/challenges#show",
+    as: :organization_project_property_environment_verification
+  post "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id/environments/:environment_id/verification",
+    to: "verification/challenges#create"
+  post "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id/environments/:environment_id/verification/:challenge_id/attempt",
+    to: "verification/challenges#attempt",
+    as: :attempt_organization_project_property_environment_verification
+  patch "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id/environments/:environment_id/verification/:challenge_id/revoke",
+    to: "verification/challenges#revoke",
+    as: :revoke_organization_project_property_environment_verification
   get "dashboard/organizations/:organization_slug", to: "dashboard#index", as: :organization_dashboard
   get "onboarding", to: "onboarding#show", as: :onboarding
   get "dashboard/invitations/review",

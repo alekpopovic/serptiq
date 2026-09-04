@@ -36,6 +36,7 @@ module Properties
         end.uniq
         changed = changed_fields.any?
         environment.save! if changed
+        property.reload if changed_fields.include?("origin")
         if (changed_fields & %w[origin primary]).any?
           reset_verification!(property)
         end
