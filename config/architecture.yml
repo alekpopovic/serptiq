@@ -1,0 +1,91 @@
+version: 1
+
+# A file is module-owned when it is below one of these roots and its first
+# directory matches a module key. Delivery-layer files outside these roots are
+# intentionally not assigned domain ownership by this checker.
+source_roots:
+  - app/domains
+  - app/jobs
+  - app/policies
+  - app/adapters
+
+modules:
+  shared:
+    namespace: Shared
+    allowed_dependencies: []
+  identity:
+    namespace: Identity
+    allowed_dependencies: [shared]
+  tenancy:
+    namespace: Tenancy
+    allowed_dependencies: [identity, shared]
+  authorization:
+    namespace: Authorization
+    allowed_dependencies: [identity, tenancy, entitlements, usage, shared]
+  billing:
+    namespace: Billing
+    allowed_dependencies: [entitlements, shared]
+  entitlements:
+    namespace: Entitlements
+    allowed_dependencies: [shared]
+  usage:
+    namespace: Usage
+    allowed_dependencies: [entitlements, shared]
+  projects:
+    namespace: Projects
+    allowed_dependencies: [tenancy, authorization, entitlements, usage, shared]
+  properties:
+    namespace: Properties
+    allowed_dependencies: [projects, authorization, entitlements, usage, shared]
+  crawling:
+    namespace: Crawling
+    allowed_dependencies: [projects, properties, authorization, entitlements, usage, shared]
+  auditing:
+    namespace: Auditing
+    allowed_dependencies: [shared]
+  findings:
+    namespace: Findings
+    allowed_dependencies: [projects, properties, crawling, shared]
+  issues:
+    namespace: Issues
+    allowed_dependencies: [projects, findings, authorization, shared]
+  app_discovery:
+    namespace: AppDiscovery
+    allowed_dependencies: [projects, properties, authorization, entitlements, usage, shared]
+  integrations:
+    namespace: Integrations
+    allowed_dependencies: [identity, tenancy, projects, properties, authorization, shared]
+  releases:
+    namespace: Releases
+    allowed_dependencies: [projects, crawling, findings, authorization, entitlements, usage, shared]
+  reporting:
+    namespace: Reporting
+    allowed_dependencies: [projects, properties, findings, issues, authorization, shared]
+  notifications:
+    namespace: Notifications
+    allowed_dependencies: [identity, tenancy, shared]
+  administration:
+    namespace: Administration
+    allowed_dependencies:
+      - identity
+      - tenancy
+      - authorization
+      - billing
+      - entitlements
+      - usage
+      - projects
+      - properties
+      - crawling
+      - auditing
+      - findings
+      - issues
+      - app_discovery
+      - integrations
+      - releases
+      - reporting
+      - notifications
+      - shared
+
+# Exceptions must be narrow, temporary and reviewable. See the implementation
+# guide for required fields. No exceptions are currently approved.
+exceptions: []

@@ -1,0 +1,32 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "optparse"
+require "pathname"
+require_relative "support/architecture_boundary_checker"
+
+options = {
+  root: Pathname(__dir__).join("..").expand_path,
+  config: Pathname(__dir__).join("..", "config", "architecture.yml").expand_path
+}
+
+OptionParser.new do |parser|
+  parser.banner = "Usage: script/check_architecture [--root PATH] [--config PATH]"
+  parser.on("--root PATH", "Repository root to scan") { |path| options[:root] = path }
+  parser.on("--config PATH", "Boundary configuration") { |path| options[:config] = path }
+end.parse!
+
+checker = Searchops::Architecture::BoundaryChecker.new(
+  root: options.fetch(:root),
+  config_path: options.fetch(:config)
+)
+violations = checker.check
+
+if violations.empty?
+  puts "Architecture boundaries: passed"
+  exit 0
+end
+
+warn "Architecture boundaries: #{violations.size} violation(s)"
+violations.each { |violation| warn violation }
+exit 1
