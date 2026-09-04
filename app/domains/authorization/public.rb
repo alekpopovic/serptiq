@@ -48,6 +48,25 @@ module Authorization
       JobAuthorizer.new.call(**attributes, &block)
     end
 
+    def access_decision(request = nil, **attributes)
+      request ||= AccessRequest.new(**attributes)
+      AccessBoundary.new.call(request)
+    end
+
+    def authorize_access!(request = nil, **attributes)
+      request ||= AccessRequest.new(**attributes)
+      AccessBoundary.new.authorize!(request)
+    end
+
+    def with_access(request = nil, **attributes, &block)
+      request ||= AccessRequest.new(**attributes)
+      AccessBoundary.new.with_access(request, &block)
+    end
+
+    def authorize_job_access!(**attributes, &block)
+      JobAuthorizer.new.access(**attributes, &block)
+    end
+
     def api_error(error, request_id:)
       ApiErrorContract.call(error, request_id: request_id)
     end

@@ -1,0 +1,17 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "pathname"
+require_relative "support/access_boundary_checker"
+
+root = Pathname(__dir__).join("..").expand_path
+violations = Searchops::Architecture::AccessBoundaryChecker.new(root: root).check
+
+if violations.empty?
+  puts "Unified access boundary: passed"
+  exit 0
+end
+
+warn "Unified access boundary: #{violations.size} violation(s)"
+violations.each { |violation| warn violation }
+exit 1

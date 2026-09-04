@@ -2,6 +2,8 @@
 
 module Usage
   module Public
+    QuotaExceeded = Usage::QuotaExceeded
+
     module_function
 
     def validate_catalog(path: Catalog::DEFAULT_PATH)

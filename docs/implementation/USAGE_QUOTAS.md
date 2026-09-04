@@ -1,9 +1,9 @@
 # Atomic quota reservations and finalization
 
-Quota is an independent admission control. A caller must already have authenticated the user, validated active
-membership and permission, resolved the feature entitlement and checked resource state. `Usage::Public.reserve`
-then atomically checks the applicable billing pool and creates the hold; a successful hold is not itself a
-charge. No cache counter is authoritative.
+Quota is an independent admission control. `Authorization::AccessBoundary` authenticates the user, validates
+active membership and permission, resolves the feature entitlement and checks resource state before calling
+`Usage::Public.reserve`. The Usage operation then atomically checks the applicable billing pool and creates
+the hold; a successful hold is not itself a charge. No cache counter is authoritative.
 
 ## Admission and snapshots
 

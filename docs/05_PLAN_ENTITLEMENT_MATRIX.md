@@ -160,6 +160,11 @@ version and meter rate for that operation. Later upgrades or downgrades govern n
 hold may be extended and finalized only against its admission snapshot. Reservations never cross a usage
 window, so a provider-period or UTC-month rollover starts with an independent balance.
 
+Prompt 042 implements this access algorithm as `Authorization::AccessBoundary`. It evaluates RBAC before any
+entitlement/resource observation, reserves only after all non-quota controls allow, and releases a hold when
+the protected enqueue block raises. Feature-operation key mappings and caller APIs are documented in
+`docs/implementation/ACCESS_BOUNDARY.md`.
+
 Prompt 041 exposes only effective published offers on public pricing and includes an organization's exact
 subscribed version on authenticated comparison, including grandfathered status. The organization-wide usage
 screen derives used and reserved values from the ledger and reservations, distinguishes unavailable,

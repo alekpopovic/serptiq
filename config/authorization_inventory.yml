@@ -145,6 +145,10 @@ domain_operations:
   Tenancy::Public.ownership_consistency_issues: { kind: system, reason: operator_diagnostic }
   Authorization::Public.assign_role: { kind: permission, permission: roles.assign }
   Authorization::Public.revoke_role: { kind: permission, permission: roles.assign }
+  Authorization::Public.access_decision: { kind: context, reason: unified_permission_entitlement_resource_quota_decision }
+  Authorization::Public.authorize_access!: { kind: context, reason: enforced_unified_access_decision }
+  Authorization::Public.with_access: { kind: context, reason: enforced_access_with_pre_enqueue_release }
+  Authorization::Public.authorize_job_access!: { kind: context, reason: reauthorized_user_tenant_job_access }
   Billing::Public.create_subscription_reference:
     kind: context
     reason: explicit_tenant_and_published_plan_projection

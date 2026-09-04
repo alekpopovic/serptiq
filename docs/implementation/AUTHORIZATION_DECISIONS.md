@@ -66,6 +66,10 @@ instead declare `system_authorization` with a specific name and reason; system p
 JSON authorization failures use `Authorization::ApiErrorContract`: a fixed `authorization_denied` code, stable
 reason code and request ID. Permission, tenant and resource identifiers are intentionally omitted.
 
-RBAC does not call Plans, Entitlements, Usage or Billing. Those independent results are composed only at the
-later unified access boundary. Every decision emits bounded structured metadata; denied high/critical-risk
+The core RBAC decision does not call Plans, Entitlements, Usage or Billing. `Authorization::AccessBoundary`
+composes its result with the public Entitlements and Usage APIs without moving either responsibility into
+RBAC. Every decision emits bounded structured metadata; denied high/critical-risk
 permissions use `authorization.denied_high_risk` with hashed actor, organization and scope identifiers.
+
+See [`ACCESS_BOUNDARY.md`](./ACCESS_BOUNDARY.md) for the protected billable operation contract, evaluation
+order, controller/job/API adapters, reservation cleanup and feature-operation mapping.

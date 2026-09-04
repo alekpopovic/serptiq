@@ -120,8 +120,9 @@ corrections, atomic quota reservations and aggregate read models. It consumes pl
 `Entitlements::Public`, and writes catalog/manual-adjustment evidence through `Auditing::Public`. Manual
 adjustments reuse the platform publication authority contract and require same-organization active
 membership; tenant domains never receive a public counter-mutation API. Quota callers use only
-`Usage::Public` reserve/extend/finalize/release operations and pass a source already resolved within the same
-tenant.
+`Authorization::Public.with_access` for initial quota admission and pass a source already resolved within the
+same tenant. Workers use `Usage::Public` extend/finalize/release operations against the already authorized,
+tenant-bound reservation ID.
 
 Customer-facing pricing reads published immutable versions through `Plans::Public`, while entitlement labels
 come from `Entitlements::Public`. Billing exposes only tenant subscription summaries and boolean checkout

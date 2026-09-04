@@ -58,6 +58,18 @@ module Authorization
       result
     end
 
+    def access_decision(permission_key, **attributes)
+      authorization_policy.access_decision(permission_key: permission_key, **attributes)
+    end
+
+    def authorize_access!(permission_key, **attributes)
+      authorization_policy.authorize_access!(permission_key: permission_key, **attributes)
+    end
+
+    def with_authorized_access(permission_key, **attributes, &block)
+      authorization_policy.with_access(permission_key: permission_key, **attributes, &block)
+    end
+
     def allowed_to?(permission_key, **scope)
       authorization_decisions.fetch(decision_cache_key(permission_key, scope), denied_hint).allow?
     end

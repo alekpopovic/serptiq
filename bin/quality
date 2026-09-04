@@ -12,6 +12,7 @@ steps = [
   [ "GitHub Actions policy", %w[ruby script/validate_ci_workflow] ],
   [ "Blueprint contracts", %w[ruby tracking/scripts/validate_blueprint.rb] ],
   [ "Architecture boundaries", %w[ruby script/check_architecture] ],
+  [ "Unified access boundary", %w[ruby script/check_access_boundary] ],
   [ "Authorization coverage", %w[ruby script/check_authorization_coverage] ],
   [ "ADR index", %w[ruby script/check_adr_index] ],
   [ "Tailwind assets", %w[bin/rails tailwindcss:build] ],

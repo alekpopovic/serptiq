@@ -69,5 +69,7 @@ Do not pre-populate these reports with fictional implementation or test results.
   idempotent reservation finalization/release and stale-hold recovery.
 - [`PLAN_USAGE_UI.md`](./PLAN_USAGE_UI.md) defines the catalog-driven pricing, plan comparison, billing-control
   visibility and tenant-safe usage presentation contract.
+- [`ACCESS_BOUNDARY.md`](./ACCESS_BOUNDARY.md) defines the stable permission-entitlement-resource-quota
+  evaluation order, integration APIs, reservation cleanup and feature-operation key registry.
 - [`../../tracking/README.md`](../../tracking/README.md) defines prompt evidence,
   recovery and state integrity.

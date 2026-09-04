@@ -17,5 +17,17 @@ module Authorization
         yield Current.membership, Current.organization if block_given?
       end
     end
+
+    def access(user_id:, organization_id:, permission_key:, **attributes)
+      Tenancy::Public.with_organization_context(user_id: user_id, organization_id: organization_id) do
+        decision = PolicyAdapter.new(
+          actor_membership: Current.membership,
+          organization: Current.organization
+        ).authorize_access!(permission_key: permission_key, **attributes)
+
+        yield decision, Current.membership, Current.organization if block_given?
+        decision
+      end
+    end
   end
 end

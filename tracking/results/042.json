@@ -1,0 +1,75 @@
+{
+  "prompt_id": "042",
+  "title": "Create the unified permission-entitlement-quota access boundary",
+  "status": "completed",
+  "started_at": "2026-09-04T14:51:01Z",
+  "finished_at": "2026-09-04T15:02:48Z",
+  "summary": "Implemented the ordered unified permission-entitlement-resource-quota access boundary with immutable requests and decisions, category-safe denials, atomic quota reservation, idempotent pre-enqueue release, controller/job/public adapters, bounded instrumentation, static anti-bypass checks, a feature-operation registry and complete truth-table coverage.",
+  "tests": [
+    {
+      "command": "docker compose run --rm test ./bin/rails test test/domain/authorization/access_boundary_test.rb test/architecture/access_boundary_checker_test.rb test/domain/authorization/decision_test.rb test/domain/usage/quota_reservation_test.rb",
+      "outcome": "passed",
+      "notes": "31 runs, 208 assertions, 0 failures"
+    },
+    {
+      "command": "docker compose run --rm test ./bin/rails test test/domain/authorization/access_boundary_test.rb test/architecture/access_boundary_checker_test.rb",
+      "outcome": "passed",
+      "notes": "16 runs, 94 assertions, 0 failures"
+    },
+    {
+      "command": "docker compose run --rm test ./bin/rails test",
+      "outcome": "passed",
+      "notes": "508 runs, 4066 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "bin/rails test:system",
+      "outcome": "passed",
+      "notes": "22 runs, 110 assertions, 0 failures using host Chrome and Docker PostgreSQL"
+    },
+    {
+      "command": "env -u DEBUG bin/quality",
+      "outcome": "passed",
+      "notes": "14 checks; access/authorization/architecture gates passed; Brakeman 0 warnings; advisory audits clean"
+    },
+    {
+      "command": "ruby tracking/scripts/prompt_tracker.rb validate",
+      "outcome": "passed",
+      "notes": "120 prompts valid before completion"
+    },
+    {
+      "command": "git diff --check",
+      "outcome": "passed",
+      "notes": "no whitespace errors"
+    }
+  ],
+  "files_changed": [
+    "app/controllers/concerns/authorization/controller_policy.rb",
+    "app/domains/authorization",
+    "app/domains/entitlements/public.rb",
+    "app/domains/usage/public.rb",
+    "bin/quality",
+    "config/authorization_inventory.yml",
+    "docs/05_PLAN_ENTITLEMENT_MATRIX.md",
+    "docs/adr/0004_separate_rbac_entitlements_and_quotas.md",
+    "docs/implementation/ACCESS_BOUNDARY.md",
+    "docs/implementation/AUTHORIZATION_DECISIONS.md",
+    "docs/implementation/ENTITLEMENTS.md",
+    "docs/implementation/MODULE_BOUNDARIES.md",
+    "docs/implementation/README.md",
+    "docs/implementation/USAGE_QUOTAS.md",
+    "script/check_access_boundary",
+    "script/support/access_boundary_checker.rb",
+    "test/architecture/access_boundary_checker_test.rb",
+    "test/domain/authorization/access_boundary_test.rb",
+    "tracking"
+  ],
+  "migrations": [],
+  "decisions": [],
+  "risks": [
+    "The release-on-error API assumes its block contains only the enqueue handoff; callers must not perform post-enqueue work inside that block. The static anti-bypass checker complements but cannot replace code review."
+  ],
+  "next_steps": [
+    "Prompt 043: define the provider-neutral billing contract."
+  ],
+  "commit": null
+}

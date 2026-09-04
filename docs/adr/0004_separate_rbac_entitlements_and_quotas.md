@@ -36,5 +36,5 @@ projection, audited organization overrides and fail-closed resolver with provena
 immutable weighted meter/rate history, deterministic UTC/provider windows, append-only usage/correction
 events and snapshot-based read models. Prompt 040 implements explicit capped/unlimited admission snapshots,
 transaction-scoped PostgreSQL pool locks, durable idempotent reservation operations, ledger finalization and
-stale recovery. Unified orchestration remains Prompt 042 scope; none of these modules collapses the independent
-permission, entitlement, quota and resource-state controls.
+stale recovery. Prompt 042 composes those independent controls behind one ordered access boundary, adds
+pre-enqueue reservation cleanup and rejects direct quota admission from feature code.

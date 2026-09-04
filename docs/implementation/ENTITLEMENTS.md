@@ -1,8 +1,8 @@
 # Typed entitlement resolution
 
 `Entitlements` answers one question: which typed feature or limit value applies to an organization, and why?
-It does not grant RBAC permission, count usage or reserve quota. Those independent decisions are composed by
-the later unified access boundary required by ADR 0004.
+It does not grant RBAC permission, count usage or reserve quota. `Authorization::AccessBoundary` composes
+those independent decisions in the order required by ADR 0004.
 
 ## Governed catalog and synchronization
 

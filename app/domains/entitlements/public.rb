@@ -2,6 +2,15 @@
 
 module Entitlements
   module Public
+    class Required < Shared::Public::EntitlementError
+      attr_reader :access_decision
+
+      def initialize(access_decision:)
+        @access_decision = access_decision
+        super(reason_code: access_decision.reason_code)
+      end
+    end
+
     module_function
 
     def validate_catalog(path: Catalog::DEFAULT_PATH, plans_path: Catalog::DEFAULT_PLANS_PATH)

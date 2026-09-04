@@ -4,9 +4,9 @@ module Authorization
   class Decision
     OWNER_ONLY_PERMISSIONS = %w[organization.transfer organization.delete].freeze
 
-    def self.call(request = nil, **attributes)
+    def self.call(request = nil, validate_resource: true, **attributes)
       request ||= AccessRequest.new(**attributes)
-      new.call(request)
+      new.call(request, validate_resource: validate_resource)
     end
 
     def initialize(effective_permissions: EffectivePermissionQuery.new,
@@ -16,16 +16,16 @@ module Authorization
       @instrumentation = instrumentation
     end
 
-    def call(request)
+    def call(request, validate_resource: true)
       permission = nil
-      result = evaluate(request) { |resolved| permission = resolved }
+      result = evaluate(request, validate_resource: validate_resource) { |resolved| permission = resolved }
       @instrumentation.with_actor(request.actor_membership_id).emit(result, permission: permission)
       result
     end
 
     private
 
-    def evaluate(request)
+    def evaluate(request, validate_resource:)
       return denied(request, "not_authenticated") unless request.authenticated?
       return denied(request, "scope_mismatch") unless
         request.actor_organization_id.to_s == request.organization_id
@@ -53,8 +53,10 @@ module Authorization
       return denied(request, "scope_mismatch") unless requested_project_matches?(request, chain)
       return denied(request, "resource_unavailable") unless chain.all?(&:active?)
       return denied(request, "scope_mismatch") unless permission_matches_scope?(permission, request)
-      return denied(request, "scope_mismatch") unless resource_matches_scope?(request)
-      return denied(request, "resource_unavailable") if request.resource && !request.resource.available?
+      if validate_resource
+        return denied(request, "scope_mismatch") unless resource_matches_scope?(request)
+        return denied(request, "resource_unavailable") if request.resource && !request.resource.available?
+      end
       if OWNER_ONLY_PERMISSIONS.include?(permission.key) && !membership.owner?
         return denied(request, "owner_permission_required")
       end
