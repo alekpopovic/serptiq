@@ -11,6 +11,7 @@ module Tenancy
     }.freeze
 
     before_action :establish_current_organization!
+    permission_required "organization.read", only: :show
 
     def show
       destination = DESTINATIONS.fetch(params[:destination].to_s, DESTINATIONS.fetch("dashboard"))

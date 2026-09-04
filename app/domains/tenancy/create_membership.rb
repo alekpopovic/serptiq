@@ -8,13 +8,15 @@ module Tenancy
       @clock = clock
     end
 
-    def call(actor_membership:, user:, status: "active")
+    def call(actor_membership:, user:, status: "active", authorization: nil)
       raise ArgumentError, "active identity user is required" unless Identity::Public.active_user?(user)
       raise ArgumentError, "unsupported initial membership status" unless INITIAL_STATUSES.include?(status.to_s)
 
       membership = Membership.transaction do
         organization = Organization.lock.find(actor_membership&.organization_id)
-        AuthorizeOrganizationOwner.new.call(membership: actor_membership)
+        AuthorizeMembershipAccess.new.call(
+          membership: actor_membership, permission_key: "members.invite", authorization: authorization
+        )
         raise MembershipAlreadyExists if Membership.exists?(organization_id: organization.id, user_id: user.id)
 
         now = @clock.call

@@ -24,13 +24,13 @@
       <% if @membership.owner? %>
         <p class="text-sm text-slate-600">The current owner cannot be suspended or removed. Transfer ownership through its dedicated secured workflow first.</p>
       <% elsif @membership.status == "active" %>
-        <%= button_to "Suspend member", suspend_organization_member_path(Current.organization.slug, @membership.id), method: :patch, class: "so-button so-button-secondary" %>
-        <%= button_to "Remove member", remove_organization_member_path(Current.organization.slug, @membership.id), method: :patch, class: "so-button so-button-danger", form: { data: { turbo_confirm: "Remove this member while retaining historical attribution?" } } %>
+        <% if allowed_to?("members.update") %><%= button_to "Suspend member", suspend_organization_member_path(Current.organization.slug, @membership.id), method: :patch, class: "so-button so-button-secondary" %><% end %>
+        <% if allowed_to?("members.remove") %><%= button_to "Remove member", remove_organization_member_path(Current.organization.slug, @membership.id), method: :patch, class: "so-button so-button-danger", form: { data: { turbo_confirm: "Remove this member while retaining historical attribution?" } } %><% end %>
       <% elsif @membership.status == "suspended" %>
-        <%= button_to "Reactivate member", reactivate_organization_member_path(Current.organization.slug, @membership.id), method: :patch, class: "so-button so-button-primary" %>
-        <%= button_to "Remove member", remove_organization_member_path(Current.organization.slug, @membership.id), method: :patch, class: "so-button so-button-danger", form: { data: { turbo_confirm: "Remove this member while retaining historical attribution?" } } %>
+        <% if allowed_to?("members.update") %><%= button_to "Reactivate member", reactivate_organization_member_path(Current.organization.slug, @membership.id), method: :patch, class: "so-button so-button-primary" %><% end %>
+        <% if allowed_to?("members.remove") %><%= button_to "Remove member", remove_organization_member_path(Current.organization.slug, @membership.id), method: :patch, class: "so-button so-button-danger", form: { data: { turbo_confirm: "Remove this member while retaining historical attribution?" } } %><% end %>
       <% elsif @membership.status == "invited" %>
-        <%= button_to "Remove invitation membership", remove_organization_member_path(Current.organization.slug, @membership.id), method: :patch, class: "so-button so-button-danger" %>
+        <% if allowed_to?("members.remove") %><%= button_to "Remove invitation membership", remove_organization_member_path(Current.organization.slug, @membership.id), method: :patch, class: "so-button so-button-danger" %><% end %>
       <% else %>
         <p class="text-sm text-slate-600">Historical attribution is retained for this removed membership, which cannot be silently reactivated.</p>
       <% end %>

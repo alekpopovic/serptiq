@@ -72,6 +72,7 @@ module Authorization
         allowed: true,
         reason_code: "permission_granted",
         permission_key: request.permission_key,
+        actor_membership_id: request.actor_membership_id,
         organization_id: request.organization_id,
         scope_type: request.scope_type,
         scope_id: request.scope_id,
@@ -84,6 +85,7 @@ module Authorization
         allowed: false,
         reason_code: reason_code,
         permission_key: request.permission_key,
+        actor_membership_id: request.actor_membership_id,
         organization_id: request.organization_id,
         scope_type: request.scope_type,
         scope_id: request.scope_id

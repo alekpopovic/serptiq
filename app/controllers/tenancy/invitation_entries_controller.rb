@@ -2,6 +2,7 @@
 
 module Tenancy
   class InvitationEntriesController < ApplicationController
+    authorization_exempt :show, reason: "public_opaque_token_entry"
     before_action :set_sensitive_headers
 
     def show

@@ -6,6 +6,8 @@ module Tenancy
 
     layout "authenticated"
 
+    authorization_exempt :new, :create, reason: "creates_first_tenant_context"
+
     def new
       @organization = Organization.new(default_locale: Current.user.locale, time_zone: Current.user.time_zone)
       prepare_form

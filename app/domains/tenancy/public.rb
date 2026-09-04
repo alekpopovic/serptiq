@@ -33,11 +33,12 @@ module Tenancy
         .freeze
     end
 
-    def issue_invitation(actor_membership:, email:, initial_role_key: nil)
+    def issue_invitation(actor_membership:, email:, initial_role_key: nil, authorization: nil)
       IssueInvitation.new.call(
         actor_membership: actor_membership,
         email: email,
-        initial_role_key: initial_role_key
+        initial_role_key: initial_role_key,
+        authorization: authorization
       )
     end
 
@@ -55,12 +56,16 @@ module Tenancy
       )
     end
 
-    def revoke_invitation(actor_membership:, invitation_id:)
-      ManageInvitation.new.revoke(actor_membership: actor_membership, invitation_id: invitation_id)
+    def revoke_invitation(actor_membership:, invitation_id:, authorization: nil)
+      ManageInvitation.new.revoke(
+        actor_membership: actor_membership, invitation_id: invitation_id, authorization: authorization
+      )
     end
 
-    def resend_invitation(actor_membership:, invitation_id:)
-      ManageInvitation.new.resend(actor_membership: actor_membership, invitation_id: invitation_id)
+    def resend_invitation(actor_membership:, invitation_id:, authorization: nil)
+      ManageInvitation.new.resend(
+        actor_membership: actor_membership, invitation_id: invitation_id, authorization: authorization
+      )
     end
 
     def create_organization(user:, name:, slug:, default_locale: "en", time_zone: "UTC", data_region: "global")
@@ -90,47 +95,61 @@ module Tenancy
       AuthorizeOrganizationOwner.new.call(membership: membership)
     end
 
-    def create_membership(actor_membership:, user:, status: "active", clock: -> { Time.current })
-      CreateMembership.new(clock: clock).call(actor_membership: actor_membership, user: user, status: status)
+    def create_membership(actor_membership:, user:, status: "active", clock: -> { Time.current }, authorization: nil)
+      CreateMembership.new(clock: clock).call(
+        actor_membership: actor_membership, user: user, status: status, authorization: authorization
+      )
     end
 
-    def change_membership_status(actor_membership:, target_membership_id:, operation:, clock: -> { Time.current })
+    def change_membership_status(actor_membership:, target_membership_id:, operation:, clock: -> { Time.current },
+      authorization: nil)
       ChangeMembershipStatus.new(clock: clock).call(
         actor_membership: actor_membership,
         target_membership_id: target_membership_id,
-        operation: operation
+        operation: operation,
+        authorization: authorization
       )
     end
 
-    def membership_page(actor_membership:, page: nil)
-      MembershipDirectory.new.page(actor_membership: actor_membership, number: page)
+    def membership_page(actor_membership:, page: nil, authorization: nil)
+      MembershipDirectory.new.page(
+        actor_membership: actor_membership, number: page, authorization: authorization
+      )
     end
 
-    def membership_detail(actor_membership:, membership_id:)
-      MembershipDirectory.new.find(actor_membership: actor_membership, membership_id: membership_id)
+    def membership_detail(actor_membership:, membership_id:, authorization: nil)
+      MembershipDirectory.new.find(
+        actor_membership: actor_membership, membership_id: membership_id, authorization: authorization
+      )
     end
 
-    def create_team(actor_membership:, name:)
-      ManageTeam.new.create(actor_membership: actor_membership, name: name)
+    def create_team(actor_membership:, name:, authorization: nil)
+      ManageTeam.new.create(actor_membership: actor_membership, name: name, authorization: authorization)
     end
 
-    def rename_team(actor_membership:, team_id:, name:)
-      ManageTeam.new.rename(actor_membership: actor_membership, team_id: team_id, name: name)
+    def rename_team(actor_membership:, team_id:, name:, authorization: nil)
+      ManageTeam.new.rename(
+        actor_membership: actor_membership, team_id: team_id, name: name, authorization: authorization
+      )
     end
 
-    def archive_team(actor_membership:, team_id:, clock: -> { Time.current })
-      ManageTeam.new(clock: clock).archive(actor_membership: actor_membership, team_id: team_id)
+    def archive_team(actor_membership:, team_id:, clock: -> { Time.current }, authorization: nil)
+      ManageTeam.new(clock: clock).archive(
+        actor_membership: actor_membership, team_id: team_id, authorization: authorization
+      )
     end
 
-    def add_team_member(actor_membership:, team_id:, membership_id:, clock: -> { Time.current })
+    def add_team_member(actor_membership:, team_id:, membership_id:, clock: -> { Time.current }, authorization: nil)
       ManageTeamMembership.new(clock: clock).add(
-        actor_membership: actor_membership, team_id: team_id, membership_id: membership_id
+        actor_membership: actor_membership, team_id: team_id, membership_id: membership_id,
+        authorization: authorization
       )
     end
 
-    def remove_team_member(actor_membership:, team_id:, membership_id:, clock: -> { Time.current })
+    def remove_team_member(actor_membership:, team_id:, membership_id:, clock: -> { Time.current }, authorization: nil)
       ManageTeamMembership.new(clock: clock).remove(
-        actor_membership: actor_membership, team_id: team_id, membership_id: membership_id
+        actor_membership: actor_membership, team_id: team_id, membership_id: membership_id,
+        authorization: authorization
       )
     end
 
@@ -152,26 +171,28 @@ module Tenancy
       ResolveAuthorizationSubject.new.team(organization_id: organization_id, team_id: team_id)
     end
 
-    def team_page(actor_membership:, page: nil)
-      TeamDirectory.new.page(actor_membership: actor_membership, number: page)
+    def team_page(actor_membership:, page: nil, authorization: nil)
+      TeamDirectory.new.page(actor_membership: actor_membership, number: page, authorization: authorization)
     end
 
-    def team_details(actor_membership:, team_id:, member_page: nil, query: nil)
+    def team_details(actor_membership:, team_id:, member_page: nil, query: nil, authorization: nil)
       TeamDirectory.new.details(
         actor_membership: actor_membership,
         team_id: team_id,
         member_page: member_page,
-        query: query
+        query: query,
+        authorization: authorization
       )
     end
 
-    def update_organization(actor_membership:, name:, slug:, default_locale: nil, time_zone: nil)
+    def update_organization(actor_membership:, name:, slug:, default_locale: nil, time_zone: nil, authorization: nil)
       UpdateOrganization.new.call(
         actor_membership: actor_membership,
         name: name,
         slug: slug,
         default_locale: default_locale,
-        time_zone: time_zone
+        time_zone: time_zone,
+        authorization: authorization
       )
     end
 

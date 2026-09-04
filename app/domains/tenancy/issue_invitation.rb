@@ -10,12 +10,12 @@ module Tenancy
       @delivery = delivery || method(:deliver)
     end
 
-    def call(actor_membership:, email:, initial_role_key: nil)
+    def call(actor_membership:, email:, initial_role_key: nil, authorization: nil)
       normalized_email = email.to_s.strip.downcase
       now = @clock.call
       consume_limits!(actor_membership, normalized_email)
       issued = Invitation.transaction do
-        actor = lock_owner!(actor_membership)
+        actor = lock_actor!(actor_membership, authorization)
         supersede_pending!(actor.organization_id, normalized_email, now)
         build_invitation(actor, normalized_email, initial_role_key, now)
       end
@@ -34,11 +34,13 @@ module Tenancy
       @rate_limiter.consume!(scope: "issue_destination", key: email)
     end
 
-    def lock_owner!(actor_membership)
+    def lock_actor!(actor_membership, authorization)
       raise OrganizationAccessDenied unless actor_membership.is_a?(Membership)
 
       actor = Membership.lock.find(actor_membership.id)
-      AuthorizeOrganizationOwner.new.call(membership: actor)
+      AuthorizeMembershipAccess.new.call(
+        membership: actor, permission_key: "members.invite", authorization: authorization
+      )
       actor
     rescue ActiveRecord::RecordNotFound
       raise OrganizationAccessDenied, cause: nil

@@ -1,0 +1,20 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require_relative "../config/environment"
+require_relative "support/authorization_coverage_checker"
+
+root = Rails.root
+issues = Searchops::Authorization::CoverageChecker.new(
+  root: root,
+  inventory_path: root.join("config/authorization_inventory.yml")
+).check
+
+if issues.empty?
+  puts "Authorization coverage: passed"
+  exit 0
+end
+
+warn "Authorization coverage: #{issues.size} issue(s)"
+issues.each { |issue| warn issue }
+exit 1

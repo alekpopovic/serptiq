@@ -184,3 +184,15 @@ request. Request/value objects may carry a typed resource context, but never an 
 ## 6. Custom-role constraints
 
 Custom roles are designed for Agency/Enterprise but can be hidden until shipped. They cannot grant permissions the creating administrator does not possess. System roles cannot be edited. A custom role cannot include ownership transfer, organization deletion, or platform-administration permissions.
+## 7. Enforcement inventory
+
+The executable controller, domain-operation and background-job mapping lives in
+`config/authorization_inventory.yml`. Tenant controller declarations are checked by
+`script/check_authorization_coverage` as part of `bin/quality`. Backend enforcement happens before tenant
+records or list relations are loaded; view capability hints consume an already evaluated decision and are
+never authoritative.
+
+Organization permissions are evaluated at the organization scope. Project permissions may be granted at the
+organization or project scope. Property resources are authorized through their registered parent-project
+hierarchy, and both tenant and parent-project linkage must match. Jobs reload explicit scalar tenant/resource
+IDs and re-authorize at execution time so suspension, revocation and resource moves fail closed.

@@ -8,7 +8,9 @@ module Tenancy
     layout "authenticated"
     before_action :establish_current_organization!
     before_action :redirect_alias_to_canonical_slug
-    before_action :authorize_owner!
+    permission_required "members.read", only: :index
+    permission_required "members.invite", only: %i[new create revoke resend]
+    permission_hint "members.invite", only: :index
 
     def index
       @invitations = Invitation.where(organization_id: Current.organization.id)
@@ -22,6 +24,7 @@ module Tenancy
     def create
       Public.issue_invitation(
         actor_membership: Current.membership,
+        authorization: authorization_decision!("members.invite"),
         email: params[:email],
         initial_role_key: params[:initial_role_key].presence
       )
@@ -34,13 +37,21 @@ module Tenancy
     end
 
     def revoke
-      Public.revoke_invitation(actor_membership: Current.membership, invitation_id: params[:id])
+      Public.revoke_invitation(
+        actor_membership: Current.membership,
+        authorization: authorization_decision!("members.invite"),
+        invitation_id: params[:id]
+      )
       redirect_to organization_invitations_path(Current.organization.slug),
         notice: "Invitation revoked.", status: :see_other
     end
 
     def resend
-      Public.resend_invitation(actor_membership: Current.membership, invitation_id: params[:id])
+      Public.resend_invitation(
+        actor_membership: Current.membership,
+        authorization: authorization_decision!("members.invite"),
+        invitation_id: params[:id]
+      )
       redirect_to organization_invitations_path(Current.organization.slug),
         notice: neutral_delivery_notice, status: :see_other
     end
@@ -49,10 +60,6 @@ module Tenancy
 
     def neutral_delivery_notice
       "If the address can receive mail, a new invitation was sent."
-    end
-
-    def authorize_owner!
-      Public.authorize_organization_owner!(membership: Current.membership)
     end
 
     def redirect_alias_to_canonical_slug

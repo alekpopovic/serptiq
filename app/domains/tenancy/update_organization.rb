@@ -2,10 +2,10 @@
 
 module Tenancy
   class UpdateOrganization
-    def call(actor_membership:, name:, slug:, default_locale: nil, time_zone: nil)
+    def call(actor_membership:, name:, slug:, default_locale: nil, time_zone: nil, authorization: nil)
       organization, old_slug = Organization.transaction do
         OrganizationSlugPolicy.with_namespace_lock do
-          locked = lock_owned_organization(actor_membership)
+          locked = lock_organization(actor_membership, authorization)
           previous_slug = locked.slug
           attributes = { name: name, slug: slug }
           attributes[:default_locale] = default_locale unless default_locale.nil?
@@ -35,8 +35,10 @@ module Tenancy
       organization.slug_aliases.create!(slug: previous_slug)
     end
 
-    def lock_owned_organization(membership)
-      organization = AuthorizeOrganizationOwner.new.call(membership: membership)
+    def lock_organization(membership, authorization)
+      organization = AuthorizeMembershipAccess.new.call(
+        membership: membership, permission_key: "organization.update", authorization: authorization
+      )
       Organization.lock.find(organization.id)
     end
   end

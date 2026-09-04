@@ -6,9 +6,9 @@ module Tenancy
       @clock = clock
     end
 
-    def add(actor_membership:, team_id:, membership_id:)
+    def add(actor_membership:, team_id:, membership_id:, authorization: nil)
       result = TeamMembership.transaction do
-        actor, team = lock_context(actor_membership, team_id)
+        actor, team = lock_context(actor_membership, team_id, authorization)
         target = Membership.lock.find_by!(id: membership_id, organization_id: team.organization_id)
         raise OrganizationAccessDenied.new(reason_code: "membership_inactive") unless target.active?
 
@@ -38,9 +38,9 @@ module Tenancy
       raise
     end
 
-    def remove(actor_membership:, team_id:, membership_id:)
+    def remove(actor_membership:, team_id:, membership_id:, authorization: nil)
       result = TeamMembership.transaction do
-        _, team = lock_context(actor_membership, team_id)
+        _, team = lock_context(actor_membership, team_id, authorization)
         Membership.find_by!(id: membership_id, organization_id: team.organization_id)
         record = TeamMembership.lock.find_by(team_id: team.id, membership_id: membership_id, removed_at: nil)
         if record
@@ -62,12 +62,14 @@ module Tenancy
 
     private
 
-    def lock_context(actor, team_id)
+    def lock_context(actor, team_id, authorization)
       raise OrganizationAccessDenied unless actor.is_a?(Membership)
 
       locked_actor = Membership.lock.find(actor.id)
       organization = Organization.lock.find(locked_actor.organization_id)
-      AuthorizeOrganizationOwner.new.call(membership: locked_actor)
+      AuthorizeMembershipAccess.new.call(
+        membership: locked_actor, permission_key: "teams.manage", authorization: authorization
+      )
       team = Team.lock.find_by!(id: team_id, organization_id: organization.id)
       raise InvalidOrganizationTransition.new(reason_code: "team_archived") unless team.active?
 
@@ -79,7 +81,7 @@ module Tenancy
     def retry_result(actor, team_id, membership_id)
       record = TeamMembership.find_by!(team_id: team_id, membership_id: membership_id, removed_at: nil)
       result = TeamChangeResult.new(record: record, changed: false)
-      emit("team.member_added", "add_ignored", actor, membership_id)
+      emit("team.member_added", "add_ignored", actor_membership, membership_id)
       result
     rescue ActiveRecord::RecordNotFound
       raise MembershipAlreadyExists.new(reason_code: "team_membership_conflict"), cause: nil

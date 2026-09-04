@@ -5,8 +5,10 @@ module Tenancy
     PER_PAGE = 25
     MAX_PAGE = 10_000
 
-    def page(actor_membership:, number:)
-      organization = AuthorizeOrganizationOwner.new.call(membership: actor_membership)
+    def page(actor_membership:, number:, authorization: nil)
+      organization = AuthorizeMembershipAccess.new.call(
+        membership: actor_membership, permission_key: "members.read", authorization: authorization
+      )
       page_number = normalize_page(number)
       relation = Membership.where(organization_id: organization.id).order(:display_name, :id)
       entries = relation.offset((page_number - 1) * PER_PAGE).limit(PER_PAGE).map do |membership|
@@ -20,8 +22,10 @@ module Tenancy
       )
     end
 
-    def find(actor_membership:, membership_id:)
-      organization = AuthorizeOrganizationOwner.new.call(membership: actor_membership)
+    def find(actor_membership:, membership_id:, authorization: nil)
+      organization = AuthorizeMembershipAccess.new.call(
+        membership: actor_membership, permission_key: "members.read", authorization: authorization
+      )
       membership = Membership.find_by!(id: membership_id, organization_id: organization.id)
       summarize(membership, organization)
     rescue ActiveRecord::RecordNotFound

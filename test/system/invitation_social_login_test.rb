@@ -44,7 +44,7 @@ class InvitationSocialLoginSystemTest < ApplicationSystemTestCase
     assert_text "Join Social Invite Workspace"
     click_button "Accept invitation"
 
-    assert_current_path organization_dashboard_path("social-invite-workspace")
+    assert_current_path dashboard_path
     assert_text "Invitation accepted."
     identity = Identity::ProviderIdentity.find_by!(provider: "github")
     membership = Tenancy::Membership.find_by!(organization_id: owner.organization.id, user_id: identity.user_id)

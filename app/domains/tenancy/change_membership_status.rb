@@ -17,13 +17,16 @@ module Tenancy
       @clock = clock
     end
 
-    def call(actor_membership:, target_membership_id:, operation:)
+    def call(actor_membership:, target_membership_id:, operation:, authorization: nil)
       operation = operation.to_s
       transition = TRANSITIONS.fetch(operation) { raise InvalidMembershipTransition }
       target = Membership.transaction do
         actor = lock_actor(actor_membership)
         organization = Organization.lock.find(actor.organization_id)
-        AuthorizeOrganizationOwner.new.call(membership: actor)
+        permission_key = operation == "remove" ? "members.remove" : "members.update"
+        AuthorizeMembershipAccess.new.call(
+          membership: actor, permission_key: permission_key, authorization: authorization
+        )
         target = Membership.lock.find_by!(id: target_membership_id, organization_id: organization.id)
         block_current_owner!(target, organization)
 

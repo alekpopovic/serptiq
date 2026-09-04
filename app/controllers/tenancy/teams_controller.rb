@@ -9,10 +9,16 @@ module Tenancy
 
     before_action :establish_current_organization!
     before_action :redirect_alias_to_canonical_slug
-    before_action :authorize_owner!
+    permission_required "teams.read", only: %i[index show]
+    permission_required "teams.manage", only: %i[new create update archive add_member remove_member]
+    permission_hint "teams.manage", only: %i[index show]
 
     def index
-      @team_page = Public.team_page(actor_membership: Current.membership, page: params[:page])
+      @team_page = Public.team_page(
+        actor_membership: Current.membership,
+        authorization: authorization_decision!("teams.read"),
+        page: params[:page]
+      )
     end
 
     def new
@@ -20,7 +26,11 @@ module Tenancy
     end
 
     def create
-      team = Public.create_team(actor_membership: Current.membership, name: team_params[:name])
+      team = Public.create_team(
+        actor_membership: Current.membership,
+        authorization: authorization_decision!("teams.manage"),
+        name: team_params[:name]
+      )
       redirect_to organization_team_path(Current.organization.slug, team.id),
         notice: "Team created.", status: :see_other
     rescue ActiveRecord::RecordInvalid => error
@@ -35,6 +45,7 @@ module Tenancy
     def update
       team = Public.rename_team(
         actor_membership: Current.membership,
+        authorization: authorization_decision!("teams.manage"),
         team_id: params[:id],
         name: team_params[:name]
       )
@@ -47,7 +58,11 @@ module Tenancy
     end
 
     def archive
-      Public.archive_team(actor_membership: Current.membership, team_id: params[:id])
+      Public.archive_team(
+        actor_membership: Current.membership,
+        authorization: authorization_decision!("teams.manage"),
+        team_id: params[:id]
+      )
       redirect_to organization_team_path(Current.organization.slug, params[:id]),
         notice: "Team archived. Its future role grants are inactive.", status: :see_other
     end
@@ -55,6 +70,7 @@ module Tenancy
     def add_member
       Public.add_team_member(
         actor_membership: Current.membership,
+        authorization: authorization_decision!("teams.manage"),
         team_id: params[:id],
         membership_id: params.expect(:membership_id)
       )
@@ -65,6 +81,7 @@ module Tenancy
     def remove_member
       Public.remove_team_member(
         actor_membership: Current.membership,
+        authorization: authorization_decision!("teams.manage"),
         team_id: params[:id],
         membership_id: params[:membership_id]
       )
@@ -77,6 +94,7 @@ module Tenancy
     def prepare_details
       @details = Public.team_details(
         actor_membership: Current.membership,
+        authorization: authorization_decision!("teams.read"),
         team_id: params[:id],
         member_page: params[:member_page],
         query: params[:q]
@@ -86,10 +104,6 @@ module Tenancy
 
     def team_params
       params.expect(team: [ :name ])
-    end
-
-    def authorize_owner!
-      Public.authorize_organization_owner!(membership: Current.membership)
     end
 
     def redirect_alias_to_canonical_slug

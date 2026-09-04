@@ -14,7 +14,7 @@
     <span class="so-badge <%= @details.team.active? ? "so-badge-success" : "so-badge-neutral" %>"><%= @details.team.status.humanize %></span>
   </div>
 
-  <% if @details.team.active? %>
+  <% if @details.team.active? && allowed_to?("teams.manage") %>
     <div class="mt-8 grid gap-6 lg:grid-cols-2">
       <%= form_with model: @team, scope: :team, url: organization_team_path(Current.organization.slug, @details.team.id), method: :patch, class: "so-card space-y-5 p-6" do |form| %>
         <h2 class="font-bold text-slate-950">Rename team</h2>
@@ -50,7 +50,7 @@
       <% @details.members.each do |member| %>
         <li class="flex flex-wrap items-center justify-between gap-4 py-3">
           <div><span class="font-semibold text-slate-950"><%= member.display_name %></span> <span class="so-badge so-badge-neutral"><%= member.effective? ? "Effective" : member.status.humanize %></span></div>
-          <% if @details.team.active? %>
+          <% if @details.team.active? && allowed_to?("teams.manage") %>
             <%= button_to "Remove", organization_team_member_path(Current.organization.slug, @details.team.id, member.id), method: :delete, class: "so-button so-button-secondary so-button-small" %>
           <% end %>
         </li>
@@ -63,7 +63,7 @@
     </nav>
   </section>
 
-  <% if @details.team.active? %>
+  <% if @details.team.active? && allowed_to?("teams.manage") %>
     <div class="mt-8"><%= button_to "Archive team", archive_organization_team_path(Current.organization.slug, @details.team.id), method: :patch, class: "so-button so-button-danger", form: { data: { turbo_confirm: "Archive this team and disable its future grants?" } } %></div>
   <% end %>
 </div>

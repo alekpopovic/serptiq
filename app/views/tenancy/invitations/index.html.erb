@@ -8,7 +8,9 @@
   ] %>
   <div class="mt-6 flex flex-wrap items-end justify-between gap-4">
     <div><p class="so-eyebrow">Organization access</p><h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950">Invitations</h1></div>
-    <%= link_to "Invite a member", new_organization_invitation_path(Current.organization.slug), class: "so-button so-button-primary" %>
+    <% if allowed_to?("members.invite") %>
+      <%= link_to "Invite a member", new_organization_invitation_path(Current.organization.slug), class: "so-button so-button-primary" %>
+    <% end %>
   </div>
   <div class="so-table-wrap mt-8" role="region" aria-label="Organization invitations" tabindex="0">
     <table class="so-table">
@@ -20,8 +22,10 @@
             <td><span class="so-badge so-badge-neutral"><%= invitation.status.humanize %></span></td>
             <td><%= l(invitation.expires_at, format: :long) %></td>
             <td><div class="flex justify-end gap-2">
-              <% if invitation.pending? %><%= button_to "Revoke", revoke_organization_invitation_path(Current.organization.slug, invitation.id), method: :patch, class: "so-button so-button-danger so-button-small" %><% end %>
-              <% unless invitation.accepted? %><%= button_to "Resend", resend_organization_invitation_path(Current.organization.slug, invitation.id), method: :post, class: "so-button so-button-secondary so-button-small" %><% end %>
+              <% if allowed_to?("members.invite") %>
+                <% if invitation.pending? %><%= button_to "Revoke", revoke_organization_invitation_path(Current.organization.slug, invitation.id), method: :patch, class: "so-button so-button-danger so-button-small" %><% end %>
+                <% unless invitation.accepted? %><%= button_to "Resend", resend_organization_invitation_path(Current.organization.slug, invitation.id), method: :post, class: "so-button so-button-secondary so-button-small" %><% end %>
+              <% end %>
             </div></td>
           </tr>
         <% end %>

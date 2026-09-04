@@ -3,6 +3,8 @@
 module Tenancy
   class InvitationMaintenanceJob < ApplicationJob
     runs_on :maintenance
+    system_authorization :global_invitation_maintenance,
+      reason: "expires tenant invitations and deletes non-tenant delivery rate buckets"
 
     def perform
       {

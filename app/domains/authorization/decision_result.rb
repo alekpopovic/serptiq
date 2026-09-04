@@ -2,13 +2,16 @@
 
 module Authorization
   DecisionResult = Data.define(
-    :allowed, :reason_code, :permission_key, :organization_id, :scope_type, :scope_id, :sources
+    :allowed, :reason_code, :permission_key, :actor_membership_id,
+    :organization_id, :scope_type, :scope_id, :sources
   ) do
-    def initialize(allowed:, reason_code:, permission_key:, organization_id:, scope_type:, scope_id:, sources: [])
+    def initialize(allowed:, reason_code:, permission_key:, organization_id:, scope_type:, scope_id:,
+      actor_membership_id: nil, sources: [])
       super(
         allowed: !!allowed,
         reason_code: reason_code.to_s.freeze,
         permission_key: permission_key.to_s.freeze,
+        actor_membership_id: actor_membership_id&.to_s&.freeze,
         organization_id: organization_id.to_s.freeze,
         scope_type: scope_type.to_s.freeze,
         scope_id: scope_id.to_s.freeze,

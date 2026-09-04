@@ -5,8 +5,10 @@ module Tenancy
     PER_PAGE = 25
     CANDIDATE_LIMIT = 20
 
-    def page(actor_membership:, number:)
-      organization = AuthorizeOrganizationOwner.new.call(membership: actor_membership)
+    def page(actor_membership:, number:, authorization: nil)
+      organization = AuthorizeMembershipAccess.new.call(
+        membership: actor_membership, permission_key: "teams.read", authorization: authorization
+      )
       page = normalize_page(number)
       relation = Team.where(organization_id: organization.id).order(:name, :id)
       teams = relation.offset((page - 1) * PER_PAGE).limit(PER_PAGE)
@@ -19,8 +21,10 @@ module Tenancy
       )
     end
 
-    def details(actor_membership:, team_id:, member_page:, query:)
-      organization = AuthorizeOrganizationOwner.new.call(membership: actor_membership)
+    def details(actor_membership:, team_id:, member_page:, query:, authorization: nil)
+      organization = AuthorizeMembershipAccess.new.call(
+        membership: actor_membership, permission_key: "teams.read", authorization: authorization
+      )
       team = Team.find_by!(id: team_id, organization_id: organization.id)
       page = normalize_page(member_page)
       relation = TeamMembership.includes(:membership)

@@ -12,7 +12,9 @@
       <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950">Teams</h1>
       <p class="mt-2 text-sm leading-6 text-slate-600">Teams group active organization members for future scoped role assignments.</p>
     </div>
-    <%= link_to "Create team", new_organization_team_path(Current.organization.slug), class: "so-button so-button-primary" %>
+    <% if allowed_to?("teams.manage") %>
+      <%= link_to "Create team", new_organization_team_path(Current.organization.slug), class: "so-button so-button-primary" %>
+    <% end %>
   </div>
 
   <div class="so-table-wrap mt-8" role="region" aria-label="Organization teams" tabindex="0">

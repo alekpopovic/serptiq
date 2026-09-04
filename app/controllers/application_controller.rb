@@ -34,7 +34,12 @@ class ApplicationController < ActionController::Base
     }.compact
 
     if request.format.json?
-      render json: { error: payload }, status: mapping.http_status
+      json_payload = if error.is_a?(Authorization::AccessDenied)
+        Authorization::Public.api_error(error, request_id: payload.fetch(:request_id))
+      else
+        { error: payload }
+      end
+      render json: json_payload, status: mapping.http_status
     else
       render template: "errors/show", layout: "application", locals: { error: payload }, status: mapping.http_status
     end

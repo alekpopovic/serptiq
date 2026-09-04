@@ -7,9 +7,9 @@ module Tenancy
       @issuer = issuer || IssueInvitation.new(clock: clock)
     end
 
-    def revoke(actor_membership:, invitation_id:)
+    def revoke(actor_membership:, invitation_id:, authorization: nil)
       invitation = Invitation.transaction do
-        actor = lock_owner!(actor_membership)
+        actor = lock_actor!(actor_membership, authorization)
         record = Invitation.lock.find_by!(id: invitation_id, organization_id: actor.organization_id)
         record.update!(status: "revoked", revoked_at: @clock.call) if record.pending?
         record
@@ -21,9 +21,9 @@ module Tenancy
       reject!("revoke", actor_membership, error)
     end
 
-    def resend(actor_membership:, invitation_id:)
+    def resend(actor_membership:, invitation_id:, authorization: nil)
       original = Invitation.transaction do
-        actor = lock_owner!(actor_membership)
+        actor = lock_actor!(actor_membership, authorization)
         record = Invitation.lock.find_by!(id: invitation_id, organization_id: actor.organization_id)
         raise InvitationAccessDenied if record.accepted?
         record
@@ -31,7 +31,8 @@ module Tenancy
       issued = @issuer.call(
         actor_membership: actor_membership,
         email: original.email,
-        initial_role_key: original.initial_role_key
+        initial_role_key: original.initial_role_key,
+        authorization: authorization
       )
       Audit.emit("invitation.resent", outcome: "succeeded", operation: "resend",
         actor_membership_id: actor_membership.id)
@@ -42,11 +43,13 @@ module Tenancy
 
     private
 
-    def lock_owner!(actor_membership)
+    def lock_actor!(actor_membership, authorization)
       raise OrganizationAccessDenied unless actor_membership.is_a?(Membership)
 
       actor = Membership.lock.find(actor_membership.id)
-      AuthorizeOrganizationOwner.new.call(membership: actor)
+      AuthorizeMembershipAccess.new.call(
+        membership: actor, permission_key: "members.invite", authorization: authorization
+      )
       actor
     rescue ActiveRecord::RecordNotFound
       raise OrganizationAccessDenied, cause: nil

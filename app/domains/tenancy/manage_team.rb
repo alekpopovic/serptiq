@@ -6,9 +6,9 @@ module Tenancy
       @clock = clock
     end
 
-    def create(actor_membership:, name:)
+    def create(actor_membership:, name:, authorization: nil)
       team = Team.transaction do
-        organization = lock_owned_organization(actor_membership)
+        organization = lock_organization(actor_membership, authorization)
         Team.create!(organization: organization, name: name, status: "active")
       end
       emit("team.created", "create", actor_membership, team.id)
@@ -18,9 +18,9 @@ module Tenancy
       raise
     end
 
-    def rename(actor_membership:, team_id:, name:)
+    def rename(actor_membership:, team_id:, name:, authorization: nil)
       team = Team.transaction do
-        team = lock_active_team(actor_membership, team_id)
+        team = lock_active_team(actor_membership, team_id, authorization)
         team.update!(name: name)
         team
       end
@@ -31,9 +31,9 @@ module Tenancy
       raise
     end
 
-    def archive(actor_membership:, team_id:)
+    def archive(actor_membership:, team_id:, authorization: nil)
       result = Team.transaction do
-        organization = lock_owned_organization(actor_membership)
+        organization = lock_organization(actor_membership, authorization)
         team = Team.lock.find_by!(id: team_id, organization_id: organization.id)
         if team.archived?
           TeamChangeResult.new(record: team, changed: false)
@@ -54,16 +54,18 @@ module Tenancy
 
     private
 
-    def lock_owned_organization(actor)
+    def lock_organization(actor, authorization)
       organization = Organization.lock.find(actor&.organization_id)
-      AuthorizeOrganizationOwner.new.call(membership: actor)
+      AuthorizeMembershipAccess.new.call(
+        membership: actor, permission_key: "teams.manage", authorization: authorization
+      )
       organization
     rescue ActiveRecord::RecordNotFound
       raise OrganizationAccessDenied, cause: nil
     end
 
-    def lock_active_team(actor, team_id)
-      organization = lock_owned_organization(actor)
+    def lock_active_team(actor, team_id, authorization)
+      organization = lock_organization(actor, authorization)
       team = Team.lock.find_by!(id: team_id, organization_id: organization.id)
       raise InvalidOrganizationTransition.new(reason_code: "team_archived") unless team.active?
 

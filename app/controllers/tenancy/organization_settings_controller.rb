@@ -9,7 +9,9 @@ module Tenancy
 
     before_action :establish_current_organization!
     before_action :redirect_alias_to_canonical_slug
-    before_action :authorize_owner!
+    permission_required "organization.read", only: :show
+    permission_required "organization.update", only: :update
+    permission_hint "organization.update", only: :show
 
     def show
       @organization = Current.organization
@@ -19,6 +21,7 @@ module Tenancy
     def update
       @organization = Public.update_organization(
         actor_membership: Current.membership,
+        authorization: authorization_decision!("organization.update"),
         **organization_params.to_h.symbolize_keys
       )
       redirect_to organization_settings_path(@organization.slug),
@@ -43,10 +46,6 @@ module Tenancy
       return if organization_slug_is_canonical?
 
       redirect_to organization_settings_path(Current.organization.slug), status: :moved_permanently
-    end
-
-    def authorize_owner!
-      Public.authorize_organization_owner!(membership: Current.membership)
     end
 
     def prepare_form

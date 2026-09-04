@@ -1,0 +1,106 @@
+version: 1
+
+controllers:
+  DashboardController:
+    source: app/controllers/dashboard_controller.rb
+    actions:
+      index:
+        kind: permission
+        permission: organization.read
+        condition: organization_route
+  Tenancy::InvitationAcceptancesController:
+    source: app/controllers/tenancy/invitation_acceptances_controller.rb
+    actions:
+      show: &verified_invitation
+        kind: exempt
+        reason: verified_token_bound_acceptance
+      create: *verified_invitation
+  Tenancy::InvitationEntriesController:
+    source: app/controllers/tenancy/invitation_entries_controller.rb
+    actions:
+      show:
+        kind: exempt
+        reason: public_opaque_token_entry
+  Tenancy::InvitationsController:
+    source: app/controllers/tenancy/invitations_controller.rb
+    actions:
+      index: { kind: permission, permission: members.read }
+      new: &invite_members { kind: permission, permission: members.invite }
+      create: *invite_members
+      revoke: *invite_members
+      resend: *invite_members
+  Tenancy::MembersController:
+    source: app/controllers/tenancy/members_controller.rb
+    actions:
+      index: &read_members { kind: permission, permission: members.read }
+      show: *read_members
+      suspend: &update_members { kind: permission, permission: members.update }
+      reactivate: *update_members
+      remove: { kind: permission, permission: members.remove }
+  Tenancy::OrganizationSettingsController:
+    source: app/controllers/tenancy/organization_settings_controller.rb
+    actions:
+      show: { kind: permission, permission: organization.read }
+      update: { kind: permission, permission: organization.update }
+  Tenancy::OrganizationSwitchesController:
+    source: app/controllers/tenancy/organization_switches_controller.rb
+    actions:
+      show: { kind: permission, permission: organization.read }
+  Tenancy::OrganizationsController:
+    source: app/controllers/tenancy/organizations_controller.rb
+    actions:
+      new: &first_tenant
+        kind: exempt
+        reason: creates_first_tenant_context
+      create: *first_tenant
+  Tenancy::TeamsController:
+    source: app/controllers/tenancy/teams_controller.rb
+    actions:
+      index: &read_teams { kind: permission, permission: teams.read }
+      show: *read_teams
+      new: &manage_teams { kind: permission, permission: teams.manage }
+      create: *manage_teams
+      update: *manage_teams
+      archive: *manage_teams
+      add_member: *manage_teams
+      remove_member: *manage_teams
+
+jobs:
+  Identity::AuthenticationRateLimitCleanupJob:
+    kind: system
+    name: authentication_rate_limit_cleanup
+  Identity::SessionCleanupJob:
+    kind: system
+    name: session_cleanup
+  Shared::SolidQueueSmokeJob:
+    kind: system
+    name: solid_queue_smoke
+  Tenancy::InvitationMaintenanceJob:
+    kind: system
+    name: global_invitation_maintenance
+
+domain_operations:
+  Tenancy::Public.create_organization: { kind: exempt, reason: creates_first_tenant_context }
+  Tenancy::Public.resolve_organization_context: { kind: context, reason: validates_active_membership }
+  Tenancy::Public.organization_switcher: { kind: context, reason: returns_only_active_memberships }
+  Tenancy::Public.organization_navigation: { kind: context, reason: returns_only_active_memberships }
+  Tenancy::Public.membership_page: { kind: permission, permission: members.read }
+  Tenancy::Public.membership_detail: { kind: permission, permission: members.read }
+  Tenancy::Public.create_membership: { kind: permission, permission: members.invite }
+  Tenancy::Public.change_membership_status: { kind: permission, permission: members.update }
+  Tenancy::Public.issue_invitation: { kind: permission, permission: members.invite }
+  Tenancy::Public.revoke_invitation: { kind: permission, permission: members.invite }
+  Tenancy::Public.resend_invitation: { kind: permission, permission: members.invite }
+  Tenancy::Public.review_invitation: { kind: exempt, reason: verified_token_bound_acceptance }
+  Tenancy::Public.accept_invitation: { kind: exempt, reason: verified_token_bound_acceptance }
+  Tenancy::Public.create_team: { kind: permission, permission: teams.manage }
+  Tenancy::Public.rename_team: { kind: permission, permission: teams.manage }
+  Tenancy::Public.archive_team: { kind: permission, permission: teams.manage }
+  Tenancy::Public.add_team_member: { kind: permission, permission: teams.manage }
+  Tenancy::Public.remove_team_member: { kind: permission, permission: teams.manage }
+  Tenancy::Public.team_page: { kind: permission, permission: teams.read }
+  Tenancy::Public.team_details: { kind: permission, permission: teams.read }
+  Tenancy::Public.update_organization: { kind: permission, permission: organization.update }
+  Tenancy::Public.transition_organization: { kind: permission, permission: organization.delete }
+  Authorization::Public.assign_role: { kind: permission, permission: roles.assign }
+  Authorization::Public.revoke_role: { kind: permission, permission: roles.assign }

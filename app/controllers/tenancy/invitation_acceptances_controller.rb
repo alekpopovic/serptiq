@@ -5,6 +5,7 @@ module Tenancy
     include Identity::LoginRequired
 
     layout "authenticated"
+    authorization_exempt :show, :create, reason: "verified_token_bound_acceptance"
     before_action :set_sensitive_headers
     rescue_from InvitationAccessDenied, RemovedMembershipReactivationDenied,
       Authorization::AssignmentDenied, ActiveRecord::RecordNotFound,
@@ -22,7 +23,15 @@ module Tenancy
       )
       invitation_cookie.delete
       rotate_current_session!(reason: "privilege_changed")
-      redirect_to organization_dashboard_path(membership.organization.slug),
+      destination = if Authorization::Public.policy(
+        actor_membership: membership,
+        organization: membership.organization
+      ).allowed?(permission_key: "organization.read")
+        organization_dashboard_path(membership.organization.slug)
+      else
+        dashboard_path
+      end
+      redirect_to destination,
         notice: "Invitation accepted.", status: :see_other
     end
 

@@ -4,6 +4,7 @@ require "test_helper"
 
 class MembershipLifecycleRequestTest < ActionDispatch::IntegrationTest
   setup do
+    Authorization::Public.sync_catalog
     @owner_user = create_identity_user
     @owner = create_organization_for(user: @owner_user, name: "Member Workspace", slug: "member-workspace")
     @owner_session = issue_identity_session(user: @owner_user)
@@ -35,6 +36,14 @@ class MembershipLifecycleRequestTest < ActionDispatch::IntegrationTest
   test "suspension revokes the target session and reactivation requires a new sign in" do
     target_user = create_identity_user(display_name: "Lifecycle Target")
     target = Tenancy::Public.create_membership(actor_membership: @owner.membership, user: target_user)
+    Authorization::Public.assign_role(
+      actor_membership: @owner.membership,
+      grantee_type: "Membership",
+      grantee_id: target.id,
+      role_id: Authorization::Role.find_by!(key: "viewer").id,
+      scope_type: "Organization",
+      scope_id: @owner.organization.id
+    )
     target_session = issue_identity_session(user: target_user)
 
     patch suspend_organization_member_path(@owner.organization.slug, target.id)

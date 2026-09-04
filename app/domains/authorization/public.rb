@@ -43,5 +43,13 @@ module Authorization
     def policy(actor_membership:, organization:)
       PolicyAdapter.new(actor_membership: actor_membership, organization: organization)
     end
+
+    def authorize_job!(**attributes, &block)
+      JobAuthorizer.new.call(**attributes, &block)
+    end
+
+    def api_error(error, request_id:)
+      ApiErrorContract.call(error, request_id: request_id)
+    end
   end
 end
