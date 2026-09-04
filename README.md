@@ -55,6 +55,10 @@ architecture and dependency-security gates. Triage and temporary waiver rules
 are documented in
 [`docs/implementation/QUALITY.md`](./docs/implementation/QUALITY.md).
 
+Fast, default, full, security and browser test commands and their deterministic
+support contracts are documented in
+[`docs/implementation/TESTING.md`](./docs/implementation/TESTING.md).
+
 The initial Rails scaffold was generated outside the repository and merged without overwriting the blueprint:
 
 ```bash

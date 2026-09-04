@@ -31,5 +31,7 @@ Do not pre-populate these reports with fictional implementation or test results.
   reusable component, Hotwire and future charting conventions.
 - [`QUALITY.md`](./QUALITY.md) defines local lint/security gates and the
   time-bounded advisory waiver process.
+- [`TESTING.md`](./TESTING.md) defines suite tiers, deterministic support,
+  tenant/provider boundaries and failure artifacts.
 - [`../../tracking/README.md`](../../tracking/README.md) defines prompt evidence,
   recovery and state integrity.

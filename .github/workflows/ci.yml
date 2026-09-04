@@ -156,10 +156,11 @@ jobs:
           # RAILS_MASTER_KEY: ${{ secrets.RAILS_MASTER_KEY }}
         run: bin/rails db:test:prepare test:system
 
-      - name: Keep screenshots from failed system tests
+      - name: Keep browser diagnostics from failed system tests
         uses: actions/upload-artifact@v4
         if: failure()
         with:
-          name: screenshots
-          path: ${{ github.workspace }}/tmp/screenshots
+          name: system-test-artifacts
+          path: ${{ github.workspace }}/tmp/system-test-artifacts
           if-no-files-found: ignore
+          retention-days: 3
