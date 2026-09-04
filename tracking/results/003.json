@@ -1,0 +1,80 @@
+{
+  "prompt_id": "003",
+  "title": "Define environment, configuration and secrets contract",
+  "status": "completed",
+  "started_at": "2026-09-04T01:03:02Z",
+  "finished_at": "2026-09-04T01:12:22Z",
+  "summary": "Added typed fail-fast configuration for development, test, staging and production; separated runtime/credential secrets from public YAML settings; integrated parameter/header/URL/event redaction; documented configuration inventory and rotation.",
+  "tests": [
+    {
+      "command": "DATABASE_URL=postgresql://postgres@127.0.0.1:55432/searchops_test mise exec ruby@3.4.10 -- bundle exec rails test",
+      "outcome": "passed",
+      "notes": "17 runs, 145 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "mise exec ruby@3.4.10 -- bundle exec rubocop --cache false config/searchops/configuration.rb app/domains/shared/redaction.rb config/initializers/searchops_configuration.rb config/initializers/filter_parameter_logging.rb test/configuration/configuration_test.rb test/configuration/redaction_test.rb",
+      "outcome": "passed",
+      "notes": "6 files inspected, no offenses"
+    },
+    {
+      "command": "env -u DATABASE_URL -u SEARCHOPS_DATABASE_PASSWORD -u SECRET_KEY_BASE -u ACTIVE_RECORD_ENCRYPTION_PRIMARY_KEYS -u ACTIVE_RECORD_ENCRYPTION_DETERMINISTIC_KEY -u ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT RAILS_ENV=production SECRET_KEY_BASE_DUMMY=1 mise exec ruby@3.4.10 -- bundle exec rails runner",
+      "outcome": "passed",
+      "notes": "boot rejected with named missing settings and no secret values"
+    },
+    {
+      "command": "RAILS_ENV=production with complete sanitized required settings mise exec ruby@3.4.10 -- bundle exec rails runner",
+      "outcome": "passed",
+      "notes": "production configuration boot passed and force_ssl enabled"
+    },
+    {
+      "command": "RAILS_ENV=staging with missing critical settings mise exec ruby@3.4.10 -- bundle exec rails runner",
+      "outcome": "passed",
+      "notes": "staging boot rejected with named missing settings"
+    },
+    {
+      "command": "mise exec ruby@3.4.10 -- bundle exec rails zeitwerk:check",
+      "outcome": "passed",
+      "notes": "All is good"
+    },
+    {
+      "command": "mise exec ruby@3.4.10 -- script/check_architecture",
+      "outcome": "passed",
+      "notes": "Architecture boundaries passed"
+    },
+    {
+      "command": "representative private-key/provider-token pattern scan with rg",
+      "outcome": "passed",
+      "notes": "no matches"
+    },
+    {
+      "command": "ruby tracking/scripts/test_prompt_tracker.rb and validate_blueprint.rb",
+      "outcome": "passed",
+      "notes": "8 runs/75 assertions and blueprint valid"
+    }
+  ],
+  "files_changed": [
+    ".env.example",
+    "README.md",
+    "app/domains/shared/redaction.rb",
+    "config/environments/staging.rb",
+    "config/initializers/filter_parameter_logging.rb",
+    "config/initializers/searchops_configuration.rb",
+    "config/searchops.yml",
+    "config/searchops/configuration.rb",
+    "docs/implementation/CONFIGURATION.md",
+    "test/configuration/configuration_test.rb",
+    "test/configuration/redaction_test.rb",
+    "tracking/state.json",
+    "tracking/EXECUTION_LOG.md",
+    "tracking/execution_log.jsonl"
+  ],
+  "migrations": [],
+  "decisions": [],
+  "risks": [
+    "Static object-storage credentials remain optional because workload identity is preferred; provider/database secrets are validated only when their environments or features require them. Initial redaction tests exposed three matching/URL issues and one Rails filter issue; all were fixed before the final passing suite."
+  ],
+  "next_steps": [
+    "Prompt 004"
+  ],
+  "commit": null
+}

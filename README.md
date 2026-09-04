@@ -36,7 +36,7 @@ bin/rails db:prepare
 bin/dev
 ```
 
-Copy `.env.example` only as a list of supported variable names; provide real values through an ignored local file or a secret manager and never commit them.
+Copy `.env.example` only as a list of supported variable names; provide real values through an ignored local file or a secret manager and never commit them. The typed settings, precedence, production requirements, redaction rules, and rotation process are documented in [`docs/implementation/CONFIGURATION.md`](./docs/implementation/CONFIGURATION.md).
 
 The initial Rails scaffold was generated outside the repository and merged without overwriting the blueprint:
 
