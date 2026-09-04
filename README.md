@@ -67,6 +67,10 @@ Stable public error codes, request/job correlation, structured event naming
 and logging prohibitions are documented in
 [`docs/implementation/OBSERVABILITY.md`](./docs/implementation/OBSERVABILITY.md).
 
+Load-balancer liveness/readiness behavior, safe release provenance and private
+worker heartbeat inspection are documented in
+[`docs/implementation/HEALTH_ENDPOINTS.md`](./docs/implementation/HEALTH_ENDPOINTS.md).
+
 The initial Rails scaffold was generated outside the repository and merged without overwriting the blueprint:
 
 ```bash

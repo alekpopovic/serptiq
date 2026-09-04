@@ -19,7 +19,7 @@ documented in [DATABASES.md](./DATABASES.md).
 | `Rails tests` | Default non-browser Rails suite on PostgreSQL | `bin/rails db:prepare && bin/rails test` |
 | `Security and provider contracts` | Fresh advisory data, static analysis, hostile-input and adapter contracts | `bin/bundler-audit check --update`, `bin/importmap audit`, `bin/brakeman --quiet --config-file config/brakeman.yml`, then `bin/rails test test/security test/adapters/contracts` |
 | `Browser system tests` | Critical browser flows and accessibility assertions | `bin/rails db:prepare && bin/rails test:system` |
-| `Production image boot` | Production image build, schema preparation, non-root runtime and `/up` | `script/ci_container_smoke` after creating the four smoke databases |
+| `Production image boot` | Production image build, schema preparation, non-root runtime and `/up`, `/ready`, `/version` probes | `script/ci_container_smoke` after creating the four smoke databases |
 | `Required CI` | Fails unless every job above succeeded | Reproduce and pass every preceding row |
 
 For a local image smoke test, create `searchops_container_ci` plus its
@@ -31,7 +31,8 @@ For a local image smoke test, create `searchops_container_ci` plus its
 lets the smoke container address a PostgreSQL container by name.
 The password, if used, must be URL-safe. The script builds the production
 image, lets the entrypoint prepare schemas, verifies the process UID is not
-root, requests `/up`, and removes its temporary container.
+root, probes `/up`, `/ready` and `/version`, and removes its temporary
+container.
 
 ## Branch protection
 

@@ -74,17 +74,48 @@ if [[ "${runtime_uid}" == "0" ]]; then
   exit 1
 fi
 
+up_ready=false
 for attempt in $(seq 1 45); do
   status="$(curl --silent --output /dev/null --write-out '%{http_code}' \
     --header 'Host: ci.searchops.example' \
     --header 'X-Forwarded-Proto: https' \
     "http://127.0.0.1:${http_port}/up" || true)"
   if [[ "${status}" == "200" ]]; then
-    echo "Production container passed: /up returned 200 as UID ${runtime_uid}"
-    exit 0
+    up_ready=true
+    break
   fi
   sleep 1
 done
 
-echo "Production container failed to return 200 from /up within 45 seconds" >&2
-exit 1
+if [[ "${up_ready}" != "true" ]]; then
+  echo "Production container failed to return 200 from /up within 45 seconds" >&2
+  exit 1
+fi
+
+ready_response="$(curl --fail --silent --show-error \
+  --header 'Host: ci.searchops.example' \
+  --header 'X-Forwarded-Proto: https' \
+  "http://127.0.0.1:${http_port}/ready")"
+version_response="$(curl --fail --silent --show-error \
+  --header 'Host: ci.searchops.example' \
+  --header 'X-Forwarded-Proto: https' \
+  "http://127.0.0.1:${http_port}/version")"
+
+if [[ "${ready_response}" != *'"status":"ready"'* ]] ||
+  [[ "${ready_response}" != *'"postgresql":"ok"'* ]]; then
+  echo "Production container returned an invalid readiness payload" >&2
+  exit 1
+fi
+if [[ "${version_response}" != *"\"id\":\"${build_sha}\""* ]] ||
+  [[ "${version_response}" != *"\"build_time\":\"${build_timestamp}\""* ]] ||
+  [[ "${version_response}" != *'"runtime"'* ]]; then
+  echo "Production container returned invalid release provenance" >&2
+  exit 1
+fi
+if [[ "${version_response}" == *'password'* ]] || [[ "${version_response}" == *'secret'* ]] ||
+  [[ "${version_response}" == *'database'* ]] || [[ "${version_response}" == *'hostname'* ]]; then
+  echo "Production version payload contains a prohibited field" >&2
+  exit 1
+fi
+
+echo "Production container passed: /up /ready /version returned safe responses as UID ${runtime_uid}"
