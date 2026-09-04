@@ -5,6 +5,7 @@ These YAML files define intended seed/configuration contracts for implementation
 - `permissions.yml`: permission catalog and system-role grants.
 - `plans.yml`: plan tiers, prices for initial product design, credit weights and entitlement values.
 - `entitlements.yml`: stable entitlement types, bounds, safe defaults and customer-facing descriptions.
+- `usage_meters.yml`: immutable logical meters and effective weighted-rate versions for usage accounting.
 - `seo_rules.yml`: initial versioned rule catalog.
 - `release_policy.example.yml`: example release-regression gate.
 

@@ -61,5 +61,7 @@ Do not pre-populate these reports with fictional implementation or test results.
   publication scheduling, checkout selection, grandfathering and deletion safety.
 - [`ENTITLEMENTS.md`](./ENTITLEMENTS.md) defines strict entitlement types, safe defaults,
   subscription/override precedence, request caching and tenant-safe diagnostics.
+- [`USAGE_LEDGER.md`](./USAGE_LEDGER.md) defines immutable weighted usage events, explicit metering
+  windows, corrections, read models, retention and partitioning policy.
 - [`../../tracking/README.md`](../../tracking/README.md) defines prompt evidence,
   recovery and state integrity.

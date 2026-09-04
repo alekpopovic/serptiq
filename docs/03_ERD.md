@@ -49,6 +49,10 @@ erDiagram
   BILLING_CUSTOMER ||--o{ SUBSCRIPTION : has
   PLAN_VERSION ||--o{ SUBSCRIPTION : activates
   SUBSCRIPTION ||--o{ SUBSCRIPTION_ITEM : contains
+  USAGE_METER_DEFINITION ||--o{ USAGE_METER_RATE : prices
+  USAGE_METER_DEFINITION ||--o{ USAGE_WINDOW : meters
+  USAGE_WINDOW ||--o{ USAGE_EVENT : contains
+  USAGE_METER_RATE ||--o{ USAGE_EVENT : weights
   ORGANIZATION ||--o{ USAGE_EVENT : consumes
   ORGANIZATION ||--o{ QUOTA_RESERVATION : reserves
   ORGANIZATION ||--o{ USAGE_WINDOW : aggregates
@@ -532,25 +536,20 @@ Append-only raw ingress.
 
 Unique provider event ID when present; otherwise provider + fingerprint.
 
+### `usage_meter_definitions` / `usage_meter_rates`
+
+Definitions own stable meter key, raw/billing units, pool, numeric quota-entitlement key, window policy and
+bounded customer description. Immutable rate versions own positive decimal weight and effective instant. The
+six credit-rate values are validated against the plan blueprint; historical events retain the exact rate.
+
 ### `usage_events`
 
-Immutable signed quantities.
-
-| Column | Type |
-|---|---|
-| id | uuid |
-| organization_id | uuid |
-| project_id | uuid nullable |
-| entitlement_key | string |
-| operation | string |
-| quantity | decimal |
-| unit | string |
-| occurred_at | timestamptz |
-| idempotency_key | string |
-| source_type/source_id | polymorphic |
-| metadata | jsonb |
-
-Unique `(organization_id, idempotency_key)`.
+High-volume append-only bigint rows contain organization/source organization, window, meter/rate,
+idempotency-key digest, canonical request checksum, event kind, signed raw quantity, applied weight, billed
+quantity, source aggregate, optional same-organization manual actor/reason, bounded metadata and
+occurred/recorded instants. Corrections reference an original in the same tenant/window/meter, use its exact
+rate/source, have the opposite sign and cannot cumulatively overcompensate it. Unique
+`(organization_id, idempotency_key_digest)`.
 
 ### `quota_reservations`
 
@@ -558,7 +557,9 @@ Tracks estimated amount, finalized amount, state, expiry, and idempotency key. R
 
 ### `usage_windows`
 
-Materialized/transactional counters by organization, entitlement key, and period boundaries.
+Immutable non-overlapping half-open periods by organization and meter. Windows store UTC-calendar or explicit
+provider-period policy, timezone name, provider-reference digest and optional subscription/plan/revision
+snapshot. The current used value is derived from events; reservation counters arrive in Prompt 040.
 
 ## 6. Projects and properties
 
@@ -806,7 +807,7 @@ targets for orphaned and cross-tenant references.
 | scan_normalized | page snapshots, fetch metadata | plan-defined |
 | finding_history | findings and occurrences | longer plan-defined period |
 | security_audit | audit events, auth activity | minimum policy period |
-| billing_record | invoices/subscription projections | statutory/business policy |
+| billing_record | invoices/subscription projections and immutable usage ledger | statutory/business policy |
 | user_export | generated archives | short expiry after creation |
 
 Retention is applied by class, organization plan, legal policy, and explicit deletion workflow.

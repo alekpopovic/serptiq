@@ -146,6 +146,12 @@ Provider status and application `access_state` are separate fields.
 - Administrative credits use audited adjustment events, never counter mutation.
 - Usage counters are derived or transactionally maintained from immutable events and reservations.
 
+Prompt 039 materializes the six weighted credit operations plus report generation as stable usage meters.
+Weights have immutable effective versions, and each event retains its raw quantity, applied weight and billed
+quantity. UTC-month meters always roll at UTC midnight; subscription meters require explicit provider period
+instants. Usage history is corrected only with same-context compensating events. Durable atomic reservations
+and pooled admission remain Prompt 040 scope.
+
 ## 9. Plan-version migration and grandfathering policy
 
 - `config_blueprints/plans.yml` is the governed commercial source. Validate it with

@@ -142,6 +142,91 @@ $$;
 
 
 --
+-- Name: enforce_usage_catalog_immutability(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.enforce_usage_catalog_immutability() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  RAISE EXCEPTION 'usage catalog rows are immutable' USING ERRCODE = '23514';
+END;
+$$;
+
+
+--
+-- Name: enforce_usage_event_integrity(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.enforce_usage_event_integrity() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  original usage_events%ROWTYPE;
+  corrected numeric;
+  event_window usage_windows%ROWTYPE;
+BEGIN
+  IF TG_OP <> 'INSERT' THEN
+    RAISE EXCEPTION 'usage events are append-only' USING ERRCODE = '23514';
+  END IF;
+
+  SELECT * INTO event_window FROM usage_windows WHERE id = NEW.usage_window_id;
+  IF NEW.event_kind = 'usage' AND
+    (NEW.occurred_at < event_window.starts_at OR NEW.occurred_at >= event_window.ends_at) THEN
+    RAISE EXCEPTION 'usage event occurred outside its window' USING ERRCODE = '23514';
+  END IF;
+
+  IF NEW.event_kind = 'correction' THEN
+    PERFORM pg_advisory_xact_lock(NEW.correction_of_event_id);
+    SELECT * INTO original FROM usage_events WHERE id = NEW.correction_of_event_id;
+    IF original.id IS NULL OR original.event_kind = 'correction' OR
+      original.usage_meter_rate_id <> NEW.usage_meter_rate_id OR
+      original.applied_weight <> NEW.applied_weight OR
+      original.source_type <> NEW.source_type OR original.source_id <> NEW.source_id THEN
+      RAISE EXCEPTION 'usage correction target is invalid' USING ERRCODE = '23514';
+    END IF;
+    SELECT original.quantity + COALESCE(sum(quantity), 0) INTO corrected
+    FROM usage_events WHERE correction_of_event_id = original.id;
+    corrected := corrected + NEW.quantity;
+    IF (original.quantity > 0 AND (NEW.quantity >= 0 OR corrected < 0)) OR
+      (original.quantity < 0 AND (NEW.quantity <= 0 OR corrected > 0)) THEN
+      RAISE EXCEPTION 'usage correction overcompensates its target' USING ERRCODE = '23514';
+    END IF;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: enforce_usage_window_integrity(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.enforce_usage_window_integrity() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF TG_OP <> 'INSERT' THEN
+    RAISE EXCEPTION 'usage windows are immutable' USING ERRCODE = '23514';
+  END IF;
+  PERFORM pg_advisory_xact_lock(hashtextextended(NEW.organization_id::text || ':' ||
+    NEW.usage_meter_definition_id::text, 0));
+  IF EXISTS (
+    SELECT 1 FROM usage_windows existing
+    WHERE existing.organization_id = NEW.organization_id
+      AND existing.usage_meter_definition_id = NEW.usage_meter_definition_id
+      AND tstzrange(existing.starts_at, existing.ends_at, '[)') &&
+        tstzrange(NEW.starts_at, NEW.ends_at, '[)')
+      AND (existing.starts_at, existing.ends_at) <> (NEW.starts_at, NEW.ends_at)
+  ) THEN
+    RAISE EXCEPTION 'usage windows cannot overlap' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: prevent_plan_deletion(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -883,6 +968,132 @@ CREATE TABLE public.teams (
 
 
 --
+-- Name: usage_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.usage_events (
+    id bigint NOT NULL,
+    organization_id uuid NOT NULL,
+    source_organization_id uuid NOT NULL,
+    usage_window_id uuid NOT NULL,
+    usage_meter_definition_id uuid NOT NULL,
+    usage_meter_rate_id uuid NOT NULL,
+    idempotency_key_digest character varying(64) NOT NULL,
+    request_checksum character varying(64) NOT NULL,
+    event_kind character varying(24) NOT NULL,
+    quantity numeric(24,6) NOT NULL,
+    applied_weight numeric(18,6) NOT NULL,
+    billed_quantity numeric(30,6) NOT NULL,
+    source_type character varying(48) NOT NULL,
+    source_id uuid NOT NULL,
+    correction_of_event_id bigint,
+    actor_membership_id uuid,
+    reason_code character varying(64),
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    occurred_at timestamp(6) with time zone NOT NULL,
+    recorded_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT usage_events_digest_format CHECK ((((idempotency_key_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((request_checksum)::text ~ '^[0-9a-f]{64}$'::text))),
+    CONSTRAINT usage_events_kind_allowlist CHECK (((event_kind)::text = ANY ((ARRAY['usage'::character varying, 'correction'::character varying, 'manual_adjustment'::character varying])::text[]))),
+    CONSTRAINT usage_events_kind_shape CHECK (((((event_kind)::text = 'usage'::text) AND (quantity > (0)::numeric) AND (correction_of_event_id IS NULL) AND (actor_membership_id IS NULL) AND (reason_code IS NULL)) OR (((event_kind)::text = 'correction'::text) AND (quantity <> (0)::numeric) AND (correction_of_event_id IS NOT NULL) AND (reason_code IS NOT NULL)) OR (((event_kind)::text = 'manual_adjustment'::text) AND (quantity <> (0)::numeric) AND (correction_of_event_id IS NULL) AND (actor_membership_id IS NOT NULL) AND (reason_code IS NOT NULL)))),
+    CONSTRAINT usage_events_metadata_bounded CHECK (((jsonb_typeof(metadata) = 'object'::text) AND (pg_column_size(metadata) <= 4096))),
+    CONSTRAINT usage_events_reason_code_format CHECK (((reason_code IS NULL) OR ((reason_code)::text ~ '^[a-z][a-z0-9_]{1,63}$'::text))),
+    CONSTRAINT usage_events_recording_order CHECK ((recorded_at >= occurred_at)),
+    CONSTRAINT usage_events_source_tenant_match CHECK ((organization_id = source_organization_id)),
+    CONSTRAINT usage_events_source_type_format CHECK (((source_type)::text ~ '^[A-Z][A-Za-z0-9]{0,47}$'::text)),
+    CONSTRAINT usage_events_weighted_quantity CHECK (((applied_weight > (0)::numeric) AND (billed_quantity = (quantity * applied_weight))))
+);
+
+
+--
+-- Name: usage_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.usage_events_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: usage_events_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.usage_events_id_seq OWNED BY public.usage_events.id;
+
+
+--
+-- Name: usage_meter_definitions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.usage_meter_definitions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    key character varying(96) NOT NULL,
+    name character varying(100) NOT NULL,
+    unit character varying(32) NOT NULL,
+    billing_unit character varying(32) NOT NULL,
+    pool_key character varying(96) NOT NULL,
+    quota_entitlement_key character varying(96),
+    window_policy character varying(32) NOT NULL,
+    description character varying(240) NOT NULL,
+    catalog_checksum character varying(64) NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT usage_meter_definitions_checksum_format CHECK (((catalog_checksum)::text ~ '^[0-9a-f]{64}$'::text)),
+    CONSTRAINT usage_meter_definitions_entitlement_format CHECK (((quota_entitlement_key IS NULL) OR ((quota_entitlement_key)::text ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$'::text))),
+    CONSTRAINT usage_meter_definitions_key_format CHECK ((((key)::text ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$'::text) AND ((pool_key)::text ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$'::text))),
+    CONSTRAINT usage_meter_definitions_text_format CHECK ((((char_length((name)::text) >= 3) AND (char_length((name)::text) <= 100)) AND ((name)::text = btrim((name)::text)) AND ((char_length((description)::text) >= 3) AND (char_length((description)::text) <= 240)) AND ((description)::text = btrim((description)::text)))),
+    CONSTRAINT usage_meter_definitions_unit_format CHECK ((((unit)::text ~ '^[a-z][a-z0-9_]{1,31}$'::text) AND ((billing_unit)::text ~ '^[a-z][a-z0-9_]{1,31}$'::text))),
+    CONSTRAINT usage_meter_definitions_window_policy_allowlist CHECK (((window_policy)::text = ANY ((ARRAY['utc_calendar_month'::character varying, 'provider_billing_period'::character varying])::text[])))
+);
+
+
+--
+-- Name: usage_meter_rates; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.usage_meter_rates (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    usage_meter_definition_id uuid NOT NULL,
+    version integer NOT NULL,
+    weight numeric(18,6) NOT NULL,
+    effective_at timestamp(6) with time zone NOT NULL,
+    catalog_checksum character varying(64) NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT usage_meter_rates_checksum_format CHECK (((catalog_checksum)::text ~ '^[0-9a-f]{64}$'::text)),
+    CONSTRAINT usage_meter_rates_positive_version CHECK ((version > 0)),
+    CONSTRAINT usage_meter_rates_positive_weight CHECK ((weight > (0)::numeric))
+);
+
+
+--
+-- Name: usage_windows; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.usage_windows (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    usage_meter_definition_id uuid NOT NULL,
+    starts_at timestamp(6) with time zone NOT NULL,
+    ends_at timestamp(6) with time zone NOT NULL,
+    window_policy character varying(32) NOT NULL,
+    time_zone_name character varying(64) NOT NULL,
+    period_reference_digest character varying(64),
+    subscription_id uuid,
+    plan_version_id uuid,
+    subscription_revision bigint,
+    created_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT usage_windows_period_reference_shape CHECK (((((window_policy)::text = 'utc_calendar_month'::text) AND ((time_zone_name)::text = 'UTC'::text) AND (period_reference_digest IS NULL)) OR (((window_policy)::text = 'provider_billing_period'::text) AND ((period_reference_digest)::text ~ '^[0-9a-f]{64}$'::text)))),
+    CONSTRAINT usage_windows_policy_allowlist CHECK (((window_policy)::text = ANY ((ARRAY['utc_calendar_month'::character varying, 'provider_billing_period'::character varying])::text[]))),
+    CONSTRAINT usage_windows_positive_period CHECK ((ends_at > starts_at)),
+    CONSTRAINT usage_windows_subscription_context_shape CHECK ((((subscription_id IS NULL) AND (plan_version_id IS NULL) AND (subscription_revision IS NULL)) OR ((subscription_id IS NOT NULL) AND (plan_version_id IS NOT NULL) AND (subscription_revision >= 0)))),
+    CONSTRAINT usage_windows_time_zone_format CHECK ((((char_length((time_zone_name)::text) >= 1) AND (char_length((time_zone_name)::text) <= 64)) AND ((time_zone_name)::text = btrim((time_zone_name)::text))))
+);
+
+
+--
 -- Name: users; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -909,6 +1120,13 @@ CREATE TABLE public.users (
 --
 
 ALTER TABLE ONLY public.authentication_rate_limit_buckets ALTER COLUMN id SET DEFAULT nextval('public.authentication_rate_limit_buckets_id_seq'::regclass);
+
+
+--
+-- Name: usage_events id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_events ALTER COLUMN id SET DEFAULT nextval('public.usage_events_id_seq'::regclass);
 
 
 --
@@ -1149,6 +1367,38 @@ ALTER TABLE ONLY public.team_memberships
 
 ALTER TABLE ONLY public.teams
     ADD CONSTRAINT teams_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: usage_events usage_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_events
+    ADD CONSTRAINT usage_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: usage_meter_definitions usage_meter_definitions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_meter_definitions
+    ADD CONSTRAINT usage_meter_definitions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: usage_meter_rates usage_meter_rates_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_meter_rates
+    ADD CONSTRAINT usage_meter_rates_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: usage_windows usage_windows_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_windows
+    ADD CONSTRAINT usage_windows_pkey PRIMARY KEY (id);
 
 
 --
@@ -1783,6 +2033,111 @@ CREATE INDEX index_teams_on_organization_id ON public.teams USING btree (organiz
 
 
 --
+-- Name: index_usage_events_on_correction_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_usage_events_on_correction_identity ON public.usage_events USING btree (organization_id, id, usage_window_id, usage_meter_definition_id);
+
+
+--
+-- Name: index_usage_events_on_meter_occurred; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_usage_events_on_meter_occurred ON public.usage_events USING btree (usage_meter_definition_id, occurred_at);
+
+
+--
+-- Name: index_usage_events_on_tenant_idempotency; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_usage_events_on_tenant_idempotency ON public.usage_events USING btree (organization_id, idempotency_key_digest);
+
+
+--
+-- Name: index_usage_events_on_tenant_source; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_usage_events_on_tenant_source ON public.usage_events USING btree (organization_id, source_type, source_id, occurred_at);
+
+
+--
+-- Name: index_usage_events_on_tenant_window_recorded; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_usage_events_on_tenant_window_recorded ON public.usage_events USING btree (organization_id, usage_window_id, recorded_at, id);
+
+
+--
+-- Name: index_usage_meter_definitions_on_id_and_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_usage_meter_definitions_on_id_and_key ON public.usage_meter_definitions USING btree (id, key);
+
+
+--
+-- Name: index_usage_meter_definitions_on_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_usage_meter_definitions_on_key ON public.usage_meter_definitions USING btree (key);
+
+
+--
+-- Name: index_usage_meter_rates_on_definition_and_effective_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_usage_meter_rates_on_definition_and_effective_at ON public.usage_meter_rates USING btree (usage_meter_definition_id, effective_at);
+
+
+--
+-- Name: index_usage_meter_rates_on_definition_and_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_usage_meter_rates_on_definition_and_id ON public.usage_meter_rates USING btree (usage_meter_definition_id, id);
+
+
+--
+-- Name: index_usage_meter_rates_on_definition_and_version; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_usage_meter_rates_on_definition_and_version ON public.usage_meter_rates USING btree (usage_meter_definition_id, version);
+
+
+--
+-- Name: index_usage_windows_on_provider_period; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_usage_windows_on_provider_period ON public.usage_windows USING btree (organization_id, usage_meter_definition_id, period_reference_digest) WHERE (period_reference_digest IS NOT NULL);
+
+
+--
+-- Name: index_usage_windows_on_subscription_period; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_usage_windows_on_subscription_period ON public.usage_windows USING btree (subscription_id, starts_at);
+
+
+--
+-- Name: index_usage_windows_on_tenant_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_usage_windows_on_tenant_identity ON public.usage_windows USING btree (organization_id, id, usage_meter_definition_id);
+
+
+--
+-- Name: index_usage_windows_on_tenant_meter_period; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_usage_windows_on_tenant_meter_period ON public.usage_windows USING btree (organization_id, usage_meter_definition_id, starts_at, ends_at);
+
+
+--
+-- Name: index_usage_windows_on_tenant_period; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_usage_windows_on_tenant_period ON public.usage_windows USING btree (organization_id, starts_at, ends_at);
+
+
+--
 -- Name: index_users_on_active_normalized_email; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1822,6 +2177,34 @@ CREATE TRIGGER plan_versions_immutable_snapshot BEFORE DELETE OR UPDATE ON publi
 --
 
 CREATE TRIGGER plans_prevent_deletion BEFORE DELETE ON public.plans FOR EACH ROW EXECUTE FUNCTION public.prevent_plan_deletion();
+
+
+--
+-- Name: usage_events usage_events_immutable_and_consistent; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER usage_events_immutable_and_consistent BEFORE INSERT OR DELETE OR UPDATE ON public.usage_events FOR EACH ROW EXECUTE FUNCTION public.enforce_usage_event_integrity();
+
+
+--
+-- Name: usage_meter_definitions usage_meter_definitions_immutable; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER usage_meter_definitions_immutable BEFORE DELETE OR UPDATE ON public.usage_meter_definitions FOR EACH ROW EXECUTE FUNCTION public.enforce_usage_catalog_immutability();
+
+
+--
+-- Name: usage_meter_rates usage_meter_rates_immutable; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER usage_meter_rates_immutable BEFORE DELETE OR UPDATE ON public.usage_meter_rates FOR EACH ROW EXECUTE FUNCTION public.enforce_usage_catalog_immutability();
+
+
+--
+-- Name: usage_windows usage_windows_non_overlapping; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER usage_windows_non_overlapping BEFORE INSERT OR DELETE OR UPDATE ON public.usage_windows FOR EACH ROW EXECUTE FUNCTION public.enforce_usage_window_integrity();
 
 
 --
@@ -1942,6 +2325,14 @@ ALTER TABLE ONLY public.invitations
 
 ALTER TABLE ONLY public.subscriptions
     ADD CONSTRAINT fk_rails_1302dfcd89 FOREIGN KEY (plan_version_id) REFERENCES public.plan_versions(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: usage_windows fk_rails_2155e9a466; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_windows
+    ADD CONSTRAINT fk_rails_2155e9a466 FOREIGN KEY (usage_meter_definition_id) REFERENCES public.usage_meter_definitions(id) ON DELETE RESTRICT;
 
 
 --
@@ -2097,6 +2488,14 @@ ALTER TABLE ONLY public.audit_events
 
 
 --
+-- Name: usage_windows fk_rails_c8db8dda1e; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_windows
+    ADD CONSTRAINT fk_rails_c8db8dda1e FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE RESTRICT;
+
+
+--
 -- Name: oauth_transactions fk_rails_cbf62b83df; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2105,11 +2504,27 @@ ALTER TABLE ONLY public.oauth_transactions
 
 
 --
+-- Name: usage_meter_rates fk_rails_d068f75899; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_meter_rates
+    ADD CONSTRAINT fk_rails_d068f75899 FOREIGN KEY (usage_meter_definition_id) REFERENCES public.usage_meter_definitions(id) ON DELETE RESTRICT;
+
+
+--
 -- Name: role_assignments fk_rails_d5d049f535; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.role_assignments
     ADD CONSTRAINT fk_rails_d5d049f535 FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: usage_events fk_rails_dc5cb31f7a; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_events
+    ADD CONSTRAINT fk_rails_dc5cb31f7a FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE RESTRICT;
 
 
 --
@@ -2233,12 +2648,61 @@ ALTER TABLE ONLY public.team_memberships
 
 
 --
+-- Name: usage_events fk_usage_events_meter_rate; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_events
+    ADD CONSTRAINT fk_usage_events_meter_rate FOREIGN KEY (usage_meter_definition_id, usage_meter_rate_id) REFERENCES public.usage_meter_rates(usage_meter_definition_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: usage_events fk_usage_events_same_context_correction; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_events
+    ADD CONSTRAINT fk_usage_events_same_context_correction FOREIGN KEY (organization_id, correction_of_event_id, usage_window_id, usage_meter_definition_id) REFERENCES public.usage_events(organization_id, id, usage_window_id, usage_meter_definition_id) ON DELETE RESTRICT;
+
+
+--
+-- Name: usage_events fk_usage_events_same_org_actor; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_events
+    ADD CONSTRAINT fk_usage_events_same_org_actor FOREIGN KEY (organization_id, actor_membership_id) REFERENCES public.memberships(organization_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: usage_events fk_usage_events_source_organization; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_events
+    ADD CONSTRAINT fk_usage_events_source_organization FOREIGN KEY (source_organization_id) REFERENCES public.organizations(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: usage_events fk_usage_events_tenant_window_meter; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_events
+    ADD CONSTRAINT fk_usage_events_tenant_window_meter FOREIGN KEY (organization_id, usage_window_id, usage_meter_definition_id) REFERENCES public.usage_windows(organization_id, id, usage_meter_definition_id) ON DELETE RESTRICT;
+
+
+--
+-- Name: usage_windows fk_usage_windows_subscription_snapshot; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_windows
+    ADD CONSTRAINT fk_usage_windows_subscription_snapshot FOREIGN KEY (organization_id, subscription_id, plan_version_id) REFERENCES public.subscriptions(organization_id, id, plan_version_id) ON DELETE RESTRICT;
+
+
+--
 -- PostgreSQL database dump complete
 --
 
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904091000'),
 ('20260904090000'),
 ('20260904088000'),
 ('20260904086000'),

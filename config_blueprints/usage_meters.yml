@@ -1,0 +1,86 @@
+version: 1
+meters:
+- key: crawl.http_fetch
+  name: HTTP crawl fetches
+  unit: fetches
+  billing_unit: credits
+  pool_key: crawl.credits
+  quota_entitlement_key: crawl.credits_monthly
+  window_policy: provider_billing_period
+  description: Accepted HTTP response attempts recorded by the crawl pipeline.
+  rates:
+  - version: 1
+    weight: 1
+    effective_at: '2026-01-01T00:00:00Z'
+- key: crawl.rendered_page
+  name: Rendered crawl pages
+  unit: pages
+  billing_unit: credits
+  pool_key: crawl.credits
+  quota_entitlement_key: crawl.credits_monthly
+  window_policy: provider_billing_period
+  description: Isolated browser navigations and page extraction work.
+  rates:
+  - version: 1
+    weight: 10
+    effective_at: '2026-01-01T00:00:00Z'
+- key: performance.lighthouse_page
+  name: Lighthouse page runs
+  unit: runs
+  billing_unit: credits
+  pool_key: crawl.credits
+  quota_entitlement_key: crawl.credits_monthly
+  window_policy: provider_billing_period
+  description: Lighthouse lab runs including bounded artifact processing.
+  rates:
+  - version: 1
+    weight: 15
+    effective_at: '2026-01-01T00:00:00Z'
+- key: app_listing.locale_snapshot
+  name: App listing locale snapshots
+  unit: snapshots
+  billing_unit: credits
+  pool_key: crawl.credits
+  quota_entitlement_key: crawl.credits_monthly
+  window_policy: provider_billing_period
+  description: One normalized store-listing snapshot for one locale and platform.
+  rates:
+  - version: 1
+    weight: 2
+    effective_at: '2026-01-01T00:00:00Z'
+- key: deep_link.validation
+  name: Deep-link validations
+  unit: validations
+  billing_unit: credits
+  pool_key: crawl.credits
+  quota_entitlement_key: crawl.credits_monthly
+  window_policy: provider_billing_period
+  description: One bounded hosted-association validation target.
+  rates:
+  - version: 1
+    weight: 5
+    effective_at: '2026-01-01T00:00:00Z'
+- key: url_inspection.import
+  name: URL Inspection imports
+  unit: urls
+  billing_unit: credits
+  pool_key: crawl.credits
+  quota_entitlement_key: crawl.credits_monthly
+  window_policy: provider_billing_period
+  description: One normalized URL Inspection import in addition to provider quota.
+  rates:
+  - version: 1
+    weight: 2
+    effective_at: '2026-01-01T00:00:00Z'
+- key: reports.generated
+  name: Generated reports
+  unit: reports
+  billing_unit: reports
+  pool_key: reports.generated
+  quota_entitlement_key:
+  window_policy: utc_calendar_month
+  description: Completed immutable report snapshots measured for cost observation.
+  rates:
+  - version: 1
+    weight: 1
+    effective_at: '2026-01-01T00:00:00Z'

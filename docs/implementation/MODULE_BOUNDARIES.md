@@ -114,6 +114,12 @@ through `Auditing::Public`. It never calls Authorization or treats a role as a f
 operations accept only an already-approved global plan-catalog publication decision tied to the creating
 organization member; ordinary or custom organization roles are insufficient.
 
+Usage owns logical meter/rate definitions, immutable period windows, append-only events, compensating
+corrections and aggregate read models. It consumes plan credit weights through `Plans::Public`, immutable
+subscription/plan snapshots through `Entitlements::Public`, and writes catalog/manual-adjustment evidence
+through `Auditing::Public`. Manual adjustments reuse the platform publication authority contract and require
+same-organization active membership; tenant domains never receive a public counter-mutation API.
+
 ## Shared primitives
 
 `app/domains/shared/` is owned platform domain code, not a general utilities

@@ -1,0 +1,100 @@
+{
+  "prompt_id": "039",
+  "title": "Implement immutable usage ledger and metering windows",
+  "status": "completed",
+  "started_at": "2026-09-04T12:18:06Z",
+  "finished_at": "2026-09-04T12:53:41Z",
+  "summary": "Implemented an immutable multi-tenant usage ledger with versioned meter and rate catalogs, explicit UTC and provider billing windows, idempotent event ingestion, bounded append-only corrections, privileged audited manual adjustments, pool-aware usage summaries, documentation, database protections, and concurrency/security regression coverage.",
+  "tests": [
+    {
+      "command": "bin/rails test test/domain/usage test/database/usage_ledger_concurrency_test.rb",
+      "outcome": "passed",
+      "notes": "22 runs; 101 assertions; 0 failures"
+    },
+    {
+      "command": "bin/rails test",
+      "outcome": "passed",
+      "notes": "469 runs; 3785 assertions; 0 failures; final rerun passed after correcting nontransactional catalog cleanup"
+    },
+    {
+      "command": "bin/rails test test/domain/identity/identity_unlinker_test.rb",
+      "outcome": "passed",
+      "notes": "3 runs; 18 assertions; 0 failures; isolated rerun confirmed an unrelated timing-sensitive identity case"
+    },
+    {
+      "command": "bin/rails test:system",
+      "outcome": "passed",
+      "notes": "21 runs; 105 assertions; 0 failures"
+    },
+    {
+      "command": "bin/quality",
+      "outcome": "passed",
+      "notes": "13 checks; 583 Ruby files; 43 ERB files; no Brakeman warnings"
+    },
+    {
+      "command": "bin/rails db:rollback:primary STEP=1 and bin/rails db:migrate:primary",
+      "outcome": "passed",
+      "notes": "usage-ledger migration reverted and reapplied successfully"
+    },
+    {
+      "command": "DRY_RUN=1 bin/rails usage:catalog:sync then apply and repeat",
+      "outcome": "passed",
+      "notes": "14 changes previewed; 14 applied; repeat reported zero changes"
+    },
+    {
+      "command": "bin/rails usage:catalog:validate",
+      "outcome": "passed",
+      "notes": "7 meters and 7 effective rates validated"
+    },
+    {
+      "command": "ruby tracking/scripts/prompt_tracker.rb validate",
+      "outcome": "passed",
+      "notes": "120 prompts; catalog and state consistent before completion"
+    }
+  ],
+  "files_changed": [
+    "app/domains/usage.rb",
+    "app/domains/usage",
+    "app/domains/entitlements/public.rb",
+    "app/domains/entitlements/plan_snapshot_resolver.rb",
+    "app/domains/entitlements/subscription_projection.rb",
+    "app/domains/auditing/metadata_sanitizer.rb",
+    "config/architecture.yml",
+    "config_blueprints/usage_meters.yml",
+    "config_blueprints/README.md",
+    "db/migrate/20260904091000_create_usage_ledger.rb",
+    "db/structure.sql",
+    "docs/03_ERD.md",
+    "docs/05_PLAN_ENTITLEMENT_MATRIX.md",
+    "docs/adr/0004_separate_rbac_entitlements_and_quotas.md",
+    "docs/implementation/USAGE_LEDGER.md",
+    "docs/implementation/MODULE_BOUNDARIES.md",
+    "docs/implementation/README.md",
+    "lib/tasks/usage_catalog.rake",
+    "test/database/usage_ledger_concurrency_test.rb",
+    "test/domain/usage",
+    "test/support/usage_helpers.rb",
+    "test/test_helper.rb",
+    "tracking"
+  ],
+  "migrations": [
+    "20260904091000_create_usage_ledger.rb creates immutable meter definitions and versioned rates and non-overlapping usage windows and bigint append-only usage events with integrity triggers and tenant-scoped indexes"
+  ],
+  "decisions": [
+    "Meter definitions and rates are immutable and versioned with exact catalog synchronization",
+    "Provider-period meters require an explicit billing period and active immutable subscription context while calendar meters use UTC month boundaries",
+    "Corrections append opposite-signed events tied to the original context and cannot cumulatively overcompensate",
+    "Pool summaries aggregate compatible meter windows sharing the same pool and period and subscription snapshot",
+    "Raw idempotency keys and provider references are retained only as SHA-256 digests"
+  ],
+  "risks": [
+    "Durable quota reservations and their reserved balance source belong to prompt 040; the summary API currently accepts an explicit nonnegative reserved value",
+    "Provider reconciliation accuracy remains future billing-adapter scope",
+    "Table partitioning is documented but not enabled because correction integrity currently depends on a direct foreign key across billing periods",
+    "An unrelated existing identity test showed one timing-sensitive failure on an earlier full run; it passed in isolation and the final full suite passed"
+  ],
+  "next_steps": [
+    "Stop after prompt 039 as requested; leave prompt 040 eligible and unstarted"
+  ],
+  "commit": null
+}

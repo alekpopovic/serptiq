@@ -4,8 +4,9 @@ module Auditing
   class MetadataSanitizer
     FILTERED = Shared::Public::FILTERED_VALUE
     ALLOWED_KEYS = %w[
-      change_count changed_fields entitlement from operation previous_version principal_type provider reason_code
-      revoke_reason principal_id revoked_count role_id scope_id scope_type source status subscriber_count to
+      change_count changed_fields entitlement event_kind from meter operation previous_version principal_type provider
+      reason_code revoke_reason principal_id revoked_count role_id scope_id scope_type source status subscriber_count
+      to units window_policy
     ].freeze
     IDENTIFIER_PATTERN = /\A[a-zA-Z][a-zA-Z0-9_.:-]{0,127}\z/
     SENSITIVE_KEY_PATTERN = /(?:body|cookie|credential|email|html|ip(?:_address)?|key|password|payload|secret|signature|token|user_agent)/i
