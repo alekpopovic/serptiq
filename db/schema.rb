@@ -10,11 +10,27 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_04_053500) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_04_055000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
   enable_extension "pgcrypto"
+
+  create_table "authentication_rate_limit_buckets", force: :cascade do |t|
+    t.datetime "created_at", null: false
+    t.datetime "expires_at", null: false
+    t.string "key_digest", limit: 64, null: false
+    t.integer "request_count", null: false
+    t.string "scope", limit: 64, null: false
+    t.datetime "updated_at", null: false
+    t.datetime "window_started_at", null: false
+    t.index ["expires_at"], name: "index_auth_rate_limits_on_expiry"
+    t.index ["scope", "key_digest", "window_started_at"], name: "index_auth_rate_limits_on_scope_key_and_window", unique: true
+    t.check_constraint "expires_at > window_started_at", name: "authentication_rate_limits_bounded_window"
+    t.check_constraint "key_digest::text ~ '^[0-9a-f]{64}$'::text", name: "authentication_rate_limits_key_digest_format"
+    t.check_constraint "request_count > 0", name: "authentication_rate_limits_positive_count"
+    t.check_constraint "scope::text = ANY (ARRAY['oauth_start_ip'::character varying, 'oauth_link_session'::character varying, 'oauth_callback_failure_ip'::character varying, 'session_action_session'::character varying, 'account_security_session'::character varying]::text[])", name: "authentication_rate_limits_scope_allowlist"
+  end
 
   create_table "identities", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
     t.datetime "created_at", null: false

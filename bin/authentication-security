@@ -1,0 +1,13 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+root = File.expand_path("..", __dir__)
+
+exec(
+  File.join(root, "bin", "rails"),
+  "test",
+  File.join(root, "test", "security", "authentication_security_test.rb"),
+  File.join(root, "test", "database", "authentication_rate_limit_concurrency_test.rb"),
+  File.join(root, "test", "domain", "identity", "authentication_rate_limit_bucket_test.rb"),
+  File.join(root, "test", "domain", "identity", "authentication_rate_limiter_test.rb")
+)

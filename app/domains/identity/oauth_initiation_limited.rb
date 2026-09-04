@@ -2,7 +2,10 @@
 
 module Identity
   class OauthInitiationLimited < Shared::Public::RateLimitError
-    def initialize(reason_code: "oauth_start_limited")
+    attr_reader :retry_after
+
+    def initialize(reason_code: "oauth_start_limited", retry_after: 60)
+      @retry_after = retry_after
       super(reason_code: reason_code)
     end
   end

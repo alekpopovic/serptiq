@@ -4,8 +4,13 @@ module Identity
   class AccountSecurityController < ApplicationController
     include LoginRequired
 
+    class_attribute :rate_limiter_factory,
+      instance_accessor: false,
+      default: -> { AuthenticationRateLimiter.from_settings }
+
     layout "authenticated"
     before_action :set_no_store_headers
+    before_action :rate_limit_sensitive_action, only: %i[confirm_link destroy]
 
     def show
       @active_identities = Current.user.provider_identities.where(revoked_at: nil).order(:provider, :created_at)
@@ -34,6 +39,13 @@ module Identity
     end
 
     private
+
+    def rate_limit_sensitive_action
+      self.class.rate_limiter_factory.call.consume!(
+        scope: "account_security_session",
+        key: Current.session.id
+      )
+    end
 
     def provider_from_path!
       provider = params[:provider].to_s.downcase

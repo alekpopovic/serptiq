@@ -353,6 +353,14 @@ The session metadata migration adds constant-default bounded columns, validates
 allowlist checks, and builds the revoked-time index concurrently. Its first
 attempt may be safely rerun because each addition is existence-guarded.
 
+Authentication rate-limit cleanup runs hourly at minute 42 on the maintenance
+queue and deletes at most 10,000 expired fixed-window counters. Request-time
+window expiry prevents permanent lockout even when cleanup is delayed. Monitor
+denial ratios by the bounded policy scope and callback failure category; the
+stored keyed digests cannot be used to recover raw addresses, sessions or
+accounts. The rate-limit migration creates only a new internal table and does
+not rewrite existing identity data.
+
 ## 16. Incident response
 
 Severity example:

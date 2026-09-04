@@ -17,7 +17,7 @@ documented in [DATABASES.md](./DATABASES.md).
 | `Tracker contracts` | Prompt state, tracker mutation tests and ADR index | `ruby tracking/scripts/prompt_tracker.rb validate`, `ruby tracking/scripts/test_prompt_tracker.rb`, `ruby script/check_adr_index` |
 | `Quality and static analysis` | Ruby/ERB/JS/data/workflow lint, architecture, assets and dependency scans | `bin/quality` |
 | `Rails tests` | Default non-browser Rails suite on PostgreSQL | `bin/rails db:prepare && bin/rails test` |
-| `Security and provider contracts` | Fresh advisory data, static analysis, hostile-input and adapter contracts | `bin/bundler-audit check --update`, `bin/importmap audit`, `bin/brakeman --quiet --config-file config/brakeman.yml`, then `bin/rails test test/security test/adapters/contracts` |
+| `Security and provider contracts` | Fresh advisory data, static analysis, authentication abuse/protocol regressions, hostile-input and adapter contracts | `bin/bundler-audit check --update`, `bin/importmap audit`, `bin/brakeman --quiet --config-file config/brakeman.yml`, `bin/authentication-security`, then `bin/rails test test/security/malicious_http_fixture_test.rb test/adapters/contracts` |
 | `Browser system tests` | Critical browser flows and accessibility assertions | `bin/rails db:prepare && bin/rails test:system` |
 | `Production image boot` | Production image build, schema preparation, non-root runtime and `/up`, `/ready`, `/version` probes | `script/ci_container_smoke` after creating the four smoke databases |
 | `Required CI` | Fails unless every job above succeeded | Reproduce and pass every preceding row |

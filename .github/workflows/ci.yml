@@ -137,7 +137,8 @@ jobs:
       - name: Prepare PostgreSQL and run security contracts
         run: |
           bin/rails db:prepare
-          bin/rails test test/security test/adapters/contracts
+          bin/authentication-security
+          bin/rails test test/security/malicious_http_fixture_test.rb test/adapters/contracts
 
   system_test:
     name: Browser system tests

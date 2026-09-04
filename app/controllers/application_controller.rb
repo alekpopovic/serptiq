@@ -21,6 +21,7 @@ class ApplicationController < ActionController::Base
     presentation = PublicErrorPresentation.call(error, mapping)
     record_public_error(error, mapping)
     response.set_header("X-SearchOps-Error-Code", presentation.code)
+    set_retry_after_header(error, mapping)
 
     payload = {
       code: presentation.code,
@@ -50,6 +51,15 @@ class ApplicationController < ActionController::Base
       severity: mapping.expected ? :warning : :error,
       context: Shared::Observability::Context.snapshot.merge("public_error_code" => mapping.public_code)
     )
+  end
+
+  def set_retry_after_header(error, mapping)
+    return unless mapping.http_status == 429 && error.respond_to?(:retry_after)
+
+    seconds = Integer(error.retry_after).clamp(1, 86_400)
+    response.set_header("Retry-After", seconds.to_s)
+  rescue ArgumentError, TypeError
+    nil
   end
 
   def emit_public_error(error, mapping, reason_code, cause_classes)

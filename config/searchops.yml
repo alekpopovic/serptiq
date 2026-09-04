@@ -34,6 +34,12 @@ shared:
   oauth_start_max_per_session: 10
   oauth_start_max_open_per_ip: 5
   oauth_start_max_open_per_session: 2
+  auth_callback_failure_rate_window: 5m
+  auth_callback_failure_max_per_ip: 10
+  auth_session_action_rate_window: 5m
+  auth_session_action_max_per_session: 30
+  auth_account_security_rate_window: 5m
+  auth_account_security_max_per_session: 20
   billing_provider: disabled
   encryption_key_version: v1
   crawler_max_urls_per_scan: 10000

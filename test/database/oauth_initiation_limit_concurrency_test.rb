@@ -5,8 +5,15 @@ require "test_helper"
 class OauthInitiationLimitConcurrencyTest < ActiveSupport::TestCase
   self.use_transactional_tests = false
 
-  setup { Identity::OauthTransaction.delete_all }
-  teardown { Identity::OauthTransaction.delete_all }
+  setup do
+    Identity::OauthTransaction.delete_all
+    Identity::AuthenticationRateLimitBucket.delete_all
+  end
+
+  teardown do
+    Identity::OauthTransaction.delete_all
+    Identity::AuthenticationRateLimitBucket.delete_all
+  end
 
   test "a PostgreSQL advisory lock atomically caps concurrent outstanding starts" do
     now = Time.current.change(usec: 0)

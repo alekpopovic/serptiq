@@ -46,5 +46,8 @@ Do not pre-populate these reports with fictional implementation or test results.
 - [`IDENTITY_PROVIDER_ADAPTERS.md`](./IDENTITY_PROVIDER_ADAPTERS.md) defines the
   Google OIDC/GitHub OAuth adapter contract, exact endpoints, bounded HTTP
   behavior, deterministic fakes and provider addition checklist.
+- [`AUTHENTICATION_SECURITY.md`](./AUTHENTICATION_SECURITY.md) defines atomic
+  authentication rate limits, privacy-safe keys, bounded failure metrics and
+  the dedicated protocol/session regression command.
 - [`../../tracking/README.md`](../../tracking/README.md) defines prompt evidence,
   recovery and state integrity.

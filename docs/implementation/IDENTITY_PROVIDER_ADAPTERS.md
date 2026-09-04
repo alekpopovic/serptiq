@@ -127,12 +127,15 @@ rejected rather than silently switching accounts. The callback implementation
 must revalidate this binding before any identity mutation.
 
 Initiations are serialized with PostgreSQL transaction advisory locks and
-bounded by keyed canonical-IP and, for linking, session dimensions. Defaults
+bounded by atomic fixed-window counters using keyed canonical-IP and, for linking,
+session dimensions. Defaults
 allow 20 starts per IP and 10 per link session within five minutes, with at
 most five open attempts per IP and two per link session. These values are
 runtime configuration, and every denial returns the same public `rate_limited`
-response. Expired or consumed transaction records older than the configured
-24-hour retention are opportunistically deleted under the same lock.
+response with bounded retry metadata. Expired or consumed transaction records
+older than the configured 24-hour retention are opportunistically deleted under
+the same lock. Callback failure, session-management and account-security
+policies are detailed in `AUTHENTICATION_SECURITY.md`.
 
 ## Google callback and account transition
 

@@ -138,6 +138,7 @@ class SolidStackTopologyTest < ActiveSupport::TestCase
     tasks = configuration.fetch("test")
 
     assert_equal %w[
+      cleanup_expired_authentication_rate_limits
       cleanup_inactive_identity_sessions
       clear_solid_queue_finished_batches
       clear_solid_queue_finished_jobs
@@ -146,7 +147,9 @@ class SolidStackTopologyTest < ActiveSupport::TestCase
     assert tasks.values.all? { |task| task.fetch("priority") == 50 }
     assert_equal "Identity::SessionCleanupJob.perform_later",
       tasks.fetch("cleanup_inactive_identity_sessions").fetch("command")
-    assert tasks.except("cleanup_inactive_identity_sessions").values.all? do |task|
+    assert_equal "Identity::AuthenticationRateLimitCleanupJob.perform_later",
+      tasks.fetch("cleanup_expired_authentication_rate_limits").fetch("command")
+    assert tasks.slice("clear_solid_queue_finished_batches", "clear_solid_queue_finished_jobs").values.all? do |task|
       task.fetch("command").start_with?("SolidQueue::")
     end
   end

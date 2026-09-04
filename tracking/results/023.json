@@ -1,0 +1,116 @@
+{
+  "prompt_id": "023",
+  "title": "Add authentication rate limits and security regression suite",
+  "status": "completed",
+  "started_at": "2026-09-04T05:46:56Z",
+  "finished_at": "2026-09-04T06:05:06Z",
+  "summary": "Added PostgreSQL-backed fixed-window authentication rate limits for OAuth initiation, callback failures, session management and account-security actions using HMAC-protected IP/session keys; generic Retry-After responses; bounded auth metrics; hourly cleanup; a dedicated CI security command; and consolidated protocol, redaction, collision, fixation and concurrency regressions.",
+  "tests": [
+    {
+      "command": "RAILS_ENV=test ... bundle exec bin/authentication-security",
+      "outcome": "passed",
+      "notes": "12 runs, 96 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "RAILS_ENV=test ... bundle exec rails test test/domain/identity ... affected requests jobs and OAuth concurrency",
+      "outcome": "passed",
+      "notes": "123 runs, 936 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "RAILS_ENV=test ... bundle exec rails test",
+      "outcome": "passed",
+      "notes": "271 runs, 2309 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "RAILS_ENV=test ... bundle exec rails test:system",
+      "outcome": "passed",
+      "notes": "11 runs, 57 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "SEARCHOPS_PROCESS_ROLE=worker_default mise exec ruby@3.4.10 -- bin/quality",
+      "outcome": "passed",
+      "notes": "12 checks passed; 253 Ruby files and 25 ERB files clean; Brakeman 0 warnings; importmap and gem audits clean"
+    },
+    {
+      "command": "RAILS_ENV=test ... bundle exec rails db:migrate:redo:primary VERSION=20260904055000",
+      "outcome": "passed",
+      "notes": "Migration reverted and reapplied with all indexes and constraints"
+    },
+    {
+      "command": "RAILS_ENV=test ... bundle exec rails zeitwerk:check",
+      "outcome": "passed",
+      "notes": "All is good"
+    },
+    {
+      "command": "mise exec ruby@3.4.10 -- ruby script/validate_ci_workflow",
+      "outcome": "passed",
+      "notes": "GitHub Actions policy passed"
+    },
+    {
+      "command": "git diff --check and credential-pattern scan",
+      "outcome": "passed",
+      "notes": "No whitespace errors or matching secret material"
+    }
+  ],
+  "files_changed": [
+    ".env.example",
+    ".github/workflows/ci.yml",
+    "app/controllers/application_controller.rb",
+    "app/controllers/identity/account_security_controller.rb",
+    "app/controllers/identity/github_oauth_controller.rb",
+    "app/controllers/identity/google_oauth_controller.rb",
+    "app/controllers/identity/sessions_controller.rb",
+    "app/domains/identity/audit.rb",
+    "app/domains/identity/authentication_failure_metrics.rb",
+    "app/domains/identity/authentication_rate_limit_bucket.rb",
+    "app/domains/identity/authentication_rate_limit_cleanup.rb",
+    "app/domains/identity/authentication_rate_limit_policy.rb",
+    "app/domains/identity/authentication_rate_limited.rb",
+    "app/domains/identity/authentication_rate_limiter.rb",
+    "app/domains/identity/oauth_callback_rate_guard.rb",
+    "app/domains/identity/oauth_initiation_limited.rb",
+    "app/domains/identity/oauth_initiation_limiter.rb",
+    "app/jobs/identity/authentication_rate_limit_cleanup_job.rb",
+    "app/presenters/public_error_presentation.rb",
+    "bin/authentication-security",
+    "config/recurring.yml",
+    "config/searchops.yml",
+    "config/searchops/configuration.rb",
+    "db/migrate/20260904055000_create_authentication_rate_limit_buckets.rb",
+    "db/schema.rb",
+    "docs/10_DEPLOYMENT_AND_OPERATIONS.md",
+    "docs/implementation/AUTHENTICATION_SECURITY.md",
+    "docs/implementation/CI.md",
+    "docs/implementation/CONFIGURATION.md",
+    "docs/implementation/IDENTITY_PROVIDER_ADAPTERS.md",
+    "docs/implementation/README.md",
+    "test/database/authentication_rate_limit_concurrency_test.rb",
+    "test/database/oauth_initiation_limit_concurrency_test.rb",
+    "test/domain/identity/authentication_rate_limit_bucket_test.rb",
+    "test/domain/identity/authentication_rate_limiter_test.rb",
+    "test/jobs/identity/authentication_rate_limit_cleanup_job_test.rb",
+    "test/jobs/solid_stack_topology_test.rb",
+    "test/security/authentication_security_test.rb"
+  ],
+  "migrations": [
+    "20260904055000_create_authentication_rate_limit_buckets.rb creates one internal bigint table with unique and expiry indexes plus scope digest count and window constraints; no existing table rewrite"
+  ],
+  "decisions": [
+    "Used PostgreSQL atomic upserts so every web process shares one limit boundary",
+    "Double-HMACed canonical IP digests and opaque session IDs and never keyed on email provider subject or account existence",
+    "Count callback failures without clearing them on legitimate success; fixed-window expiry prevents permanent lockout",
+    "Kept logout available while rate limiting session revocation and all sensitive identity link/unlink paths",
+    "An initial regression exposed Rails query caching of INSERT RETURNING through find_by_sql; both counter reads and mutation are now explicitly uncached",
+    "Adjusted the concurrency harness to four pooled connections performing twelve operations so it loads the boundary without deadlocking the configured test pool"
+  ],
+  "risks": [
+    "Users behind one NAT share anonymous OAuth initiation and callback-failure limits; responses remain generic and Retry-After is bounded",
+    "Correct IP grouping depends on production trusted-proxy configuration for Rails remote_ip; invalid or spoof-conflicting input falls back to a shared unavailable-address digest"
+  ],
+  "next_steps": [
+    "Prompt 024 builds the organization and membership foundation",
+    "Production rollout must apply the new primary migration before serving updated application code",
+    "Monitor auth.rate_limit_decision and auth.failure_categorized ratios by their bounded labels"
+  ],
+  "commit": null
+}

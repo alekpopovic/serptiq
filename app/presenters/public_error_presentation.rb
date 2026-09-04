@@ -39,6 +39,11 @@ class PublicErrorPresentation
           message: "This security-sensitive action requires a recent sign-in.",
           action: :sign_in
         }
+      when Identity::AuthenticationRateLimited, Identity::OauthInitiationLimited
+        {
+          title: "Please wait before trying again",
+          action: :sign_in
+        }
       else
         default_details(error)
       end

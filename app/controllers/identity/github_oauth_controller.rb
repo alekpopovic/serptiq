@@ -8,6 +8,9 @@ module Identity
     class_attribute :callback_completer_factory,
       instance_accessor: false,
       default: -> { default_callback_completer }
+    class_attribute :callback_rate_guard_factory,
+      instance_accessor: false,
+      default: -> { OauthCallbackRateGuard.from_settings }
 
     class << self
       def default_callback_completer
@@ -34,16 +37,21 @@ module Identity
     end
 
     def callback
-      callback = GithubCallbackParameters.from_query_string(request.query_string)
-      completion = self.class.callback_completer_factory.call.call(
-        callback: callback,
-        current_session: Current.session
-      )
-      establish_identity_session!(
-        completion.user,
-        rotation_reason: completion.operation == "link" ? "privilege_changed" : "rotated"
-      )
-      redirect_to completion.return_to, status: :see_other, allow_other_host: false
+      self.class.callback_rate_guard_factory.call.call(
+        provider: "github",
+        initiator_digest: OauthInitiator.from_request(request).digest
+      ) do
+        callback = GithubCallbackParameters.from_query_string(request.query_string)
+        completion = self.class.callback_completer_factory.call.call(
+          callback: callback,
+          current_session: Current.session
+        )
+        establish_identity_session!(
+          completion.user,
+          rotation_reason: completion.operation == "link" ? "privilege_changed" : "rotated"
+        )
+        redirect_to completion.return_to, status: :see_other, allow_other_host: false
+      end
     end
 
     private
