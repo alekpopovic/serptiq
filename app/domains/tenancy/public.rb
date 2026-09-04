@@ -200,6 +200,17 @@ module Tenancy
       TransitionOrganization.new(clock: clock).call(actor_membership: actor_membership, to: to)
     end
 
+    def ownership_transfer_candidates(actor_membership:, authorization:)
+      OwnershipTransferCandidates.new.call(
+        actor_membership: actor_membership,
+        authorization: authorization
+      )
+    end
+
+    def transfer_ownership(**attributes)
+      TransferOwnership.new.call(**attributes)
+    end
+
     def with_organization_context(user_id:, organization_id:)
       user = Identity::Public.find_user!(id: user_id)
       context = resolve_organization_context(user: user, selector: organization_id)

@@ -1,0 +1,43 @@
+<% content_for :title, "Transfer ownership" %>
+
+<div class="mx-auto max-w-3xl">
+  <%= render "shared/breadcrumbs", items: [
+    { label: "Dashboard", path: organization_dashboard_path(Current.organization.slug) },
+    { label: "Organization settings", path: organization_settings_path(Current.organization.slug) },
+    { label: "Transfer ownership", path: nil }
+  ] %>
+
+  <section class="so-card mt-6 p-6 sm:p-8" aria-labelledby="ownership-transfer-title">
+    <p class="so-eyebrow">Critical security action</p>
+    <h1 id="ownership-transfer-title" class="mt-2 text-3xl font-black tracking-tight text-slate-950">Transfer organization ownership</h1>
+    <div class="so-alert so-alert-warning mt-6" role="alert">
+      <p>The new owner receives control of billing, security, roles, integrations, exports and deletion requests. You immediately lose owner-only permissions. Your other sessions and every active session belonging to the new owner will be revoked.</p>
+    </div>
+
+    <% if @validation_message %>
+      <div class="so-alert so-alert-danger mt-6" role="alert"><p><%= @validation_message %></p></div>
+    <% end %>
+
+    <% if @candidates.any? %>
+      <%= form_with url: organization_ownership_transfer_path(Current.organization.slug), class: "mt-8 space-y-6" do |form| %>
+        <div>
+          <%= form.label :target_membership_id, "New owner", class: "so-label" %>
+          <%= form.select :target_membership_id,
+            @candidates.map { |candidate| [ candidate.display_name, candidate.id ] },
+            { prompt: "Select one active member" },
+            required: true,
+            class: "so-select" %>
+          <p class="so-hint">Only active members of this organization are eligible.</p>
+        </div>
+        <div>
+          <%= form.label :confirmation, "Type TRANSFER OWNERSHIP to confirm", class: "so-label" %>
+          <%= form.text_field :confirmation, required: true, autocomplete: "off", class: "so-input" %>
+        </div>
+        <p class="text-sm leading-6 text-slate-600">For protection, this request succeeds only from a session authenticated within the last 15 minutes.</p>
+        <%= form.submit "Transfer ownership", class: "so-button so-button-danger", data: { turbo_confirm: "Transfer all owner control to the selected member?" } %>
+      <% end %>
+    <% else %>
+      <div class="so-alert so-alert-info mt-6"><p>Add and activate another organization member before transferring ownership.</p></div>
+    <% end %>
+  </section>
+</div>

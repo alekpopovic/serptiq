@@ -55,4 +55,12 @@
       <span class="so-badge so-badge-neutral mt-4">Not available</span>
     </section>
   </div>
+
+  <% if allowed_to?("organization.transfer") %>
+    <section class="so-card mt-8 border-red-200 p-6" aria-labelledby="ownership-settings-title">
+      <h2 id="ownership-settings-title" class="font-bold text-slate-950">Organization ownership</h2>
+      <p class="mt-2 text-sm leading-6 text-slate-600">Transfer owner-only billing and security control to another active member. This action requires recent authentication and immediately changes access.</p>
+      <%= link_to "Review ownership transfer", organization_ownership_transfer_path(Current.organization.slug), class: "so-button so-button-danger mt-4" %>
+    </section>
+  <% end %>
 </div>

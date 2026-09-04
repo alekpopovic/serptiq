@@ -14,6 +14,17 @@ module Identity
       rotate_and_revoke_others(current_session, metadata, "ownership_transfer")
     end
 
+    def after_ownership_received!(user_id:)
+      now = @clock.call
+      count = Session.where(user_id: user_id, revoked_at: nil).update_all(
+        revoked_at: now,
+        revoke_reason: "privilege_changed",
+        updated_at: now
+      )
+      emit_rotated("ownership_received")
+      count
+    end
+
     def after_sensitive_role_change!(current_session:, metadata: SessionMetadata.empty)
       rotate_and_revoke_others(current_session, metadata, "sensitive_role_change")
     end

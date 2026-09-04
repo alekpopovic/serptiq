@@ -416,6 +416,8 @@ auth.identity_link_attempt
 session.revoked
 authorization.denied_critical
 membership.owner_invariant_blocked
+organization.ownership_transferred
+organization.ownership_transfer_rejected
 billing.webhook_signature_failed
 billing.event_replay_ignored
 quota.reservation_denied

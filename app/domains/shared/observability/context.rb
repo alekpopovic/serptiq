@@ -44,6 +44,16 @@ module Shared
           set(attributes) { yield }
         end
 
+        def with_tenant_audit(organization_id:, actor_id:, subject_id:, identifier_hasher: nil)
+          hasher = identifier_hasher || IdentifierHasher.default
+          attributes = {
+            organization_id_hash: organization_id && normalize_organization_hash(hasher.call(organization_id)),
+            actor_id_hash: actor_id && normalize_identifier_hash(hasher.call(actor_id)),
+            subject_id_hash: subject_id && normalize_identifier_hash(hasher.call(subject_id))
+          }
+          set(attributes) { yield }
+        end
+
         def with_authorization_audit(organization_id:, actor_id:, principal_id:, role_id:, scope_id:,
           principal_type:, scope_type:, identifier_hasher: nil)
           hasher = identifier_hasher || IdentifierHasher.default

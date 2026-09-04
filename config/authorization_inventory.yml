@@ -42,6 +42,11 @@ controllers:
     actions:
       show: { kind: permission, permission: organization.read }
       update: { kind: permission, permission: organization.update }
+  Tenancy::OwnershipTransfersController:
+    source: app/controllers/tenancy/ownership_transfers_controller.rb
+    actions:
+      show: &transfer_ownership { kind: permission, permission: organization.transfer }
+      create: *transfer_ownership
   Tenancy::OrganizationSwitchesController:
     source: app/controllers/tenancy/organization_switches_controller.rb
     actions:
@@ -102,5 +107,7 @@ domain_operations:
   Tenancy::Public.team_details: { kind: permission, permission: teams.read }
   Tenancy::Public.update_organization: { kind: permission, permission: organization.update }
   Tenancy::Public.transition_organization: { kind: permission, permission: organization.delete }
+  Tenancy::Public.ownership_transfer_candidates: { kind: permission, permission: organization.transfer }
+  Tenancy::Public.transfer_ownership: { kind: permission, permission: organization.transfer }
   Authorization::Public.assign_role: { kind: permission, permission: roles.assign }
   Authorization::Public.revoke_role: { kind: permission, permission: roles.assign }

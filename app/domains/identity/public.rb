@@ -147,6 +147,14 @@ module Identity
       )
     end
 
+    def sessions_after_ownership_received!(user_id:, clock: -> { Time.current })
+      SessionRiskResponse.new(clock: clock).after_ownership_received!(user_id: user_id)
+    end
+
+    def verify_recent_session!(session:, user_id:, clock: -> { Time.current })
+      VerifyRecentSession.new(clock: clock).call(session: session, user_id: user_id)
+    end
+
     def sessions_after_sensitive_role_change!(current_session:, metadata: SessionMetadata.empty,
       clock: -> { Time.current })
       SessionRiskResponse.new(clock: clock).after_sensitive_role_change!(

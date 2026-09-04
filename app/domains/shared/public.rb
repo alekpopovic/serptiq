@@ -28,6 +28,15 @@ module Shared
       Observability::Context.with_audit_principals(actor_id: actor_id, subject_id: subject_id, &block)
     end
 
+    def with_tenant_audit(organization_id:, actor_id:, subject_id:, &block)
+      Observability::Context.with_tenant_audit(
+        organization_id: organization_id,
+        actor_id: actor_id,
+        subject_id: subject_id,
+        &block
+      )
+    end
+
     def with_authorization_audit(**attributes, &block)
       Observability::Context.with_authorization_audit(**attributes, &block)
     end

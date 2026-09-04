@@ -18,6 +18,11 @@ Rails.application.routes.draw do
     as: :organization_settings
   patch "dashboard/organizations/:organization_slug/settings",
     to: "tenancy/organization_settings#update"
+  get "dashboard/organizations/:organization_slug/settings/ownership-transfer",
+    to: "tenancy/ownership_transfers#show",
+    as: :organization_ownership_transfer
+  post "dashboard/organizations/:organization_slug/settings/ownership-transfer",
+    to: "tenancy/ownership_transfers#create"
   get "dashboard/organizations/:organization_slug/members",
     to: "tenancy/members#index",
     as: :organization_members
