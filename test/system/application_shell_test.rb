@@ -3,6 +3,15 @@
 require "application_system_test_case"
 
 class ApplicationShellSystemTest < ApplicationSystemTestCase
+  setup do
+    @previous_dashboard_resolver = DashboardController.first_run_status_resolver
+    DashboardController.first_run_status_resolver = ->(user:) { Tenancy::FirstRunStatus.new(kind: :returning) }
+  end
+
+  teardown do
+    DashboardController.first_run_status_resolver = @previous_dashboard_resolver
+  end
+
   test "keyboard user can reach and activate the skip link" do
     visit root_path
     stylesheets = page.evaluate_script("Array.from(document.styleSheets).map((sheet) => sheet.href)")
@@ -21,8 +30,8 @@ class ApplicationShellSystemTest < ApplicationSystemTestCase
     visit sign_in_path
 
     assert_text "Sign in to SearchOps"
-    assert_text "Google sign-in is not configured"
-    assert_text "GitHub sign-in is not configured"
+    assert_text "Google sign-in is temporarily unavailable"
+    assert_text "GitHub sign-in is temporarily unavailable"
     assert_no_selector "input[type='password']"
   end
 

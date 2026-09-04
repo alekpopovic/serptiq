@@ -18,12 +18,15 @@ class ApplicationController < ActionController::Base
 
   def render_public_error(error)
     mapping = Shared::Errors.http_response_for(error)
+    presentation = PublicErrorPresentation.call(error, mapping)
     record_public_error(error, mapping)
-    response.set_header("X-SearchOps-Error-Code", mapping.public_code)
+    response.set_header("X-SearchOps-Error-Code", presentation.code)
 
     payload = {
-      code: mapping.public_code,
-      message: mapping.public_message,
+      code: presentation.code,
+      title: presentation.title,
+      message: presentation.message,
+      action: presentation.action,
       request_id: Shared::Observability::Context.request_id || request.request_id
     }.compact
 

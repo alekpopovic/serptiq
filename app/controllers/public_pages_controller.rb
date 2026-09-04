@@ -3,6 +3,16 @@
 class PublicPagesController < ApplicationController
   include Identity::AnonymousOnly
 
+  class_attribute :provider_availability_resolver,
+    instance_accessor: false,
+    default: -> {
+      settings = Rails.application.config.x.searchops
+      {
+        google: settings.fetch(:oauth_google_enabled),
+        github: settings.fetch(:oauth_github_enabled)
+      }.freeze
+    }
+
   layout "public"
 
   anonymous_only only: :sign_in
@@ -11,7 +21,8 @@ class PublicPagesController < ApplicationController
 
   def sign_in
     @return_to = Identity::SafeReturnPath.call(params[:return_to])
-    @google_sign_in_enabled = Rails.application.config.x.searchops.fetch(:oauth_google_enabled)
-    @github_sign_in_enabled = Rails.application.config.x.searchops.fetch(:oauth_github_enabled)
+    availability = self.class.provider_availability_resolver.call
+    @google_sign_in_enabled = availability.fetch(:google)
+    @github_sign_in_enabled = availability.fetch(:github)
   end
 end

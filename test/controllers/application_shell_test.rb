@@ -21,13 +21,15 @@ class ApplicationShellRequestTest < ActionDispatch::IntegrationTest
 
     assert_response :success
     assert_select "h1", "Sign in to SearchOps"
-    assert_select "p", /Google sign-in is not configured/
-    assert_select "p", /GitHub sign-in is not configured/
+    assert_select "p", /Google sign-in is temporarily unavailable/
+    assert_select "p", /GitHub sign-in is temporarily unavailable/
     assert_select "input[type='password']", count: 0
     assert_not_includes response.body, "attacker.example"
   end
 
   test "dashboard uses authenticated shell scaffolding without tenant fixtures" do
+    previous_resolver = DashboardController.first_run_status_resolver
+    DashboardController.first_run_status_resolver = ->(user:) { Tenancy::FirstRunStatus.new(kind: :returning) }
     authenticate_request(issue_identity_session)
 
     get dashboard_path
@@ -39,5 +41,7 @@ class ApplicationShellRequestTest < ActionDispatch::IntegrationTest
     assert_select "turbo-frame#dashboard-shell"
     assert_select "#workspace-empty-title", text: "No workspace context yet"
     assert_select ".so-badge", text: "Signed in"
+  ensure
+    DashboardController.first_run_status_resolver = previous_resolver
   end
 end

@@ -24,8 +24,8 @@ module Identity
       allow_nil: true
     validates :display_name, length: { maximum: 160 }, allow_nil: true
     validates :avatar_url, length: { maximum: 2048 }, allow_nil: true
-    validates :locale, presence: true, length: { maximum: 16 }
-    validates :time_zone, presence: true, length: { maximum: 64 }
+    validates :locale, inclusion: { in: I18n.available_locales.map(&:to_s) }, length: { maximum: 16 }
+    validates :time_zone, inclusion: { in: ActiveSupport::TimeZone.all.map(&:name) }, length: { maximum: 64 }
 
     def active?
       suspended_at.nil? && deleted_at.nil?

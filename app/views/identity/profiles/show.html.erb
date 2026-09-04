@@ -1,0 +1,48 @@
+<% content_for :title, "Account details" %>
+
+<div class="mx-auto max-w-3xl">
+  <div>
+    <p class="so-eyebrow">Account</p>
+    <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950">Local account details</h1>
+    <p class="mt-2 max-w-2xl text-sm leading-6 text-slate-600">
+      These preferences are stored by SearchOps. Updating them does not change your Google or GitHub profile.
+    </p>
+  </div>
+
+  <%= form_with model: Current.user, url: account_profile_path, method: :patch, class: "so-card mt-8 space-y-6 p-6 sm:p-8" do |form| %>
+    <% if Current.user.errors.any? %>
+      <div class="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-900" role="alert" aria-labelledby="profile-errors-title">
+        <h2 id="profile-errors-title" class="font-bold">Check the highlighted account details</h2>
+        <ul class="mt-2 list-disc space-y-1 pl-5">
+          <% Current.user.errors.full_messages.each do |message| %>
+            <li><%= message %></li>
+          <% end %>
+        </ul>
+      </div>
+    <% end %>
+
+    <div>
+      <%= form.label :display_name, "Display name", class: "block text-sm font-semibold text-slate-800" %>
+      <%= form.text_field :display_name,
+        maxlength: 160,
+        autocomplete: "name",
+        class: "mt-2 block w-full rounded-lg border border-slate-300 px-3 py-2" %>
+      <p class="mt-2 text-xs leading-5 text-slate-500">Shown to you and future workspace members. Provider profile changes do not overwrite it here.</p>
+    </div>
+
+    <div>
+      <%= form.label :locale, "Language", class: "block text-sm font-semibold text-slate-800" %>
+      <%= form.select :locale, @locales, {}, class: "mt-2 block w-full rounded-lg border border-slate-300 px-3 py-2" %>
+    </div>
+
+    <div>
+      <%= form.label :time_zone, "Time zone", class: "block text-sm font-semibold text-slate-800" %>
+      <%= form.select :time_zone, @time_zones, {}, class: "mt-2 block w-full rounded-lg border border-slate-300 px-3 py-2" %>
+    </div>
+
+    <div class="flex flex-wrap gap-3">
+      <%= form.submit "Save account details", class: "so-button so-button-primary" %>
+      <%= link_to "Back to getting started", onboarding_path, class: "so-button so-button-secondary" %>
+    </div>
+  <% end %>
+</div>

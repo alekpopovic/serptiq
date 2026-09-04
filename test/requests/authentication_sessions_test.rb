@@ -3,6 +3,15 @@
 require "test_helper"
 
 class AuthenticationSessionsRequestTest < ActionDispatch::IntegrationTest
+  setup do
+    @previous_dashboard_resolver = DashboardController.first_run_status_resolver
+    DashboardController.first_run_status_resolver = ->(user:) { Tenancy::FirstRunStatus.new(kind: :returning) }
+  end
+
+  teardown do
+    DashboardController.first_run_status_resolver = @previous_dashboard_resolver
+  end
+
   test "anonymous HTML is sent to sign in with an allowlisted return path" do
     get dashboard_path, params: { unsafe: "https://attacker.example" }
 

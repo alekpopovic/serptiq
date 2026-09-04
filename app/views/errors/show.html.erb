@@ -3,9 +3,7 @@
 <section class="so-page-section" aria-labelledby="public-error-title">
   <div class="so-card mx-auto max-w-2xl p-6 sm:p-8">
     <p class="so-kicker">Request status</p>
-    <h1 id="public-error-title" class="mt-2 text-2xl font-semibold tracking-tight text-slate-950">
-      We could not complete that request
-    </h1>
+    <h1 id="public-error-title" class="mt-2 text-2xl font-semibold tracking-tight text-slate-950"><%= error.fetch(:title) %></h1>
     <p class="mt-3 text-slate-700"><%= error.fetch(:message) %></p>
     <p class="mt-5 font-mono text-sm text-slate-600">
       Error code: <%= error.fetch(:code) %>
@@ -13,5 +11,12 @@
     <% if error[:request_id] %>
       <p class="mt-2 font-mono text-xs text-slate-500">Request ID: <%= error.fetch(:request_id) %></p>
     <% end %>
+    <div class="mt-6">
+      <% if error[:action] == :sign_in %>
+        <%= link_to "Start sign-in again", sign_in_path, class: "so-button so-button-primary" %>
+      <% else %>
+        <%= link_to "Return to home", root_path, class: "so-button so-button-secondary" %>
+      <% end %>
+    </div>
   </div>
 </section>

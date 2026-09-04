@@ -64,7 +64,7 @@ class IdentityLinkingSystemTest < ApplicationSystemTestCase
     visit account_security_path
     accept_confirm { click_button "Unlink Google" }
 
-    assert_text "We could not complete that request"
+    assert_text "This account action needs attention"
     assert_text "Request ID:"
     assert google.reload.active?
     assert_nil issued.session.reload.revoked_at

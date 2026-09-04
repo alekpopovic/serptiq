@@ -15,6 +15,11 @@ GitHub login names and email addresses are not lookup keys. Two distinct
 subjects may therefore report the same normalized email and remain attached to
 different users. Automatic email-based merging is prohibited.
 
+Account profile editing is local-only: users may change `display_name`, the
+currently available locale and a recognized Rails time-zone name. This does not
+mutate provider profile observations, stable subjects, provider email records or
+primary-email authority, and it performs no live provider call.
+
 Provider callback account creation runs only after protocol validation. A
 new user's primary email is populated only from `email_verified=true`; an
 unverified address may remain on the provider identity as an observation but

@@ -6,6 +6,7 @@
     <h1 class="mt-5 text-4xl font-black tracking-tight text-slate-950">Sign in to SearchOps</h1>
     <p class="mt-4 text-lg leading-8 text-slate-600">Continue with an external identity provider. SearchOps creates a short-lived, one-time authorization attempt before redirecting you.</p>
     <p class="mt-5 text-sm leading-6 text-slate-500">No password field is shown because SearchOps uses application-owned sessions with external identity providers, not a placeholder password flow.</p>
+    <p class="mt-3 text-sm leading-6 text-slate-500">Your provider confirms identity; SearchOps controls its own revocable browser session. Provider email and profile fields do not automatically grant workspace access.</p>
   </div>
 
   <div class="so-card p-6 sm:p-8">
@@ -18,8 +19,8 @@
           method: :post,
           class: "so-button so-button-primary w-full" %>
       <% else %>
-        <p class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          Google sign-in is not configured for this environment.
+        <p class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
+          Google sign-in is temporarily unavailable in this environment. Choose another configured provider or contact support.
         </p>
       <% end %>
       <% if @github_sign_in_enabled %>
@@ -29,11 +30,11 @@
           method: :post,
           class: "so-button so-button-secondary w-full" %>
       <% else %>
-        <p class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          GitHub sign-in is not configured for this environment.
+        <p class="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900" role="status">
+          GitHub sign-in is temporarily unavailable in this environment. Choose another configured provider or contact support.
         </p>
       <% end %>
     </div>
-    <p class="mt-5 text-xs leading-5 text-slate-500">SearchOps never asks for or stores your provider password.</p>
+    <p class="mt-5 text-xs leading-5 text-slate-500">SearchOps never asks for or stores your provider password. You can unlink providers only when another sign-in method remains, and revoke active sessions from Account security.</p>
   </div>
 </section>

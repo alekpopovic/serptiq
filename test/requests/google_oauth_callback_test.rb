@@ -66,6 +66,7 @@ class GoogleOauthCallbackTest < ActionDispatch::IntegrationTest
 
     assert_response :bad_gateway
     assert_equal "external_provider_failed", response.headers.fetch("X-SearchOps-Error-Code")
+    assert_includes response.body, "Sign-in was cancelled"
     assert_sensitive_headers
     assert_not_nil material.fetch(:transaction).reload.consumed_at
     assert_empty adapter.calls
@@ -87,6 +88,7 @@ class GoogleOauthCallbackTest < ActionDispatch::IntegrationTest
     @now += 6.minutes
     get google_oauth_callback_path, params: { state: expired.fetch(:state), code: authorization_code }
     assert_response :unauthorized
+    assert_includes response.body, "sign-in attempt is no longer valid"
     assert_nil expired.fetch(:transaction).reload.consumed_at
 
     get google_oauth_callback_path,
@@ -114,9 +116,38 @@ class GoogleOauthCallbackTest < ActionDispatch::IntegrationTest
 
     assert_response :conflict
     assert_equal "resource_conflict", response.headers.fetch("X-SearchOps-Error-Code")
+    assert_includes response.body, "Account confirmation is required"
     assert_equal existing.user_id, existing.reload.user_id
     assert_not_nil material.fetch(:transaction).reload.consumed_at
     assert_includes emitted_log, "explicit_account_link_required"
+  end
+
+  test "provider outage and internal callback failure render safe actionable pages" do
+    unavailable = create_oauth_transaction(expires_at: @now + 10.minutes)
+    install_completer(exchange: Identity::ProviderError.new(
+      category: "unavailable",
+      operation: "token_exchange",
+      reason_code: "google_temporarily_unavailable"
+    ))
+
+    get google_oauth_callback_path,
+      params: { state: unavailable.fetch(:state), code: authorization_code }
+
+    assert_response :bad_gateway
+    assert_includes response.body, "Sign-in service is temporarily unavailable"
+    assert_select "a[href='#{sign_in_path}']", text: "Start sign-in again"
+
+    private_detail = "private-internal-provider-payload"
+    failed = create_oauth_transaction(expires_at: @now + 10.minutes)
+    install_completer(exchange: RuntimeError.new(private_detail))
+
+    get google_oauth_callback_path,
+      params: { state: failed.fetch(:state), code: authorization_code }
+
+    assert_response :internal_server_error
+    assert_includes response.body, "Something went wrong"
+    refute_includes response.body, private_detail
+    assert_select "a[href='#{root_path}']", text: "Return to home"
   end
 
   test "unverified colliding email creates a separate subject account without making it primary" do

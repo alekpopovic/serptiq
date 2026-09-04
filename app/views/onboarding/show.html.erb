@@ -1,0 +1,48 @@
+<% content_for :title, "Get started" %>
+
+<div class="mx-auto max-w-4xl">
+  <% if @first_run_status.invited? %>
+    <section class="so-card p-6 sm:p-8" aria-labelledby="invited-onboarding-title">
+      <p class="so-eyebrow">Invitation found</p>
+      <h1 id="invited-onboarding-title" class="mt-2 text-3xl font-black tracking-tight text-slate-950">Review your invitation first</h1>
+      <p class="mt-4 max-w-2xl text-sm leading-6 text-slate-600">
+        A workspace invitation is waiting for this account. SearchOps will not create a separate organization before you review that invitation.
+      </p>
+      <p class="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-700">
+        Invitation acceptance is completed by the secured invitation workflow. No membership has been inferred from your provider email.
+      </p>
+      <%= link_to "Review local account details", account_profile_path, class: "so-button so-button-secondary mt-6" %>
+    </section>
+  <% else %>
+    <section class="so-card p-6 sm:p-8" aria-labelledby="new-onboarding-title">
+      <p class="so-eyebrow">First run</p>
+      <h1 id="new-onboarding-title" class="mt-2 text-3xl font-black tracking-tight text-slate-950">Create your first organization</h1>
+      <p class="mt-4 max-w-2xl text-sm leading-6 text-slate-600">
+        Organizations keep projects, members, billing and usage isolated. SearchOps has not created one automatically or copied ownership from a provider profile.
+      </p>
+      <div class="mt-6 grid gap-4 sm:grid-cols-2">
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-5">
+          <h2 class="font-bold text-slate-950">1. Review account details</h2>
+          <p class="mt-2 text-sm leading-6 text-slate-600">Choose your local display name, language and time zone.</p>
+          <%= link_to "Review account details", account_profile_path, class: "so-button so-button-primary mt-4" %>
+        </div>
+        <div class="rounded-xl border border-slate-200 bg-slate-50 p-5">
+          <h2 class="font-bold text-slate-950">2. Create an organization</h2>
+          <p class="mt-2 text-sm leading-6 text-slate-600">The secured organization workflow is the next onboarding step; no workspace exists yet.</p>
+          <span class="so-button so-button-secondary mt-4 opacity-70" aria-disabled="true">Organization setup next</span>
+        </div>
+      </div>
+    </section>
+  <% end %>
+
+  <aside class="so-card mt-6 p-6" aria-labelledby="onboarding-security-title">
+    <h2 id="onboarding-security-title" class="font-bold text-slate-950">Your sign-in remains under your control</h2>
+    <p class="mt-2 text-sm leading-6 text-slate-600">
+      Provider profile fields are observations, not organization access. You can review linked providers and revoke browser sessions from Account security at any time.
+    </p>
+    <div class="mt-4 flex flex-wrap gap-3">
+      <%= link_to "Linked providers", account_security_path, class: "so-button so-button-secondary" %>
+      <%= link_to "Active sessions", account_sessions_path, class: "so-button so-button-secondary" %>
+    </div>
+  </aside>
+</div>

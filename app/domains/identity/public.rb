@@ -4,6 +4,10 @@ module Identity
   module Public
     module_function
 
+    def active_user?(user)
+      user.is_a?(User) && user.active?
+    end
+
     def issue_session(user:, metadata: SessionMetadata.empty, clock: -> { Time.current })
       SessionLifecycle.new(clock: clock).issue(user: user, metadata: metadata)
     end

@@ -24,8 +24,8 @@ class GithubOauthSignInSystemTest < ApplicationSystemTestCase
 
     visit github_oauth_callback_path(state: material.fetch(:state), code: "synthetic-github-authorization-code")
 
-    assert_current_path dashboard_path
-    assert_text "Signed in"
+    assert_current_path onboarding_path
+    assert_text "Create your first organization"
     assert_equal "github", Identity::ProviderIdentity.sole.provider
     assert_equal "1234567", Identity::ProviderIdentity.sole.provider_subject
     assert_equal 1, adapter.calls.length
