@@ -1,0 +1,24 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "pathname"
+require_relative "../config/environment"
+require_relative "support/data_file_validator"
+
+root = Pathname(__dir__).join("..").expand_path
+paths = ARGV.map { |argument| root.join(argument) }
+validator = Searchops::Quality::DataFileValidator.new(
+  root: root,
+  paths: paths.empty? ? nil : paths,
+  erb_binding: binding
+)
+errors = validator.validate
+
+if errors.empty?
+  puts "Data files: passed (#{validator.files.count} YAML/JSON files)"
+  exit 0
+end
+
+warn "Data files: #{errors.count} error(s)"
+errors.each { |error| warn "- #{error}" }
+exit 1

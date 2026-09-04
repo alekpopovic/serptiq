@@ -1,0 +1,30 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "pathname"
+
+root = Pathname(__dir__).join("..").expand_path
+steps = [
+  [ "Ruby style", %w[bin/rubocop] ],
+  [ "ERB templates", %w[bundle exec erb_lint --lint-all] ],
+  [ "JavaScript modules", %w[ruby script/validate_javascript] ],
+  [ "YAML and JSON", %w[ruby script/validate_data_files] ],
+  [ "Blueprint contracts", %w[ruby tracking/scripts/validate_blueprint.rb] ],
+  [ "Architecture boundaries", %w[ruby script/check_architecture] ],
+  [ "ADR index", %w[ruby script/check_adr_index] ],
+  [ "Tailwind assets", %w[bin/rails tailwindcss:build] ],
+  [ "Importmap advisory audit", %w[bin/importmap audit] ],
+  [ "Rails static security", %w[bin/brakeman --quiet --config-file config/brakeman.yml] ],
+  [ "Gem advisory audit", %w[bin/bundler-audit check] ]
+].freeze
+
+Dir.chdir(root) do
+  steps.each do |name, command|
+    puts "\n== #{name} =="
+    env = { "DEBUG" => nil }
+    env["RUBOCOP_CACHE_ROOT"] = root.join("tmp", "rubocop").to_s if name == "Ruby style"
+    abort "QUALITY FAILED: #{name}" unless system(env, *command)
+  end
+end
+
+puts "\nQUALITY PASSED: #{steps.count} checks"

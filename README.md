@@ -50,6 +50,11 @@ Frontend layout, component, accessibility and progressive-enhancement rules
 are documented in
 [`docs/implementation/FRONTEND.md`](./docs/implementation/FRONTEND.md).
 
+Run `bin/quality` for the repository's Ruby, ERB, JavaScript, data-file, asset,
+architecture and dependency-security gates. Triage and temporary waiver rules
+are documented in
+[`docs/implementation/QUALITY.md`](./docs/implementation/QUALITY.md).
+
 The initial Rails scaffold was generated outside the repository and merged without overwriting the blueprint:
 
 ```bash

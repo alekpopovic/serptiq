@@ -1,5 +1,4 @@
-# Audit all gems listed in the Gemfile for known security problems by running bin/bundler-audit.
-# CVEs that are not relevant to the application can be enumerated on the ignore list below.
+# Audit every locked gem. A temporary waiver may be added only together with
+# the owner, reason and expiry record required by docs/implementation/QUALITY.md.
 
-ignore:
-  - CVE-THAT-DOES-NOT-APPLY
+ignore: []

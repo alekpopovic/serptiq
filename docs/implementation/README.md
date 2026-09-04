@@ -29,5 +29,7 @@ Do not pre-populate these reports with fictional implementation or test results.
   recurring ownership, disposable cache/cable bounds and worker operations.
 - [`FRONTEND.md`](./FRONTEND.md) defines server-rendered UI, accessibility,
   reusable component, Hotwire and future charting conventions.
+- [`QUALITY.md`](./QUALITY.md) defines local lint/security gates and the
+  time-bounded advisory waiver process.
 - [`../../tracking/README.md`](../../tracking/README.md) defines prompt evidence,
   recovery and state integrity.

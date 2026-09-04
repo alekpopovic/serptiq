@@ -1,0 +1,29 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "open3"
+require "pathname"
+
+root = Pathname(__dir__).join("..").expand_path
+paths = root.join("app", "javascript").glob("**/*.js").sort
+abort "JavaScript: no application modules found" if paths.empty?
+
+failures = paths.filter_map do |path|
+  _stdout, stderr, status = Open3.capture3(
+    "node", "--input-type=module", "--check",
+    stdin_data: path.binread,
+    chdir: root.to_s
+  )
+  "#{path.relative_path_from(root)}: #{stderr.lines.first.to_s.strip}" unless status.success?
+rescue Errno::ENOENT
+  abort "JavaScript: Node.js is required for syntax validation"
+end
+
+if failures.empty?
+  puts "JavaScript: passed (#{paths.count} modules)"
+  exit 0
+end
+
+warn "JavaScript: #{failures.count} syntax error(s)"
+failures.each { |failure| warn "- #{failure}" }
+exit 1

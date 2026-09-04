@@ -2,6 +2,7 @@
 require "rubygems"
 require "bundler/setup"
 
-ARGV.unshift("--ensure-latest")
+# The lockfile and dependency update workflow own scanner freshness. Avoid a
+# network-dependent latest-version check inside otherwise deterministic scans.
 
 load Gem.bin_path("brakeman", "brakeman")

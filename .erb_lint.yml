@@ -1,0 +1,20 @@
+---
+EnableDefaultLinters: true
+glob: "**/*.{html,text,json}{+*,}.erb"
+exclude:
+  - "**/node_modules/**/*"
+  - "**/public/assets/**/*"
+  - "**/tmp/**/*"
+  - "**/vendor/**/*"
+linters:
+  ErbSafety:
+    enabled: true
+  FinalNewline:
+    enabled: true
+  NoUnusedDisable:
+    enabled: true
+  Rubocop:
+    enabled: true
+    rubocop_config:
+      inherit_from:
+        - .erb_lint_rubocop.yml

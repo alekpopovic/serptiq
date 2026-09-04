@@ -1,8 +1,13 @@
-# Omakase Ruby styling for Rails
+# Rails Omakase is the documented project baseline. Only generated and vendored
+# trees are excluded; migrations and application code remain in scope.
 inherit_gem: { rubocop-rails-omakase: rubocop.yml }
 
-# Overwrite or add rules to create your own house style
-#
-# # Use `[a, [b, c]]` not `[ a, [ b, c ] ]`
-# Layout/SpaceInsideArrayLiteralBrackets:
-#   Enabled: false
+AllCops:
+  TargetRubyVersion: 3.4
+  NewCops: enable
+  Exclude:
+    - "app/assets/builds/**/*"
+    - "db/*_schema.rb"
+    - "public/assets/**/*"
+    - "tmp/**/*"
+    - "vendor/**/*"

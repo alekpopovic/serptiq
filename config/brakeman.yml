@@ -1,0 +1,7 @@
+---
+:pager: false
+:exit_on_warn: true
+:exit_on_error: true
+:skip_vendor: true
+:ensure_ignore_notes: true
+:ensure_no_obsolete_ignore_entries: true

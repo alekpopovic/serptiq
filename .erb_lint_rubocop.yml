@@ -1,0 +1,6 @@
+inherit_from: .rubocop.yml
+
+# erb_lint presents each embedded Ruby tag to RuboCop as an isolated source.
+# Newline ownership belongs to the ERB template's FinalNewline linter.
+Layout/TrailingEmptyLines:
+  Enabled: false

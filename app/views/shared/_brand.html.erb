@@ -1,6 +1,6 @@
-<%= link_to root_path, class: "inline-flex items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:ring-offset-2 #{inverted ? 'focus-visible:ring-offset-slate-950' : 'focus-visible:ring-offset-white'}", aria: { label: "SearchOps home" } do %>
+<%= link_to root_path, class: "inline-flex items-center gap-2 rounded-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-teal-400 focus-visible:ring-offset-2 #{inverted ? "focus-visible:ring-offset-slate-950" : "focus-visible:ring-offset-white"}", aria: { label: "SearchOps home" } do %>
   <span class="grid size-8 place-items-center rounded-lg bg-teal-400 font-black text-slate-950" aria-hidden="true">S</span>
   <% unless compact %>
-    <span class="text-base font-bold tracking-tight <%= inverted ? 'text-white' : 'text-slate-950' %>">SearchOps</span>
+    <span class="text-base font-bold tracking-tight <%= inverted ? "text-white" : "text-slate-950" %>">SearchOps</span>
   <% end %>
 <% end %>
