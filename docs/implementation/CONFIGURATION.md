@@ -41,6 +41,7 @@ active_record_encryption:
 billing:
   api_key: provider-value
   webhook_secret: provider-value
+  webhook_previous_secret: temporary-previous-provider-value
 ```
 
 The example shows structure only. Generate independent high-entropy values in a

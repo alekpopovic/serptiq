@@ -135,6 +135,11 @@ Webhook receiver:
 7. locks and updates local subscription projection;
 8. emits audit/outbox events.
 
+The ingress portion is implemented at `POST /webhooks/billing/lemon_squeezy` with a 512 KiB exact-body limit,
+current/previous-secret HMAC rotation, encrypted durable payloads, logical-event/checksum conflict detection
+and commit-before-enqueue behavior. See `docs/implementation/BILLING_WEBHOOK_INGRESS.md`. Projection into
+canonical subscription state follows in Prompt 047.
+
 Only subscribe to required event types. Retain enough raw data for troubleshooting under the declared retention policy.
 
 The production client uses the fixed Lemon Squeezy HTTPS API origin and JSON:API media type. It validates the

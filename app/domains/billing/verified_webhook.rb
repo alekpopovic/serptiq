@@ -2,11 +2,9 @@
 
 module Billing
   VerifiedWebhook = Data.define(:provider, :raw_body, :received_at) do
-    MAX_BODY_BYTES = 524_288
-
     def initialize(provider:, raw_body:, received_at:)
       body = raw_body.to_s
-      raise ArgumentError, "webhook body is invalid" unless body.bytesize.between?(1, MAX_BODY_BYTES)
+      raise ArgumentError, "webhook body is invalid" unless body.bytesize.between?(1, self.class::MAX_BODY_BYTES)
 
       super(
         provider: ValueNormalization.string!(
@@ -27,4 +25,6 @@ module Billing
       ValueNormalization.safe_inspect(self)
     end
   end
+
+  VerifiedWebhook::MAX_BODY_BYTES = 524_288
 end

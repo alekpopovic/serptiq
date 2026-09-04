@@ -175,6 +175,8 @@ module Searchops
         nil, nil, nil, nil, true, [ :billing, :api_key ]),
       billing_webhook_secret: Definition.new("SEARCHOPS_BILLING_WEBHOOK_SECRET", :secret,
         nil, nil, nil, nil, true, [ :billing, :webhook_secret ]),
+      billing_webhook_previous_secret: Definition.new("SEARCHOPS_BILLING_WEBHOOK_PREVIOUS_SECRET", :secret,
+        nil, nil, nil, nil, true, [ :billing, :webhook_previous_secret ]),
       smtp_password: Definition.new("SEARCHOPS_SMTP_PASSWORD", :secret,
         nil, nil, nil, nil, true, [ :email, :smtp_password ]),
       slack_client_secret: Definition.new("SEARCHOPS_SLACK_CLIENT_SECRET", :secret,

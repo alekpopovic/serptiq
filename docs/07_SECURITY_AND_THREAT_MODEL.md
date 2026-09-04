@@ -344,6 +344,10 @@ Controls:
 - replay controls and idempotency;
 - delivery response truncation/redaction.
 
+Billing ingress additionally bypasses controller parameter parsing, caps the exact raw body before JSON
+handling, verifies HMAC-SHA256 with constant-time current/previous-secret comparisons, encrypts accepted bytes
+at rest and preserves the first payload when a logical duplicate has a different checksum.
+
 ### T-14 Sensitive data leakage in logs
 
 Controls:

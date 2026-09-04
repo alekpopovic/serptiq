@@ -65,10 +65,11 @@ period endpoints remain absent rather than inventing one.
 
 ## Webhook boundary and fixtures
 
-The adapter verifies `X-Signature` as HMAC-SHA256 over the exact bounded raw body with constant-time
-comparison. Parsing happens only after verification, accepts the required subscription/payment event names,
-checks store/test mode, and retains an allowlisted correlation subset. Durable ingress, idempotent storage
-and asynchronous projection belong to Prompts 046 and 047.
+The adapter verifies `X-Signature` as HMAC-SHA256 over the exact bounded raw body with constant-time comparison
+against the current and optional previous rotation secret. Parsing happens only after verification, accepts
+the required subscription/payment event names, checks store/test mode, and retains an allowlisted correlation
+subset. Prompt 046 persists the exact body with authenticated encryption and queues only after commit; Prompt
+047 applies the canonical subscription projection.
 
 Default tests never call the provider. Sanitized JSON:API fixtures cover checkout, portal, active/cancelled/
 expired subscriptions, reconciliation pagination, validation, authentication, not found, rate limit,

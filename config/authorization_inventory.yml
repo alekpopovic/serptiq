@@ -108,6 +108,9 @@ controllers:
       remove_member: *manage_teams
 
 jobs:
+  Billing::WebhookProjectionJob:
+    kind: system
+    name: billing_webhook_projection
   Identity::AuthenticationRateLimitCleanupJob:
     kind: system
     name: authentication_rate_limit_cleanup
@@ -178,6 +181,9 @@ domain_operations:
   Billing::Public.register_customer_mapping: { kind: context, reason: verified_provider_customer_correlation }
   Billing::Public.customer_mapping: { kind: context, reason: explicit_tenant_provider_customer_projection }
   Billing::Public.plan_mapping: { kind: context, reason: exact_provider_plan_variant_projection }
+  Billing::Public.receive_webhook: { kind: system, reason: exact_raw_body_provider_signature_boundary }
+  Billing::Public.webhook_events: { kind: system, reason: support_visibility_foundation }
+  Billing::Public.prepare_webhook_projection: { kind: system, reason: durable_verified_event_dispatch }
   Entitlements::Public.validate_catalog: { kind: system, reason: governed_entitlement_definition_validation }
   Entitlements::Public.sync_catalog: { kind: system, reason: operator_entitlement_catalog_synchronization }
   Entitlements::Public.catalog_entries: { kind: context, reason: public_commercial_catalog_projection }

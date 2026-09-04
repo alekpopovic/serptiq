@@ -526,27 +526,30 @@ provider identity; provider identifiers and bounded raw status metadata remain o
 
 ### `billing_webhook_events`
 
-Append-only raw ingress.
+Durable, provider-neutral raw ingress. The row is intentionally not tenant-owned until the signed payload is
+correlated during projection; the provider event itself is therefore the isolation boundary. The original
+accepted payload is encrypted with authenticated encryption and never replaced by a duplicate delivery.
 
-| Column | Type |
-|---|---|
-| id | uuid |
-| organization_id | uuid nullable until correlated |
-| provider | string |
-| provider_event_id | string nullable |
-| event_fingerprint | string |
-| event_name | string |
-| signature_valid | boolean |
-| headers_redacted | jsonb |
-| payload_ciphertext or payload | jsonb/text under retention |
-| received_at | timestamptz |
-| processed_at | timestamptz |
-| status | string |
-| attempts | integer |
-| error_class | string |
-| error_message_redacted | text |
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid | |
+| provider / provider_environment | string | adapter and isolated runtime mode |
+| provider_event_id | string | stable provider-scoped logical event identity |
+| event_type | string | bounded provider event name |
+| payload_checksum | string | SHA-256 of the exact accepted body |
+| payload_ciphertext | text | versioned AES-256-GCM envelope |
+| request_headers | jsonb | allowlisted media type, body length and user-agent digest only |
+| state | string | pending, processing, processed, retryable, dead_letter |
+| attempt_count / duplicate_count / conflict_count | integer | non-negative operational counters |
+| failure_code | string nullable | bounded internal classification, never exception text |
+| received_at / last_received_at | timestamptz | first and latest accepted deliveries |
+| last_attempted_at / processed_at / failed_at | timestamptz nullable | lifecycle timestamps |
+| lock_version | integer | optimistic concurrency control |
 
-Unique provider event ID when present; otherwise provider + fingerprint.
+Unique `(provider, provider_environment, provider_event_id)`. Database checks enforce checksum shape,
+non-negative counters, terminal timestamps and bounded encrypted payload/header sizes. A delivery with the same
+identity and checksum increments the duplicate counter; one with a different checksum increments the conflict
+counter without replacing the original evidence.
 
 ### `usage_meter_definitions` / `usage_meter_rates`
 

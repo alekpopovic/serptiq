@@ -67,5 +67,17 @@ module Billing
     def plan_mapping(**attributes)
       PlanMappingLookup.new.call(**attributes)
     end
+
+    def receive_webhook(receiver: ReceiveWebhook.from_settings, **attributes)
+      receiver.call(**attributes)
+    end
+
+    def webhook_events(**attributes)
+      WebhookEventInventory.new.call(**attributes)
+    end
+
+    def prepare_webhook_projection(**attributes)
+      PrepareWebhookProjection.new.call(**attributes)
+    end
   end
 end

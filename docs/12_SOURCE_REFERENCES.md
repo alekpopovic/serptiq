@@ -30,6 +30,7 @@ Checked on **2026-09-04** unless an item states otherwise. These sources provide
 ## Billing
 
 - Lemon Squeezy webhooks: <https://docs.lemonsqueezy.com/guides/developer-guide/webhooks>
+- Lemon Squeezy webhook signing requests: <https://docs.lemonsqueezy.com/help/webhooks/signing-requests>
 - Lemon Squeezy subscription object: <https://docs.lemonsqueezy.com/api/subscriptions/the-subscription-object>
 - Lemon Squeezy API requests, authentication and pagination: <https://docs.lemonsqueezy.com/api/getting-started/requests>
 - Lemon Squeezy create checkout: <https://docs.lemonsqueezy.com/api/checkouts/create-checkout>

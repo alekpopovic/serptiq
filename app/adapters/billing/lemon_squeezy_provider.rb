@@ -28,6 +28,7 @@ module Billing
       new(
         api_key: settings.secret(:billing_api_key),
         webhook_secret: settings.secret(:billing_webhook_secret),
+        webhook_previous_secret: settings.secret(:billing_webhook_previous_secret),
         store_reference: settings.fetch(:billing_store_id),
         environment: environment,
         open_timeout: settings.fetch(:billing_http_open_timeout),
@@ -41,7 +42,7 @@ module Billing
       )
     end
 
-    def initialize(api_key:, webhook_secret:, store_reference:, environment:, open_timeout: 2.0,
+    def initialize(api_key:, webhook_secret:, webhook_previous_secret: nil, store_reference:, environment:, open_timeout: 2.0,
       read_timeout: 5.0, write_timeout: 5.0, max_response_bytes: 524_288,
       transport: LemonSqueezy::NetHttpTransport.new, sleeper: ->(delay) { sleep(delay) },
       clock: -> { Time.current }, instrumentation: LemonSqueezy::Instrumentation.new, mapping_lookup: nil)
@@ -49,9 +50,9 @@ module Billing
       @environment = ValueNormalization.string!(environment, name: "environment", maximum: 16)
       raise ArgumentError, "billing environment is invalid" unless ENVIRONMENTS.include?(@environment)
 
-      @webhook_secret = ValueNormalization.string!(
-        webhook_secret, name: "billing webhook secret", maximum: 512
-      )
+      @webhook_secrets = [ webhook_secret, webhook_previous_secret ].compact.map do |secret|
+        ValueNormalization.string!(secret, name: "billing webhook secret", maximum: 512)
+      end.uniq.freeze
       @clock = clock
       expected_test_mode = %w[development test].include?(@environment)
       mapping_lookup ||= LemonSqueezyPlanMappingLookup.new(
@@ -220,9 +221,13 @@ module Billing
     def verify_webhook(raw_body:, headers:)
       webhook = VerifiedWebhook.new(provider: provider_key, raw_body: raw_body, received_at: @clock.call)
       signature = header(headers, "x-signature")
-      expected = OpenSSL::HMAC.hexdigest("SHA256", @webhook_secret, webhook.raw_body)
-      valid = signature&.match?(/\A[0-9a-f]{64}\z/i) &&
-        ActiveSupport::SecurityUtils.secure_compare(signature.downcase, expected)
+      candidate = signature.to_s.downcase
+      comparisons = @webhook_secrets.map do |secret|
+        expected = OpenSSL::HMAC.hexdigest("SHA256", secret, webhook.raw_body)
+        candidate.match?(/\A[0-9a-f]{64}\z/) &&
+          ActiveSupport::SecurityUtils.secure_compare(candidate, expected)
+      end
+      valid = comparisons.any?
       unless valid
         raise ProviderFailure.new(
           provider: provider_key,
@@ -252,7 +257,7 @@ module Billing
       validate_event_environment!(meta, attributes)
       ProviderEvent.new(
         provider: provider_key,
-        reference: "event-#{Digest::SHA256.hexdigest(webhook.raw_body)}",
+        reference: event_reference(event_name, data, attributes),
         name: canonical_name,
         occurred_at: event_time(attributes),
         customer_reference: optional_numeric(attributes["customer_id"], "customer reference"),
@@ -375,6 +380,20 @@ module Billing
         attributes["subscription_id"]
       end
       optional_numeric(value, "subscription reference")
+    end
+
+    def event_reference(event_name, data, attributes)
+      resource_type = ValueNormalization.string!(
+        data.fetch("type"), name: "webhook resource type", maximum: 64,
+        pattern: ValueNormalization::KEY_PATTERN
+      )
+      resource_id = ValueNormalization.string!(
+        data.fetch("id"), name: "webhook resource ID", maximum: 191,
+        pattern: ValueNormalization::REFERENCE_PATTERN
+      )
+      stable_time = event_time(attributes).utc.iso8601(6)
+      identity = JSON.generate([ event_name, resource_type, resource_id, stable_time ])
+      "event-#{Digest::SHA256.hexdigest(identity)}"
     end
 
     def event_metadata(meta, event_name)

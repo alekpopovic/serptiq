@@ -45,7 +45,11 @@ class LemonSqueezyProviderTest < ActiveSupport::TestCase
     end
 
     def secret(key)
-      { billing_api_key: "sanitized-api-key", billing_webhook_secret: "sanitized-webhook-secret" }.fetch(key)
+      {
+        billing_api_key: "sanitized-api-key",
+        billing_webhook_secret: "sanitized-webhook-secret",
+        billing_webhook_previous_secret: nil
+      }.fetch(key)
     end
   end
 
@@ -187,6 +191,30 @@ class LemonSqueezyProviderTest < ActiveSupport::TestCase
     malformed = provider.verify_webhook(raw_body: tampered, headers: { "x-signature" => bad_signature })
     error = assert_raises(Billing::ProviderFailure) { provider.parse_event(webhook: malformed) }
     assert_equal "malformed_response", error.category
+  end
+
+  test "accepts only exact bytes signed by the current or controlled previous secret" do
+    previous_secret = "previous-sanitized-webhook-secret"
+    provider = Billing::LemonSqueezyProvider.new(
+      api_key: api_key,
+      webhook_secret: webhook_secret,
+      webhook_previous_secret: previous_secret,
+      store_reference: "1001",
+      environment: "test",
+      clock: -> { @now }
+    )
+    body = fixture_body("webhook_subscription_created.json")
+
+    [ webhook_secret, previous_secret ].each do |secret|
+      signature = OpenSSL::HMAC.hexdigest("SHA256", secret, body)
+      assert_instance_of Billing::VerifiedWebhook,
+        provider.verify_webhook(raw_body: body, headers: { "X-Signature" => signature })
+    end
+    modified = "#{body}\n"
+    signature = OpenSSL::HMAC.hexdigest("SHA256", webhook_secret, body)
+    assert_raises(Billing::ProviderFailure) do
+      provider.verify_webhook(raw_body: modified, headers: { "X-Signature" => signature })
+    end
   end
 
   test "inspect and normalized serialization redact credentials IDs links email and payload" do

@@ -515,15 +515,15 @@ CREATE TABLE public.billing_checkout_sessions (
     created_at timestamp(6) with time zone NOT NULL,
     updated_at timestamp(6) with time zone NOT NULL,
     CONSTRAINT billing_checkouts_currency_format CHECK (((currency)::text ~ '^[A-Z]{3}$'::text)),
-    CONSTRAINT billing_checkouts_environment_allowlist CHECK (((environment)::text = ANY ((ARRAY['development'::character varying, 'test'::character varying, 'staging'::character varying, 'production'::character varying])::text[]))),
+    CONSTRAINT billing_checkouts_environment_allowlist CHECK (((environment)::text = ANY (ARRAY[('development'::character varying)::text, ('test'::character varying)::text, ('staging'::character varying)::text, ('production'::character varying)::text]))),
     CONSTRAINT billing_checkouts_expiration_order CHECK ((expires_at > created_at)),
     CONSTRAINT billing_checkouts_failure_category_format CHECK (((failure_category IS NULL) OR ((failure_category)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text))),
     CONSTRAINT billing_checkouts_idempotency_digest_format CHECK (((idempotency_digest)::text ~ '^[0-9a-f]{64}$'::text)),
-    CONSTRAINT billing_checkouts_interval_allowlist CHECK (((billing_interval)::text = ANY ((ARRAY['monthly'::character varying, 'annual'::character varying])::text[]))),
+    CONSTRAINT billing_checkouts_interval_allowlist CHECK (((billing_interval)::text = ANY (ARRAY[('monthly'::character varying)::text, ('annual'::character varying)::text]))),
     CONSTRAINT billing_checkouts_lifecycle_shape CHECK (((((state)::text = 'preparing'::text) AND (provider_checkout_id IS NULL) AND (ready_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'ready'::text) AND (billing_customer_id IS NOT NULL) AND (provider_checkout_id IS NOT NULL) AND (ready_at IS NOT NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'uncertain'::text) AND (provider_checkout_id IS NULL) AND (ready_at IS NULL) AND (failed_at IS NOT NULL) AND (failure_category IS NOT NULL)) OR (((state)::text = 'failed'::text) AND (provider_checkout_id IS NULL) AND (ready_at IS NULL) AND (failed_at IS NOT NULL) AND (failure_category IS NOT NULL)) OR ((state)::text = 'expired'::text))),
     CONSTRAINT billing_checkouts_provider_format CHECK (((provider)::text ~ '^[a-z][a-z0-9_]{1,31}$'::text)),
     CONSTRAINT billing_checkouts_provider_id_format CHECK (((provider_checkout_id IS NULL) OR ((provider_checkout_id)::text ~ '^[A-Za-z0-9][A-Za-z0-9_.:-]{0,190}$'::text))),
-    CONSTRAINT billing_checkouts_state_allowlist CHECK (((state)::text = ANY ((ARRAY['preparing'::character varying, 'ready'::character varying, 'uncertain'::character varying, 'failed'::character varying, 'expired'::character varying])::text[])))
+    CONSTRAINT billing_checkouts_state_allowlist CHECK (((state)::text = ANY (ARRAY[('preparing'::character varying)::text, ('ready'::character varying)::text, ('uncertain'::character varying)::text, ('failed'::character varying)::text, ('expired'::character varying)::text])))
 );
 
 
@@ -569,6 +569,46 @@ CREATE TABLE public.billing_plan_provider_mappings (
     CONSTRAINT billing_plan_mappings_lemon_squeezy_coordinates CHECK ((((provider)::text <> 'lemon_squeezy'::text) OR ((provider_store_id IS NOT NULL) AND (provider_product_id IS NOT NULL) AND ((provider_store_id)::text ~ '^[1-9][0-9]{0,18}$'::text) AND ((provider_product_id)::text ~ '^[1-9][0-9]{0,18}$'::text) AND ((provider_variant_id)::text ~ '^[1-9][0-9]{0,18}$'::text)))),
     CONSTRAINT billing_plan_mappings_provider_format CHECK (((provider)::text ~ '^[a-z][a-z0-9_]{1,31}$'::text)),
     CONSTRAINT billing_plan_mappings_variant_format CHECK (((provider_variant_id)::text ~ '^[A-Za-z0-9][A-Za-z0-9_.:-]{0,127}$'::text))
+);
+
+
+--
+-- Name: billing_webhook_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.billing_webhook_events (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    provider character varying(32) NOT NULL,
+    environment character varying(16) NOT NULL,
+    provider_event_id character varying(191) NOT NULL,
+    event_type character varying(64) NOT NULL,
+    payload_checksum character varying(64) NOT NULL,
+    payload_ciphertext text NOT NULL,
+    request_headers jsonb DEFAULT '{}'::jsonb NOT NULL,
+    state character varying(16) DEFAULT 'pending'::character varying NOT NULL,
+    attempt_count integer DEFAULT 0 NOT NULL,
+    duplicate_count integer DEFAULT 0 NOT NULL,
+    conflict_count integer DEFAULT 0 NOT NULL,
+    last_error_category character varying(64),
+    received_at timestamp(6) with time zone NOT NULL,
+    last_received_at timestamp(6) with time zone NOT NULL,
+    last_attempted_at timestamp(6) with time zone,
+    processed_at timestamp(6) with time zone,
+    failed_at timestamp(6) with time zone,
+    lock_version integer DEFAULT 0 NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT billing_webhooks_checksum_format CHECK (((payload_checksum)::text ~ '^[0-9a-f]{64}$'::text)),
+    CONSTRAINT billing_webhooks_ciphertext_size CHECK (((octet_length(payload_ciphertext) >= 1) AND (octet_length(payload_ciphertext) <= 1048576))),
+    CONSTRAINT billing_webhooks_environment_allowlist CHECK (((environment)::text = ANY ((ARRAY['development'::character varying, 'test'::character varying, 'staging'::character varying, 'production'::character varying])::text[]))),
+    CONSTRAINT billing_webhooks_event_id_format CHECK (((provider_event_id)::text ~ '^[A-Za-z0-9][A-Za-z0-9_.:-]{0,190}$'::text)),
+    CONSTRAINT billing_webhooks_event_type_format CHECK (((event_type)::text ~ '^[a-z][a-z0-9_.-]{0,63}$'::text)),
+    CONSTRAINT billing_webhooks_headers_object CHECK ((jsonb_typeof(request_headers) = 'object'::text)),
+    CONSTRAINT billing_webhooks_lifecycle_shape CHECK (((((state)::text = 'pending'::text) AND (attempt_count = 0) AND (last_attempted_at IS NULL) AND (processed_at IS NULL) AND (failed_at IS NULL) AND (last_error_category IS NULL)) OR (((state)::text = 'processing'::text) AND (attempt_count > 0) AND (last_attempted_at IS NOT NULL) AND (processed_at IS NULL) AND (failed_at IS NULL) AND (last_error_category IS NULL)) OR (((state)::text = 'processed'::text) AND (attempt_count > 0) AND (last_attempted_at IS NOT NULL) AND (processed_at IS NOT NULL) AND (failed_at IS NULL) AND (last_error_category IS NULL)) OR (((state)::text = ANY ((ARRAY['retryable'::character varying, 'dead_letter'::character varying])::text[])) AND (attempt_count > 0) AND (last_attempted_at IS NOT NULL) AND (processed_at IS NULL) AND (failed_at IS NOT NULL) AND (last_error_category IS NOT NULL)))),
+    CONSTRAINT billing_webhooks_nonnegative_counts CHECK (((attempt_count >= 0) AND (duplicate_count >= 0) AND (conflict_count >= 0))),
+    CONSTRAINT billing_webhooks_provider_format CHECK (((provider)::text ~ '^[a-z][a-z0-9_]{1,31}$'::text)),
+    CONSTRAINT billing_webhooks_receive_order CHECK ((last_received_at >= received_at)),
+    CONSTRAINT billing_webhooks_state_allowlist CHECK (((state)::text = ANY ((ARRAY['pending'::character varying, 'processing'::character varying, 'processed'::character varying, 'retryable'::character varying, 'dead_letter'::character varying])::text[])))
 );
 
 
@@ -1495,6 +1535,14 @@ ALTER TABLE ONLY public.billing_plan_provider_mappings
 
 
 --
+-- Name: billing_webhook_events billing_webhook_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.billing_webhook_events
+    ADD CONSTRAINT billing_webhook_events_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: entitlement_definitions entitlement_definitions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1823,7 +1871,7 @@ CREATE UNIQUE INDEX index_authorization_scopes_on_org_id_and_type ON public.auth
 -- Name: index_billing_checkouts_on_active_tenant; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX index_billing_checkouts_on_active_tenant ON public.billing_checkout_sessions USING btree (organization_id) WHERE ((state)::text = ANY ((ARRAY['preparing'::character varying, 'ready'::character varying, 'uncertain'::character varying])::text[]));
+CREATE UNIQUE INDEX index_billing_checkouts_on_active_tenant ON public.billing_checkout_sessions USING btree (organization_id) WHERE ((state)::text = ANY (ARRAY[('preparing'::character varying)::text, ('ready'::character varying)::text, ('uncertain'::character varying)::text]));
 
 
 --
@@ -1887,6 +1935,27 @@ CREATE UNIQUE INDEX index_billing_plan_mappings_on_provider_catalog_identity ON 
 --
 
 CREATE UNIQUE INDEX index_billing_plan_mappings_on_provider_variant ON public.billing_plan_provider_mappings USING btree (provider, environment, provider_variant_id);
+
+
+--
+-- Name: index_billing_webhooks_on_payload_checksum; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_billing_webhooks_on_payload_checksum ON public.billing_webhook_events USING btree (payload_checksum);
+
+
+--
+-- Name: index_billing_webhooks_on_provider_event; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_billing_webhooks_on_provider_event ON public.billing_webhook_events USING btree (provider, environment, provider_event_id);
+
+
+--
+-- Name: index_billing_webhooks_on_state_received; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_billing_webhooks_on_state_received ON public.billing_webhook_events USING btree (state, received_at);
 
 
 --
@@ -3303,6 +3372,7 @@ ALTER TABLE ONLY public.usage_windows
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904100000'),
 ('20260904095000'),
 ('20260904094000'),
 ('20260904093000'),

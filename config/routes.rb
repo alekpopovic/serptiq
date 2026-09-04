@@ -1,4 +1,7 @@
 Rails.application.routes.draw do
+  post "webhooks/billing/lemon_squeezy", to: Billing::WebhookRackEndpoint.new,
+    as: :lemon_squeezy_billing_webhook
+
   root "public_pages#home"
   get "pricing", to: "public_pages#pricing", as: :pricing
   get "sign-in", to: "public_pages#sign_in", as: :sign_in
