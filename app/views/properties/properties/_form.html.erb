@@ -1,0 +1,43 @@
+<%= render "shared/error_summary", model: property, title: "Check the property details", field_ids: {
+  display_name: "property_display_name", kind: "property_kind"
+} %>
+
+<div>
+  <%= form.label :display_name, "Display name", class: "so-label" %>
+  <%= form.text_field :display_name, required: true, maxlength: 160, class: "so-input" %>
+</div>
+
+<% if property.new_record? %>
+  <div>
+    <%= form.label :kind, "Property type", class: "so-label" %>
+    <%= form.select :kind, property_types, {}, class: "so-select" %>
+    <p class="so-help">The type is permanent after creation. Only fields for the selected type are stored.</p>
+  </div>
+<% else %>
+  <div><span class="so-label">Property type</span><p class="mt-2 text-sm text-slate-700"><%= property.kind.humanize %></p></div>
+<% end %>
+
+<fieldset class="space-y-4 rounded-xl border border-slate-200 p-4">
+  <legend class="px-2 text-sm font-bold text-slate-900">Website or web application</legend>
+  <div>
+    <%= form.label :origin, "Website origin", class: "so-label" %>
+    <%= form.url_field :origin, value: configuration[:origin], placeholder: "https://www.example.com", class: "so-input", aria: { describedby: "property-origin-hint" } %>
+    <p id="property-origin-hint" class="so-help">Enter an HTTP(S) origin without credentials, path, query or fragment.</p>
+  </div>
+</fieldset>
+
+<fieldset class="space-y-4 rounded-xl border border-slate-200 p-4">
+  <legend class="px-2 text-sm font-bold text-slate-900">Android app</legend>
+  <div>
+    <%= form.label :package_name, "Android package name", class: "so-label" %>
+    <%= form.text_field :package_name, value: configuration[:package_name], placeholder: "com.example.app", autocapitalize: "none", spellcheck: false, class: "so-input" %>
+  </div>
+</fieldset>
+
+<fieldset class="space-y-4 rounded-xl border border-slate-200 p-4">
+  <legend class="px-2 text-sm font-bold text-slate-900">iOS app</legend>
+  <div class="grid gap-4 sm:grid-cols-2">
+    <div><%= form.label :bundle_id, "iOS bundle ID", class: "so-label" %><%= form.text_field :bundle_id, value: configuration[:bundle_id], placeholder: "com.example.app", autocapitalize: "none", spellcheck: false, class: "so-input" %></div>
+    <div><%= form.label :team_id, "Apple Team ID", class: "so-label" %><%= form.text_field :team_id, value: configuration[:team_id], placeholder: "A1B2C3D4E5", maxlength: 10, autocapitalize: "characters", spellcheck: false, class: "so-input" %></div>
+  </div>
+</fieldset>

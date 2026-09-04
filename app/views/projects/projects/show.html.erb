@@ -35,6 +35,9 @@
   </section>
 
   <div class="mt-8 flex flex-wrap gap-3">
+    <% if @project_summary.active? && allowed_to?("properties.read", project: @project) %>
+      <%= link_to "View properties", organization_project_properties_path(Current.organization.slug, @project_summary.slug), class: "so-button so-button-secondary" %>
+    <% end %>
     <% if @project_summary.active? && allowed_to?("projects.update", project: @project) %>
       <%= link_to "Edit project", edit_organization_project_path(Current.organization.slug, @project_summary.slug), class: "so-button so-button-primary" %>
     <% end %>

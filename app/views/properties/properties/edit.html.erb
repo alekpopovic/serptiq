@@ -1,0 +1,14 @@
+<% content_for :title, "Edit property" %>
+
+<div class="mx-auto max-w-3xl">
+  <%= render "shared/breadcrumbs", items: [
+    { label: "Properties", path: organization_project_properties_path(Current.organization.slug, @project.slug) },
+    { label: @property.display_name, path: organization_project_property_path(Current.organization.slug, @project.slug, @property.id) },
+    { label: "Edit", path: nil }
+  ] %>
+  <div class="mt-6"><p class="so-eyebrow">Property settings</p><h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950">Edit property</h1></div>
+  <%= form_with model: @property, scope: :property, url: organization_project_property_path(Current.organization.slug, @project.slug, @property.id), method: :patch, class: "so-card mt-8 space-y-6 p-6 sm:p-8" do |form| %>
+    <%= render "form", form: form, property: @property, property_types: @property_types, configuration: @submitted_configuration %>
+    <div class="flex flex-wrap gap-3"><%= form.submit "Save property settings", class: "so-button so-button-primary" %><%= link_to "Cancel", organization_project_property_path(Current.organization.slug, @project.slug, @property.id), class: "so-button so-button-secondary" %></div>
+  <% end %>
+</div>

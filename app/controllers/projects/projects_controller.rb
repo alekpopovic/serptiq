@@ -22,12 +22,14 @@ module Projects
     permission_hint "projects.update", only: :show, scope: -> { { project: @project } }
     permission_hint "projects.archive", only: :show, scope: -> { { project: @project } }
     permission_hint "projects.delete", only: :show, scope: -> { { project: @project } }
+    permission_hint "properties.read", only: :show, scope: -> { { project: @project } }
 
     def index
       @project_page = Public.project_page(
         actor_membership: Current.membership,
         number: params[:page],
-        query: params[:q]
+        query: params[:q],
+        read_models: Properties::Public.project_rollup_reader
       )
     end
 
@@ -54,7 +56,9 @@ module Projects
 
     def show
       @project_summary = Public.project_details(
-        actor_membership: Current.membership, project_id: @project.id
+        actor_membership: Current.membership,
+        project_id: @project.id,
+        read_models: Properties::Public.project_rollup_reader
       )
     end
 

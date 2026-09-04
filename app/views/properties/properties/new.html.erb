@@ -1,0 +1,15 @@
+<% content_for :title, "Add property" %>
+
+<div class="mx-auto max-w-3xl">
+  <%= render "shared/breadcrumbs", items: [
+    { label: "Projects", path: organization_projects_path(Current.organization.slug) },
+    { label: @project.name, path: organization_project_path(Current.organization.slug, @project.slug) },
+    { label: "Properties", path: organization_project_properties_path(Current.organization.slug, @project.slug) },
+    { label: "Add property", path: nil }
+  ] %>
+  <div class="mt-6"><p class="so-eyebrow">Typed configuration</p><h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950">Add property</h1></div>
+  <%= form_with model: @property, scope: :property, url: organization_project_properties_path(Current.organization.slug, @project.slug), class: "so-card mt-8 space-y-6 p-6 sm:p-8" do |form| %>
+    <%= render "form", form: form, property: @property, property_types: @property_types, configuration: @submitted_configuration %>
+    <div class="flex flex-wrap gap-3"><%= form.submit "Add property", class: "so-button so-button-primary" %><%= link_to "Cancel", organization_project_properties_path(Current.organization.slug, @project.slug), class: "so-button so-button-secondary" %></div>
+  <% end %>
+</div>

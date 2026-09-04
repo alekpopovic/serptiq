@@ -382,9 +382,49 @@ END;
 $$;
 
 
+--
+-- Name: protect_property_stable_identity(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.protect_property_stable_identity() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF NEW.id IS DISTINCT FROM OLD.id
+    OR NEW.organization_id IS DISTINCT FROM OLD.organization_id
+    OR NEW.project_id IS DISTINCT FROM OLD.project_id
+    OR NEW.kind IS DISTINCT FROM OLD.kind
+    OR NEW.configuration_version IS DISTINCT FROM OLD.configuration_version
+    OR NEW.authorization_scope_type IS DISTINCT FROM OLD.authorization_scope_type
+    OR NEW.authorization_project_scope_type IS DISTINCT FROM OLD.authorization_project_scope_type THEN
+    RAISE EXCEPTION 'property stable identity cannot be changed';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
+
+--
+-- Name: android_property_configs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.android_property_configs (
+    property_id uuid NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_kind character varying(32) DEFAULT 'android_app'::character varying NOT NULL,
+    configuration_version integer DEFAULT 1 NOT NULL,
+    package_name public.citext NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT android_configs_package_format CHECK ((((package_name)::text = lower((package_name)::text)) AND ((package_name)::text ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$'::text))),
+    CONSTRAINT android_configs_type_and_version CHECK ((((property_kind)::text = 'android_app'::text) AND (configuration_version = 1)))
+);
+
 
 --
 -- Name: ar_internal_metadata; Type: TABLE; Schema: public; Owner: -
@@ -869,6 +909,26 @@ CREATE TABLE public.invitations (
 
 
 --
+-- Name: ios_property_configs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.ios_property_configs (
+    property_id uuid NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_kind character varying(32) DEFAULT 'ios_app'::character varying NOT NULL,
+    configuration_version integer DEFAULT 1 NOT NULL,
+    bundle_id public.citext NOT NULL,
+    team_id character varying(10) NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT ios_configs_bundle_format CHECK ((((bundle_id)::text = lower((bundle_id)::text)) AND ((bundle_id)::text ~ '^[a-z][a-z0-9-]*(\.[a-z][a-z0-9-]*)+$'::text))),
+    CONSTRAINT ios_configs_team_format CHECK (((team_id)::text ~ '^[A-Z0-9]{10}$'::text)),
+    CONSTRAINT ios_configs_type_and_version CHECK ((((property_kind)::text = 'ios_app'::text) AND (configuration_version = 1)))
+);
+
+
+--
 -- Name: memberships; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1199,6 +1259,36 @@ CREATE TABLE public.projects (
     CONSTRAINT projects_name_format CHECK ((((char_length((name)::text) >= 2) AND (char_length((name)::text) <= 160)) AND ((name)::text = btrim((name)::text)))),
     CONSTRAINT projects_slug_format CHECK (((slug)::text ~ '^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$'::text)),
     CONSTRAINT projects_time_zone_format CHECK ((((char_length((time_zone)::text) >= 1) AND (char_length((time_zone)::text) <= 64)) AND ((time_zone)::text = btrim((time_zone)::text))))
+);
+
+
+--
+-- Name: properties; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.properties (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    display_name public.citext NOT NULL,
+    kind character varying(32) NOT NULL,
+    status character varying(24) DEFAULT 'active'::character varying NOT NULL,
+    verification_status character varying(24) DEFAULT 'unverified'::character varying NOT NULL,
+    verified_at timestamp(6) with time zone,
+    configuration_version integer DEFAULT 1 NOT NULL,
+    authorization_scope_type character varying(24) DEFAULT 'Property'::character varying NOT NULL,
+    authorization_project_scope_type character varying(24) DEFAULT 'Project'::character varying NOT NULL,
+    archived_at timestamp(6) with time zone,
+    lock_version integer DEFAULT 0 NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT properties_authorization_scope_types CHECK ((((authorization_scope_type)::text = 'Property'::text) AND ((authorization_project_scope_type)::text = 'Project'::text))),
+    CONSTRAINT properties_configuration_version CHECK ((configuration_version = 1)),
+    CONSTRAINT properties_display_name_format CHECK ((((char_length((display_name)::text) >= 2) AND (char_length((display_name)::text) <= 160)) AND ((display_name)::text = btrim((display_name)::text)))),
+    CONSTRAINT properties_kind_allowlist CHECK (((kind)::text = ANY ((ARRAY['website'::character varying, 'web_application'::character varying, 'android_app'::character varying, 'ios_app'::character varying])::text[]))),
+    CONSTRAINT properties_lifecycle_consistency CHECK (((((status)::text = 'active'::text) AND (archived_at IS NULL)) OR (((status)::text = 'archived'::text) AND (archived_at IS NOT NULL)))),
+    CONSTRAINT properties_verification_status_allowlist CHECK (((verification_status)::text = ANY ((ARRAY['unverified'::character varying, 'pending'::character varying, 'verified'::character varying, 'failed'::character varying, 'expired'::character varying, 'revoked'::character varying])::text[]))),
+    CONSTRAINT properties_verified_timestamp CHECK ((((verification_status)::text <> 'verified'::text) OR (verified_at IS NOT NULL)))
 );
 
 
@@ -1645,6 +1735,33 @@ CREATE TABLE public.users (
 
 
 --
+-- Name: website_property_configs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.website_property_configs (
+    property_id uuid NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_kind character varying(32) NOT NULL,
+    configuration_version integer DEFAULT 1 NOT NULL,
+    scheme character varying(8) NOT NULL,
+    host public.citext NOT NULL,
+    port integer NOT NULL,
+    origin text NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT website_configs_canonical_origin CHECK ((((char_length(origin) >= 8) AND (char_length(origin) <= 2048)) AND (origin = ((((scheme)::text || '://'::text) || lower((host)::text)) ||
+CASE
+    WHEN ((((scheme)::text = 'http'::text) AND (port = 80)) OR (((scheme)::text = 'https'::text) AND (port = 443))) THEN ''::text
+    ELSE (':'::text || (port)::text)
+END)))),
+    CONSTRAINT website_configs_host_format CHECK ((((host)::text = lower((host)::text)) AND ((host)::text ~ '^[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?$'::text))),
+    CONSTRAINT website_configs_transport CHECK ((((scheme)::text = ANY ((ARRAY['http'::character varying, 'https'::character varying])::text[])) AND ((port >= 1) AND (port <= 65535)))),
+    CONSTRAINT website_configs_type_and_version CHECK ((((property_kind)::text = ANY ((ARRAY['website'::character varying, 'web_application'::character varying])::text[])) AND (configuration_version = 1)))
+);
+
+
+--
 -- Name: authentication_rate_limit_buckets id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1663,6 +1780,14 @@ ALTER TABLE ONLY public.usage_events ALTER COLUMN id SET DEFAULT nextval('public
 --
 
 ALTER TABLE ONLY public.usage_quota_reservation_operations ALTER COLUMN id SET DEFAULT nextval('public.usage_quota_reservation_operations_id_seq'::regclass);
+
+
+--
+-- Name: android_property_configs android_property_configs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.android_property_configs
+    ADD CONSTRAINT android_property_configs_pkey PRIMARY KEY (property_id);
 
 
 --
@@ -1794,6 +1919,14 @@ ALTER TABLE ONLY public.invitations
 
 
 --
+-- Name: ios_property_configs ios_property_configs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ios_property_configs
+    ADD CONSTRAINT ios_property_configs_pkey PRIMARY KEY (property_id);
+
+
+--
 -- Name: memberships memberships_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1903,6 +2036,14 @@ ALTER TABLE ONLY public.plans
 
 ALTER TABLE ONLY public.projects
     ADD CONSTRAINT projects_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: properties properties_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.properties
+    ADD CONSTRAINT properties_pkey PRIMARY KEY (id);
 
 
 --
@@ -2026,6 +2167,21 @@ ALTER TABLE ONLY public.users
 
 
 --
+-- Name: website_property_configs website_property_configs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.website_property_configs
+    ADD CONSTRAINT website_property_configs_pkey PRIMARY KEY (property_id);
+
+
+--
+-- Name: index_android_configs_on_normalized_package; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_android_configs_on_normalized_package ON public.android_property_configs USING btree (organization_id, project_id, package_name);
+
+
+--
 -- Name: index_audit_events_on_job_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2100,6 +2256,13 @@ CREATE INDEX index_authorization_scopes_on_org_and_project ON public.authorizati
 --
 
 CREATE UNIQUE INDEX index_authorization_scopes_on_org_id_and_type ON public.authorization_scope_references USING btree (organization_id, id, scope_type);
+
+
+--
+-- Name: index_authorization_scopes_on_property_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_authorization_scopes_on_property_identity ON public.authorization_scope_references USING btree (organization_id, id, scope_type, project_id, project_scope_type);
 
 
 --
@@ -2390,6 +2553,13 @@ CREATE UNIQUE INDEX index_invitations_on_token_digest ON public.invitations USIN
 
 
 --
+-- Name: index_ios_configs_on_normalized_application; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_ios_configs_on_normalized_application ON public.ios_property_configs USING btree (organization_id, project_id, team_id, bundle_id);
+
+
+--
 -- Name: index_memberships_on_org_id_status; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2639,6 +2809,27 @@ CREATE UNIQUE INDEX index_projects_on_organization_and_id ON public.projects USI
 --
 
 CREATE UNIQUE INDEX index_projects_on_organization_and_slug ON public.projects USING btree (organization_id, slug);
+
+
+--
+-- Name: index_properties_on_project_and_display_name; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_properties_on_project_and_display_name ON public.properties USING btree (organization_id, project_id, display_name);
+
+
+--
+-- Name: index_properties_on_project_status_name; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_properties_on_project_status_name ON public.properties USING btree (organization_id, project_id, status, display_name, id);
+
+
+--
+-- Name: index_properties_on_typed_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_properties_on_typed_identity ON public.properties USING btree (organization_id, project_id, id, kind, configuration_version);
 
 
 --
@@ -3027,6 +3218,13 @@ CREATE UNIQUE INDEX index_users_on_active_normalized_email ON public.users USING
 
 
 --
+-- Name: index_website_configs_on_normalized_origin; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_website_configs_on_normalized_origin ON public.website_property_configs USING btree (organization_id, project_id, origin);
+
+
+--
 -- Name: billing_customers billing_customers_immutable_mapping; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -3076,6 +3274,13 @@ CREATE TRIGGER projects_protect_stable_identity BEFORE UPDATE ON public.projects
 
 
 --
+-- Name: properties properties_protect_stable_identity; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER properties_protect_stable_identity BEFORE UPDATE ON public.properties FOR EACH ROW EXECUTE FUNCTION public.protect_property_stable_identity();
+
+
+--
 -- Name: usage_events usage_events_immutable_and_consistent; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -3115,6 +3320,14 @@ CREATE TRIGGER usage_quota_reservations_lifecycle BEFORE INSERT OR DELETE OR UPD
 --
 
 CREATE TRIGGER usage_windows_non_overlapping BEFORE INSERT OR DELETE OR UPDATE ON public.usage_windows FOR EACH ROW EXECUTE FUNCTION public.enforce_usage_window_integrity();
+
+
+--
+-- Name: android_property_configs fk_android_property_configs_typed_property; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.android_property_configs
+    ADD CONSTRAINT fk_android_property_configs_typed_property FOREIGN KEY (organization_id, project_id, property_id, property_kind, configuration_version) REFERENCES public.properties(organization_id, project_id, id, kind, configuration_version) ON DELETE RESTRICT;
 
 
 --
@@ -3238,6 +3451,14 @@ ALTER TABLE ONLY public.invitations
 
 
 --
+-- Name: ios_property_configs fk_ios_property_configs_typed_property; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.ios_property_configs
+    ADD CONSTRAINT fk_ios_property_configs_typed_property FOREIGN KEY (organization_id, project_id, property_id, property_kind, configuration_version) REFERENCES public.properties(organization_id, project_id, id, kind, configuration_version) ON DELETE RESTRICT;
+
+
+--
 -- Name: organizations fk_organizations_same_active_ownership; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3267,6 +3488,22 @@ ALTER TABLE ONLY public.plan_entitlements
 
 ALTER TABLE ONLY public.projects
     ADD CONSTRAINT fk_projects_same_org_authorization_scope FOREIGN KEY (organization_id, id, authorization_scope_type) REFERENCES public.authorization_scope_references(organization_id, id, scope_type) ON DELETE RESTRICT;
+
+
+--
+-- Name: properties fk_properties_same_org_project; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.properties
+    ADD CONSTRAINT fk_properties_same_org_project FOREIGN KEY (organization_id, project_id) REFERENCES public.projects(organization_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: properties fk_properties_same_scope_hierarchy; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.properties
+    ADD CONSTRAINT fk_properties_same_scope_hierarchy FOREIGN KEY (organization_id, id, authorization_scope_type, project_id, authorization_project_scope_type) REFERENCES public.authorization_scope_references(organization_id, id, scope_type, project_id, project_scope_type) ON DELETE RESTRICT;
 
 
 --
@@ -3355,6 +3592,14 @@ ALTER TABLE ONLY public.subscriptions
 
 ALTER TABLE ONLY public.role_permissions
     ADD CONSTRAINT fk_rails_439e640a3f FOREIGN KEY (permission_id) REFERENCES public.permissions(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: properties fk_rails_467fb8a84a; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.properties
+    ADD CONSTRAINT fk_rails_467fb8a84a FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE RESTRICT;
 
 
 --
@@ -3854,12 +4099,21 @@ ALTER TABLE ONLY public.usage_windows
 
 
 --
+-- Name: website_property_configs fk_website_property_configs_typed_property; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.website_property_configs
+    ADD CONSTRAINT fk_website_property_configs_typed_property FOREIGN KEY (organization_id, project_id, property_id, property_kind, configuration_version) REFERENCES public.properties(organization_id, project_id, id, kind, configuration_version) ON DELETE RESTRICT;
+
+
+--
 -- PostgreSQL database dump complete
 --
 
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904131000'),
 ('20260904130000'),
 ('20260904123000'),
 ('20260904102000'),

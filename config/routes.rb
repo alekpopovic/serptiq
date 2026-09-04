@@ -143,6 +143,28 @@ Rails.application.routes.draw do
     as: :reactivate_organization_project
   delete "dashboard/organizations/:organization_slug/projects/:project_slug",
     to: "projects/projects#destroy"
+  get "dashboard/organizations/:organization_slug/projects/:project_slug/properties",
+    to: "properties/properties#index",
+    as: :organization_project_properties
+  get "dashboard/organizations/:organization_slug/projects/:project_slug/properties/new",
+    to: "properties/properties#new",
+    as: :new_organization_project_property
+  post "dashboard/organizations/:organization_slug/projects/:project_slug/properties",
+    to: "properties/properties#create"
+  get "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id",
+    to: "properties/properties#show",
+    as: :organization_project_property
+  get "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id/edit",
+    to: "properties/properties#edit",
+    as: :edit_organization_project_property
+  patch "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id",
+    to: "properties/properties#update"
+  patch "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id/archive",
+    to: "properties/properties#archive",
+    as: :archive_organization_project_property
+  patch "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id/reactivate",
+    to: "properties/properties#reactivate",
+    as: :reactivate_organization_project_property
   get "dashboard/organizations/:organization_slug", to: "dashboard#index", as: :organization_dashboard
   get "onboarding", to: "onboarding#show", as: :onboarding
   get "dashboard/invitations/review",

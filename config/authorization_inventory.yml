@@ -69,6 +69,17 @@ controllers:
       archive: &archive_projects { kind: permission, permission: projects.archive }
       reactivate: *archive_projects
       destroy: { kind: permission, permission: projects.delete }
+  Properties::PropertiesController:
+    source: app/controllers/properties/properties_controller.rb
+    actions:
+      index: { kind: exempt, reason: scope_filtered_property_directory }
+      new: &manage_properties { kind: permission, permission: properties.manage }
+      create: *manage_properties
+      show: { kind: permission, permission: properties.read }
+      edit: *manage_properties
+      update: *manage_properties
+      archive: *manage_properties
+      reactivate: *manage_properties
   Tenancy::InvitationAcceptancesController:
     source: app/controllers/tenancy/invitation_acceptances_controller.rb
     actions:
@@ -199,6 +210,9 @@ domain_operations:
   Authorization::Public.visible_project_scopes:
     kind: context
     reason: scope_filtered_project_visibility_projection
+  Authorization::Public.visible_property_scopes:
+    kind: context
+    reason: scope_filtered_property_visibility_projection
   Authorization::Public.access_decision: { kind: context, reason: unified_permission_entitlement_resource_quota_decision }
   Authorization::Public.authorize_access!: { kind: context, reason: enforced_unified_access_decision }
   Authorization::Public.with_access: { kind: context, reason: enforced_access_with_pre_enqueue_release }
@@ -215,6 +229,19 @@ domain_operations:
   Projects::Public.reference:
     kind: context
     reason: explicit_tenant_project_projection_for_downstream_modules
+  Properties::Public.create_property: { kind: permission, permission: properties.manage }
+  Properties::Public.update_property: { kind: permission, permission: properties.manage }
+  Properties::Public.transition_property: { kind: permission, permission: properties.manage }
+  Properties::Public.property_page:
+    kind: context
+    reason: filters_every_result_through_property_scope_visibility
+  Properties::Public.property_details: { kind: permission, permission: properties.read }
+  Properties::Public.project_rollup_reader:
+    kind: context
+    reason: grouped_project_property_count_projection
+  Properties::Public.reference:
+    kind: context
+    reason: explicit_tenant_project_property_projection_for_downstream_modules
   Billing::Public.create_subscription_reference:
     kind: context
     reason: explicit_tenant_and_published_plan_projection

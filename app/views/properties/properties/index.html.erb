@@ -1,0 +1,57 @@
+<% content_for :title, "Properties" %>
+
+<div class="mx-auto max-w-7xl">
+  <%= render "shared/breadcrumbs", items: [
+    { label: "Projects", path: organization_projects_path(Current.organization.slug) },
+    { label: @project.name, path: organization_project_path(Current.organization.slug, @project.slug) },
+    { label: "Properties", path: nil }
+  ] %>
+  <div class="mt-6 flex flex-wrap items-end justify-between gap-4">
+    <div>
+      <p class="so-eyebrow">Project discovery surfaces</p>
+      <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950">Properties</h1>
+      <p class="mt-2 text-sm leading-6 text-slate-600">Website and mobile identifiers are stored in typed configurations. Verification is a separate observed state.</p>
+    </div>
+    <% if allowed_to?("properties.manage", project: @project) %>
+      <%= link_to "Add property", new_organization_project_property_path(Current.organization.slug, @project.slug), class: "so-button so-button-primary" %>
+    <% end %>
+  </div>
+
+  <%= form_with url: organization_project_properties_path(Current.organization.slug, @project.slug), method: :get, class: "so-card mt-7 flex flex-col gap-3 p-4 sm:flex-row sm:items-end" do |form| %>
+    <div class="flex-1">
+      <%= form.label :q, "Search properties", class: "so-label" %>
+      <%= form.search_field :q, value: @property_page.query, maxlength: 80, placeholder: "Name or type", class: "so-input" %>
+    </div>
+    <%= form.submit "Search", class: "so-button so-button-secondary" %>
+  <% end %>
+
+  <% if @property_page.entries.any? %>
+    <div class="so-table-wrap mt-6" role="region" aria-label="Project properties" tabindex="0">
+      <table class="so-table">
+        <thead><tr><th scope="col">Property</th><th scope="col">Type</th><th scope="col">Verification</th><th scope="col">Lifecycle</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+        <tbody>
+          <% @property_page.entries.each do |property| %>
+            <tr>
+              <th scope="row"><span class="font-semibold text-slate-950"><%= property.display_name %></span><span class="mt-1 block font-mono text-xs font-normal text-slate-500"><%= property.identifier %></span></th>
+              <td><%= property.kind.humanize %></td>
+              <td><span class="so-badge <%= property.verified? ? "so-badge-success" : "so-badge-neutral" %>"><%= property.verification_status.humanize %></span></td>
+              <td><%= property.status.humanize %></td>
+              <td class="text-right"><%= link_to "View", organization_project_property_path(Current.organization.slug, @project.slug, property.id), class: "so-button so-button-secondary so-button-small" %></td>
+            </tr>
+          <% end %>
+        </tbody>
+      </table>
+    </div>
+  <% else %>
+    <section class="so-empty-state mt-8" aria-labelledby="properties-empty-title">
+      <h2 id="properties-empty-title" class="text-lg font-bold text-slate-950">No accessible properties</h2>
+      <p class="mx-auto mt-2 max-w-xl text-sm leading-6 text-slate-600">Add a discovery surface if permitted, or ask an administrator for explicit access.</p>
+    </section>
+  <% end %>
+
+  <nav class="so-pagination mt-5" aria-label="Property pages">
+    <% if @property_page.previous_page %><%= link_to "Previous", organization_project_properties_path(Current.organization.slug, @project.slug, page: @property_page.previous_page, q: @property_page.query) %><% end %>
+    <span aria-current="page"><%= @property_page.page %></span>
+    <% if @property_page.next_page %><%= link_to "Next", organization_project_properties_path(Current.organization.slug, @project.slug, page: @property_page.next_page, q: @property_page.query) %><% end %>
+  </nav>
+</div>

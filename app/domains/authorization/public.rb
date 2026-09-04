@@ -28,6 +28,10 @@ module Authorization
       VisibleProjectScopes.new.call(**attributes)
     end
 
+    def visible_property_scopes(**attributes)
+      VisiblePropertyScopes.new.call(**attributes)
+    end
+
     def assign_role(**attributes)
       AssignRole.new.call(**attributes)
     end

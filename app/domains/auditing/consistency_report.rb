@@ -59,6 +59,13 @@ module Auditing
       WHERE audit_events.target_type = 'Project' AND audit_events.target_id IS NOT NULL
         AND (targets.id IS NULL OR targets.organization_id <> audit_events.organization_id)
       UNION ALL
+      SELECT audit_events.id,
+        CASE WHEN targets.id IS NULL THEN 'target_orphan' ELSE 'target_cross_tenant' END AS reason_code
+      FROM audit_events
+      LEFT JOIN properties targets ON targets.id = audit_events.target_id
+      WHERE audit_events.target_type = 'Property' AND audit_events.target_id IS NOT NULL
+        AND (targets.id IS NULL OR targets.organization_id <> audit_events.organization_id)
+      UNION ALL
       SELECT audit_events.id, 'target_orphan' AS reason_code
       FROM audit_events LEFT JOIN roles targets ON targets.id = audit_events.target_id
       WHERE audit_events.target_type = 'Role' AND audit_events.target_id IS NOT NULL AND targets.id IS NULL

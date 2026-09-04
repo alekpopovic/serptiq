@@ -1,0 +1,25 @@
+{
+  "prompt_id": "051",
+  "title": "Implement polymorphic property model and typed configurations",
+  "status": "completed",
+  "started_at": "2026-09-04T19:33:51Z",
+  "finished_at": "2026-09-04T20:00:52Z",
+  "summary": "Implemented tenant-scoped polymorphic properties with immutable typed website, Android, and iOS configurations, normalized database constraints, authorization-aware CRUD/search UI, entitlement limits, lifecycle transitions, audit/outbox integration, and project rollups.",
+  "tests": [
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test: 658 runs, 5144 assertions, 0 failures, 0 errors, 0 skips; docker compose --profile test run --rm test ./bin/rails test:system: 32 runs, 148 assertions, 0 failures, 0 errors, 0 skips; bin/quality: 14 checks passed; migration rollback and reapply succeeded.",
+      "outcome": "passed",
+      "notes": "Recorded through legacy --tests option."
+    }
+  ],
+  "files_changed": [],
+  "migrations": [],
+  "decisions": [],
+  "risks": [
+    "none reported"
+  ],
+  "next_steps": [
+    "follow the dependency graph"
+  ],
+  "commit": null
+}

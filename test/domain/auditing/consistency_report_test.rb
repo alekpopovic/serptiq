@@ -62,4 +62,23 @@ class AuditConsistencyReportTest < ActiveSupport::TestCase
     assert_includes Auditing::Public.consistency_issues,
       Auditing::ConsistencyIssue.new(audit_event_id: event.id, reason_code: "target_cross_tenant")
   end
+
+  test "reports a property target from another tenant" do
+    Authorization::Public.sync_catalog
+    enable_project_limit(@foreign)
+    enable_property_limits(@foreign)
+    project = create_project_for(@foreign, slug: "foreign-audit-property-project")
+    property = create_property_for(@foreign, project: project, kind: "android_app")
+    event = Auditing::Public.record!(
+      organization_id: @owner.organization.id,
+      actor_membership_id: @owner.membership.id,
+      action: "property.reviewed",
+      target_type: "Property",
+      target_id: property.id,
+      result: "denied"
+    )
+
+    assert_includes Auditing::Public.consistency_issues,
+      Auditing::ConsistencyIssue.new(audit_event_id: event.id, reason_code: "target_cross_tenant")
+  end
 end

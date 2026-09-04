@@ -24,6 +24,10 @@ Project create, update, archive, restore and deletion-request operations use `Pr
 same organization. The operator consistency query treats missing or cross-tenant Project targets as errors;
 metadata contains only operation/state classification and never customer names, descriptions or release keys.
 
+Property create, association-configuration update, archive and restore operations use same-tenant `Property`
+targets. Configuration audit metadata records only type and changed-field classifications; origins, package
+names, bundle IDs and Team IDs are deliberately excluded.
+
 Run `bin/tenancy-security` for the required Phase 03 isolation suite and both consistency reports. Operators
 can run `bin/rails auditing:consistency:check` independently; any orphan or known cross-tenant actor/retained
 tenant target causes a non-zero exit. Expired sessions are intentionally excluded because their audit IDs

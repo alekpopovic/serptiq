@@ -651,32 +651,39 @@ defined by the later lifecycle workflow.
 
 ### `properties`
 
-| Column | Type |
-|---|---|
-| id | uuid |
-| organization_id | uuid |
-| project_id | uuid |
-| kind | string: website/android/ios |
-| name | string |
-| environment | string |
-| status | string |
-| verified_at | timestamptz |
-| settings | jsonb |
-| archived_at | timestamptz |
+| Column | Type | Notes |
+|---|---|---|
+| id | uuid | PK and matching Authorization property-scope identity |
+| organization_id | uuid | immutable tenant boundary |
+| project_id | uuid | immutable same-tenant project parent |
+| display_name | citext | unique within retained project history |
+| kind | string | website, web_application, android_app, ios_app |
+| status | string | active or archived |
+| verification_status | string | unverified, pending, verified, failed, expired or revoked |
+| verified_at | timestamptz | required for verified state |
+| configuration_version | integer | fixed to typed schema version 1 |
+| archived_at | timestamptz | required in archived state |
+| lock_version | integer | optimistic lifecycle/configuration locking |
 
-Type-specific data belongs in one-to-one configuration tables.
+The property, project and organization are joined through composite foreign keys to both the Projects and
+Authorization hierarchies. Type, parent and configuration version are immutable; a future type or schema
+requires an explicit versioned migration. No security-critical core configuration is stored in JSON.
 
 ### `website_property_configs`
 
-Normalized scheme, host, port, origin, allowed-host policy, seed URLs, sitemap hints, robots behavior, crawl limits, rendering defaults.
+One-to-one typed configuration for website and web-application properties. Version 1 stores normalized
+HTTP(S) scheme, hostname, effective port and canonical origin. Environment, IDNA and crawl-policy extensions
+are introduced by their owning prompts.
 
 ### `android_property_configs`
 
-Package name, supplied manifest artifact reference, expected certificate fingerprints, default locale, store identifier.
+One-to-one typed configuration with a normalized Android package name. Manifest artifacts, certificate
+fingerprints, locales and store snapshots are separate versioned association/discovery records.
 
 ### `ios_property_configs`
 
-Bundle ID, Team ID, associated-domain declarations, default locale, App Store identifier.
+One-to-one typed configuration with normalized bundle ID and uppercase Team ID. Associated-domain
+declarations, locales and App Store snapshots remain separate versioned discovery records.
 
 ### `domain_verifications`
 
@@ -870,6 +877,8 @@ targets for orphaned and cross-tenant references.
 15. Object artifacts cannot be accessed without an authorized parent relation.
 16. Every project has a same-organization Authorization project scope, and its stable routing/integration
     identity cannot be reassigned.
+17. Every property and typed configuration has the same organization and project as its immutable parent and
+    registered Authorization property scope.
 
 ## 12. Retention classes
 

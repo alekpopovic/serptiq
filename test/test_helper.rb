@@ -24,6 +24,7 @@ module ActiveSupport
     include TestSupport::PermissionAssertions
     include TestSupport::PlanCatalogHelpers
     include TestSupport::ProjectHelpers
+    include TestSupport::PropertyHelpers
     include TestSupport::TenantIsolationAssertions
     include TestSupport::CurrentTenantHelper
     include TestSupport::UsageHelpers

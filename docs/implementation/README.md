@@ -79,6 +79,8 @@ Do not pre-populate these reports with fictional implementation or test results.
   evaluation order, integration APIs, reservation cleanup and feature-operation key registry.
 - [`PROJECTS.md`](./PROJECTS.md) defines stable project identity, tenant/scope linkage, lifecycle,
   active-project capacity, audit/outbox history and bulk placeholder read models.
+- [`PROPERTIES.md`](./PROPERTIES.md) defines versioned typed property configuration, tenant/project scope
+  linkage, active property limits, lifecycle, verification-reset and grouped read-model semantics.
 - [`BILLING_PROVIDER_CONTRACT.md`](./BILLING_PROVIDER_CONTRACT.md) defines normalized billing values,
   adapter operations/errors, transport policies, canonical lifecycle and second-provider requirements.
 - [`LEMON_SQUEEZY_ADAPTER.md`](./LEMON_SQUEEZY_ADAPTER.md) defines the first production adapter's exact

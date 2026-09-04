@@ -16,12 +16,12 @@ module Projects
       TransitionProject.new(clock: clock).call(**attributes)
     end
 
-    def project_page(**attributes)
-      ProjectDirectory.new.page(**attributes)
+    def project_page(read_models: ProjectOperationalReadModels.new, **attributes)
+      ProjectDirectory.new(read_models: read_models).page(**attributes)
     end
 
-    def project_details(**attributes)
-      ProjectDirectory.new.find(**attributes)
+    def project_details(read_models: ProjectOperationalReadModels.new, **attributes)
+      ProjectDirectory.new(read_models: read_models).find(**attributes)
     end
 
     def reference(organization_id:, project_id:)

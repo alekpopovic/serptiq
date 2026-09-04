@@ -160,6 +160,8 @@ Legend: **✓** default grant, **—** not granted. Owners receive every custome
     To preserve reviewable project history, `projects.read`, `projects.archive` (restore), and
     `projects.delete` may be evaluated against an archived project using current organization-scope grants
     only; assignments scoped to that archived project remain ineffective.
+    An archived property below an active project is similarly readable/restorable through current
+    organization- or parent-project grants; a grant scoped only to that archived property remains inactive.
 13. Generic role assignment cannot grant `Owner`; ownership changes use the dedicated transfer operation.
 14. Accepted invitation role intent passes through the same assignment authority and tenant checks; membership
     activation and the initial grant commit atomically.

@@ -29,6 +29,11 @@ organization grants flow into it through the ordinary hierarchy. Once archived, 
 inactive; only current organization-scope grants can read retained history, restore the project, or request
 deletion. All other operations fail with `resource_unavailable`.
 
+Property creation registers a same-tenant child scope without assigning a role. Organization and parent
+project grants flow downward, while a property grant reaches only that property. An archived property beneath
+an active project can be read or restored only by a qualifying organization/project grant; its own archived
+scope contributes no permissions.
+
 `Authorization::PolicyAdapter` is the UI/job/domain adapter. It returns decisions for capability hints and
 raises `Authorization::AccessDenied` for enforcement. `Authorization::ControllerPolicy` exposes private
 controller helpers and is included globally. Tenant controllers declare every public action with
