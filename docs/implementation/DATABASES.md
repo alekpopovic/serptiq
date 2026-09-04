@@ -85,11 +85,13 @@ attempts. The migration must state the exception; tenant reachability and
 foreign keys remain mandatory. Solid Queue/Cache/Cable retain their upstream
 bigint/internal key design.
 
-The primary migration enables only `pgcrypto`, which supplies the accepted UUID
+The foundation migration enables `pgcrypto`, which supplies the accepted UUID
 generation/cryptographic database functions needed by later UUID migrations.
-The migration is reversible before dependent objects exist. Once UUID defaults
-or functions depend on it, production rollback must be a reviewed forward fix,
-not an automatic extension drop. No extension is enabled in queue/cache/cable.
+The identity model also enables `citext` for normalized contact/provider email
+columns. These migrations are reversible before dependent objects or identity
+data exist. Once application data depends on them, production rollback must be
+a reviewed forward fix, not an automatic extension drop. No extension is
+enabled in queue/cache/cable.
 
 Domain `datetime` columns use PostgreSQL `timestamptz` through the application
 adapter initializer. Values still surface as Rails `:datetime`, but PostgreSQL

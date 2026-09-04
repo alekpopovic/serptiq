@@ -41,5 +41,7 @@ Do not pre-populate these reports with fictional implementation or test results.
   readiness and release semantics plus private worker heartbeat inspection.
 - [`AUTHENTICATION_SESSIONS.md`](./AUTHENTICATION_SESSIONS.md) defines native
   session tokens, cookies, request context, rotation and logout behavior.
+- [`IDENTITY_DATA_MODEL.md`](./IDENTITY_DATA_MODEL.md) defines stable provider
+  subjects, collision policy, protected OAuth transactions and anonymization.
 - [`../../tracking/README.md`](../../tracking/README.md) defines prompt evidence,
   recovery and state integrity.

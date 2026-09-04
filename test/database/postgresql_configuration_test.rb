@@ -31,11 +31,12 @@ class PostgreSQLConfigurationTest < ActiveSupport::TestCase
     assert_equal [ "PostgreSQL" ], adapters.uniq
   end
 
-  test "primary database enables only the justified pgcrypto extension" do
+  test "primary database enables only the justified UUID and case-insensitive text extensions" do
     connection = Shared::DatabaseConnections::Primary.connection
 
     assert connection.extension_enabled?("pgcrypto")
-    assert_equal [ "pg_catalog.plpgsql", "pgcrypto" ], connection.extensions.sort
+    assert connection.extension_enabled?("citext")
+    assert_equal [ "citext", "pg_catalog.plpgsql", "pgcrypto" ], connection.extensions.sort
   end
 
   test "separate queue cache and cable schemas load without application extensions" do

@@ -149,10 +149,13 @@ Unique: `(provider, provider_subject)`. Avoid automatically merging accounts mer
 | provider | string | |
 | state_digest | string | unique |
 | nonce_digest | string | for OIDC |
+| pkce_verifier_digest | string | keyed integrity/reference digest |
 | pkce_verifier_ciphertext | text | encrypted |
 | return_to | text | validated local path only |
 | expires_at | timestamptz | |
 | consumed_at | timestamptz | |
+| attempt_count | integer | nonnegative callback attempts |
+| last_attempted_at | timestamptz | nullable until first attempt |
 
 ### `organizations`
 

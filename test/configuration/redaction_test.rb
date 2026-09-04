@@ -6,7 +6,13 @@ class SharedRedactionTest < ActiveSupport::TestCase
   test "redacts nested parameters and structured events" do
     value = {
       "provider" => "google",
-      "oauth" => { "code" => "oauth-code", "id_token" => "id-token", "state" => "state-value" },
+      "oauth" => {
+        "code" => "oauth-code",
+        "id_token" => "id-token",
+        "state" => "state-value",
+        "nonce" => "nonce-value",
+        "pkce_verifier" => "pkce-value"
+      },
       "billing" => { "webhook_secret" => "billing-secret", "raw_body" => "signed-payload" },
       "api" => { "api_key" => "api-secret" },
       "crawler" => { "page_body" => "private html", "rendered_dom" => "private dom" },
@@ -19,6 +25,8 @@ class SharedRedactionTest < ActiveSupport::TestCase
     assert_equal "[FILTERED]", filtered.dig("oauth", "code")
     assert_equal "[FILTERED]", filtered.dig("oauth", "id_token")
     assert_equal "[FILTERED]", filtered.dig("oauth", "state")
+    assert_equal "[FILTERED]", filtered.dig("oauth", "nonce")
+    assert_equal "[FILTERED]", filtered.dig("oauth", "pkce_verifier")
     assert_equal [ "[FILTERED]" ], filtered.fetch("billing").values.uniq
     assert_equal "[FILTERED]", filtered.dig("api", "api_key")
     assert_equal [ "[FILTERED]" ], filtered.fetch("crawler").values.uniq
@@ -42,6 +50,7 @@ class SharedRedactionTest < ActiveSupport::TestCase
     filter = ActiveSupport::ParameterFilter.new(Rails.application.config.filter_parameters)
 
     assert_equal "[FILTERED]", filter.filter("oauth_code" => "secret").fetch("oauth_code")
+    assert_equal "[FILTERED]", filter.filter("pkce_verifier" => "secret").fetch("pkce_verifier")
     assert_equal "[FILTERED]", filter.filter("X-Api-Key" => "secret").fetch("X-Api-Key")
   end
 
