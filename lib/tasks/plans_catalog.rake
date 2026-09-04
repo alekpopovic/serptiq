@@ -15,6 +15,9 @@ namespace :plans do
       mode = result.dry_run? ? "dry-run" : "applied"
       puts "Plan catalog #{mode}: #{result.change_count} change(s), checksum #{result.checksum}"
       result.changes.each { |change| puts "- #{change}" }
+      entitlement_result = Entitlements::Public.sync_catalog(dry_run: dry_run)
+      puts "Typed entitlements: #{entitlement_result.change_count} change(s), " \
+        "#{entitlement_result.definition_count} definitions"
     end
 
     desc "Compare governed YAML, database versions and active provider mapping metadata"

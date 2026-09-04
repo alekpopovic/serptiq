@@ -103,7 +103,17 @@ Never use plan-name conditionals in domain code. Use stable keys such as `crawl.
 4. Trial or default free plan version.
 5. Definition-level safe default.
 
-The resolver returns the value and provenance. Unknown keys fail closed and emit an operational error.
+Prompt 038 implements organization override → active subscription projection → definition safe default. A
+future platform-wide emergency deny composes above that result; a trial/free entitlement source must be an
+explicit subscription projection and is never inferred from a missing subscription. The resolver returns the
+strictly typed value, state and provenance. Unknown keys, a missing materialized plan value and malformed
+security-sensitive data fail closed and emit a bounded operational event.
+
+Values have explicit states: `enabled`, `disabled`, `custom_required`, `unknown` or `misconfigured`.
+`custom_required` is not unlimited—it requires a concrete, audited organization override before admission.
+Boolean strings, numeric strings, floats for integer definitions and symbols for enums are rejected rather
+than coerced. Request caching includes definition checksum, plan-value checksum, subscription revision and
+override revision, so a changed subscription or override cannot reuse the old decision.
 
 ## 6. Subscription access states
 

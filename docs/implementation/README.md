@@ -59,5 +59,7 @@ Do not pre-populate these reports with fictional implementation or test results.
   archive semantics and the future authorization-principal resolver contract.
 - [`PLAN_CATALOG.md`](./PLAN_CATALOG.md) defines governed catalog synchronization,
   publication scheduling, checkout selection, grandfathering and deletion safety.
+- [`ENTITLEMENTS.md`](./ENTITLEMENTS.md) defines strict entitlement types, safe defaults,
+  subscription/override precedence, request caching and tenant-safe diagnostics.
 - [`../../tracking/README.md`](../../tracking/README.md) defines prompt evidence,
   recovery and state integrity.

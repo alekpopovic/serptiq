@@ -1,0 +1,61 @@
+<% content_for :title, "Effective entitlements" %>
+
+<div class="mx-auto max-w-6xl">
+  <%= render "shared/breadcrumbs", items: [
+    { label: "Dashboard", path: organization_dashboard_path(Current.organization.slug) },
+    { label: Current.organization.name, path: organization_dashboard_path(Current.organization.slug) },
+    { label: "Effective entitlements", path: nil }
+  ] %>
+
+  <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+    <div>
+      <p class="so-eyebrow">Plan diagnostics</p>
+      <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950">Effective entitlements</h1>
+      <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">
+        Typed feature and limit decisions for <strong><%= Current.organization.name %></strong>.
+        Values are application guarantees from the local catalog, not live billing-provider observations.
+      </p>
+    </div>
+    <span class="so-badge so-badge-neutral"><%= @diagnostic_report.plan_label %></span>
+  </div>
+
+  <div class="mt-8 space-y-6">
+    <% @diagnostic_report.entries.group_by(&:category).each do |category, entries| %>
+      <section class="so-card overflow-hidden" aria-labelledby="entitlement-category-<%= category %>">
+        <div class="border-b border-slate-200 bg-slate-50 px-5 py-4">
+          <h2 id="entitlement-category-<%= category %>" class="font-bold text-slate-950"><%= category.humanize %></h2>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-slate-200 text-left text-sm">
+            <thead class="text-xs uppercase tracking-wide text-slate-500">
+              <tr>
+                <th class="px-5 py-3">Entitlement</th>
+                <th class="px-5 py-3">Effective value</th>
+                <th class="px-5 py-3">State</th>
+                <th class="px-5 py-3">Source</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 bg-white">
+              <% entries.each do |entry| %>
+                <tr>
+                  <td class="px-5 py-4">
+                    <p class="font-mono text-xs font-semibold text-slate-950"><%= entry.key %></p>
+                    <p class="mt-1 text-slate-600"><%= entry.description %></p>
+                  </td>
+                  <td class="px-5 py-4 text-slate-700"><%= entry.display_value %></td>
+                  <td class="px-5 py-4"><span class="so-badge so-badge-neutral"><%= entry.state.humanize %></span></td>
+                  <td class="px-5 py-4 text-slate-600">
+                    <%= entry.provenance.humanize %>
+                    <% if entry.override_source %>
+                      (<%= entry.override_source.humanize %><% if entry.override_expires_at %>, until <%= entry.override_expires_at.to_fs(:short) %><% end %>)
+                    <% end %>
+                  </td>
+                </tr>
+              <% end %>
+            </tbody>
+          </table>
+        </div>
+      </section>
+    <% end %>
+  </div>
+</div>

@@ -44,6 +44,13 @@
   <% end %>
 
   <div class="mt-8 grid gap-5 sm:grid-cols-2">
+    <% if allowed_to?("plans.read") %>
+      <section class="so-card p-6" aria-labelledby="entitlement-settings-title">
+        <h2 id="entitlement-settings-title" class="font-bold text-slate-950">Plan entitlements</h2>
+        <p class="mt-2 text-sm leading-6 text-slate-600">Inspect typed effective features, limits and their local source without exposing provider identifiers.</p>
+        <%= link_to "View effective entitlements", organization_entitlements_path(Current.organization.slug), class: "so-button so-button-secondary mt-4" %>
+      </section>
+    <% end %>
     <% if allowed_to?("audit_log.read") %>
       <section class="so-card p-6" aria-labelledby="audit-settings-title">
         <h2 id="audit-settings-title" class="font-bold text-slate-950">Audit log</h2>

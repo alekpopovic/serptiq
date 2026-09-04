@@ -1,7 +1,7 @@
 # frozen_string_literal: true
 
 class Current < ActiveSupport::CurrentAttributes
-  attribute :user, :session, :organization, :membership
+  attribute :user, :session, :organization, :membership, :entitlement_cache
 
   def assign_tenant(organization:, membership:)
     valid = user && organization && membership &&

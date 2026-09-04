@@ -39,6 +39,66 @@ COMMENT ON EXTENSION pgcrypto IS 'cryptographic functions';
 
 
 --
+-- Name: enforce_entitlement_definition_stability(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.enforce_entitlement_definition_stability() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF TG_OP = 'DELETE' OR NEW IS DISTINCT FROM OLD THEN
+    RAISE EXCEPTION 'entitlement definition identity is immutable' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: enforce_organization_entitlement_override_append_only(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.enforce_organization_entitlement_override_append_only() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'entitlement overrides are append-only' USING ERRCODE = '23514';
+  END IF;
+  IF OLD.organization_id IS DISTINCT FROM NEW.organization_id OR
+     OLD.entitlement_definition_id IS DISTINCT FROM NEW.entitlement_definition_id OR
+     OLD.value_type IS DISTINCT FROM NEW.value_type OR OLD.value IS DISTINCT FROM NEW.value OR
+     OLD.starts_at IS DISTINCT FROM NEW.starts_at OR OLD.ends_at IS DISTINCT FROM NEW.ends_at OR
+     OLD.reason IS DISTINCT FROM NEW.reason OR OLD.source IS DISTINCT FROM NEW.source OR
+     OLD.created_by_membership_id IS DISTINCT FROM NEW.created_by_membership_id OR
+     OLD.revoked_at IS NOT NULL OR NEW.revoked_at IS NULL OR NEW.revoked_by_membership_id IS NULL THEN
+    RAISE EXCEPTION 'entitlement override history is immutable' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: enforce_plan_entitlement_immutability(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.enforce_plan_entitlement_immutability() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM plan_versions WHERE id = OLD.plan_version_id AND status <> 'draft') THEN
+    RAISE EXCEPTION 'published plan entitlements are immutable' USING ERRCODE = '23514';
+  END IF;
+  IF TG_OP = 'DELETE' THEN
+    RETURN OLD;
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: enforce_plan_version_immutability(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -246,6 +306,58 @@ CREATE TABLE public.billing_plan_provider_mappings (
 
 
 --
+-- Name: entitlement_definitions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.entitlement_definitions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    key character varying(96) NOT NULL,
+    value_type character varying(16) NOT NULL,
+    unit character varying(32) NOT NULL,
+    category character varying(32) NOT NULL,
+    minimum_value numeric(24,6),
+    maximum_value numeric(24,6),
+    allowed_values jsonb DEFAULT '[]'::jsonb NOT NULL,
+    max_length integer,
+    allow_custom boolean DEFAULT false NOT NULL,
+    security_sensitive boolean DEFAULT false NOT NULL,
+    system_default jsonb NOT NULL,
+    customer_description character varying(240) NOT NULL,
+    catalog_checksum character varying(64) NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT entitlement_definitions_allowed_values_shape CHECK (((jsonb_typeof(allowed_values) = 'array'::text) AND (pg_column_size(allowed_values) <= 4096))),
+    CONSTRAINT entitlement_definitions_bounds_order CHECK (((minimum_value IS NULL) OR (maximum_value IS NULL) OR (minimum_value <= maximum_value))),
+    CONSTRAINT entitlement_definitions_checksum_format CHECK (((catalog_checksum)::text ~ '^[0-9a-f]{64}$'::text)),
+    CONSTRAINT entitlement_definitions_default_type CHECK (((((value_type)::text = 'boolean'::text) AND (jsonb_typeof(system_default) = 'boolean'::text)) OR (((value_type)::text = 'integer'::text) AND (jsonb_typeof(system_default) = 'number'::text) AND ((system_default #>> '{}'::text[]) ~ '^-?(0|[1-9][0-9]*)$'::text)) OR (((value_type)::text = 'decimal'::text) AND (jsonb_typeof(system_default) = 'string'::text) AND ((system_default #>> '{}'::text[]) ~ '^-?(0|[1-9][0-9]*)(\.[0-9]+)?$'::text)) OR (((value_type)::text = ANY ((ARRAY['enum'::character varying, 'string'::character varying])::text[])) AND (jsonb_typeof(system_default) = 'string'::text)))),
+    CONSTRAINT entitlement_definitions_description_format CHECK ((((char_length((customer_description)::text) >= 3) AND (char_length((customer_description)::text) <= 240)) AND ((customer_description)::text = btrim((customer_description)::text)))),
+    CONSTRAINT entitlement_definitions_key_format CHECK (((key)::text ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$'::text)),
+    CONSTRAINT entitlement_definitions_max_length_range CHECK (((max_length IS NULL) OR ((max_length >= 1) AND (max_length <= 4096)))),
+    CONSTRAINT entitlement_definitions_security_default CHECK (((security_sensitive = false) OR (((value_type)::text = 'boolean'::text) AND (system_default = 'false'::jsonb)) OR (((value_type)::text = 'integer'::text) AND (system_default = '0'::jsonb)) OR (((value_type)::text = 'decimal'::text) AND ((system_default #>> '{}'::text[]) = '0'::text)) OR (((value_type)::text = ANY ((ARRAY['enum'::character varying, 'string'::character varying])::text[])) AND ((system_default #>> '{}'::text[]) = ANY (ARRAY['none'::text, 'disabled'::text]))))),
+    CONSTRAINT entitlement_definitions_taxonomy_format CHECK ((((unit)::text ~ '^[a-z][a-z0-9_]{1,31}$'::text) AND ((category)::text ~ '^[a-z][a-z0-9_]{1,31}$'::text))),
+    CONSTRAINT entitlement_definitions_type_allowlist CHECK (((value_type)::text = ANY ((ARRAY['boolean'::character varying, 'integer'::character varying, 'decimal'::character varying, 'enum'::character varying, 'string'::character varying])::text[]))),
+    CONSTRAINT entitlement_definitions_validation_shape CHECK (((((value_type)::text = 'boolean'::text) AND (minimum_value IS NULL) AND (maximum_value IS NULL) AND (allowed_values = '[]'::jsonb) AND (max_length IS NULL) AND (allow_custom = false)) OR (((value_type)::text = ANY ((ARRAY['integer'::character varying, 'decimal'::character varying])::text[])) AND (minimum_value IS NOT NULL) AND (maximum_value IS NOT NULL) AND (minimum_value <= maximum_value) AND (allowed_values = '[]'::jsonb) AND (max_length IS NULL)) OR (((value_type)::text = 'enum'::text) AND (minimum_value IS NULL) AND (maximum_value IS NULL) AND (jsonb_array_length(allowed_values) > 0) AND (max_length IS NULL)) OR (((value_type)::text = 'string'::text) AND (minimum_value IS NULL) AND (maximum_value IS NULL) AND (allowed_values = '[]'::jsonb) AND ((max_length >= 1) AND (max_length <= 4096)))))
+);
+
+
+--
+-- Name: entitlement_subscription_contexts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.entitlement_subscription_contexts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    subscription_id uuid NOT NULL,
+    plan_version_id uuid NOT NULL,
+    subscription_revision bigint NOT NULL,
+    active boolean DEFAULT true NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT entitlement_contexts_nonnegative_revision CHECK ((subscription_revision >= 0))
+);
+
+
+--
 -- Name: identities; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -382,6 +494,34 @@ CREATE TABLE public.oauth_transactions (
 
 
 --
+-- Name: organization_entitlement_overrides; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.organization_entitlement_overrides (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    entitlement_definition_id uuid NOT NULL,
+    value_type character varying(16) NOT NULL,
+    value jsonb NOT NULL,
+    starts_at timestamp(6) with time zone NOT NULL,
+    ends_at timestamp(6) with time zone,
+    reason character varying(500) NOT NULL,
+    source character varying(24) NOT NULL,
+    created_by_membership_id uuid NOT NULL,
+    revoked_at timestamp(6) with time zone,
+    revoked_by_membership_id uuid,
+    lock_version integer DEFAULT 0 NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT entitlement_overrides_reason_format CHECK ((((char_length((reason)::text) >= 3) AND (char_length((reason)::text) <= 500)) AND ((reason)::text = btrim((reason)::text)))),
+    CONSTRAINT entitlement_overrides_revocation_shape CHECK ((((revoked_at IS NULL) AND (revoked_by_membership_id IS NULL)) OR ((revoked_at IS NOT NULL) AND (revoked_by_membership_id IS NOT NULL) AND (revoked_at >= created_at)))),
+    CONSTRAINT entitlement_overrides_source_allowlist CHECK (((source)::text = ANY ((ARRAY['contract'::character varying, 'support'::character varying, 'emergency'::character varying])::text[]))),
+    CONSTRAINT entitlement_overrides_typed_value_shape CHECK (((((value_type)::text = 'boolean'::text) AND (jsonb_typeof(value) = 'boolean'::text)) OR (((value_type)::text = 'integer'::text) AND (jsonb_typeof(value) = 'number'::text) AND ((value #>> '{}'::text[]) ~ '^-?(0|[1-9][0-9]*)$'::text)) OR (((value_type)::text = 'decimal'::text) AND (jsonb_typeof(value) = 'string'::text) AND ((value #>> '{}'::text[]) ~ '^-?(0|[1-9][0-9]*)(\.[0-9]+)?$'::text)) OR (((value_type)::text = ANY ((ARRAY['enum'::character varying, 'string'::character varying])::text[])) AND (jsonb_typeof(value) = 'string'::text)))),
+    CONSTRAINT entitlement_overrides_validity_order CHECK (((ends_at IS NULL) OR (ends_at > starts_at)))
+);
+
+
+--
 -- Name: organization_ownerships; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -484,6 +624,25 @@ CREATE TABLE public.plan_catalog_access_grants (
     updated_at timestamp(6) with time zone NOT NULL,
     CONSTRAINT plan_catalog_grants_permission_allowlist CHECK (((permission)::text = ANY ((ARRAY['plan_catalog.read'::character varying, 'plan_catalog.publish'::character varying])::text[]))),
     CONSTRAINT plan_catalog_grants_revocation_order CHECK (((revoked_at IS NULL) OR (revoked_at >= granted_at)))
+);
+
+
+--
+-- Name: plan_entitlements; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.plan_entitlements (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    plan_version_id uuid NOT NULL,
+    entitlement_definition_id uuid NOT NULL,
+    value_type character varying(16) NOT NULL,
+    value_state character varying(16) NOT NULL,
+    value jsonb,
+    catalog_checksum character varying(64) NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT plan_entitlements_checksum_format CHECK (((catalog_checksum)::text ~ '^[0-9a-f]{64}$'::text)),
+    CONSTRAINT plan_entitlements_typed_value_shape CHECK (((((value_state)::text = 'custom'::text) AND (value IS NULL)) OR (((value_state)::text = 'configured'::text) AND ((((value_type)::text = 'boolean'::text) AND (jsonb_typeof(value) = 'boolean'::text)) OR (((value_type)::text = 'integer'::text) AND (jsonb_typeof(value) = 'number'::text) AND ((value #>> '{}'::text[]) ~ '^-?(0|[1-9][0-9]*)$'::text)) OR (((value_type)::text = 'decimal'::text) AND (jsonb_typeof(value) = 'string'::text) AND ((value #>> '{}'::text[]) ~ '^-?(0|[1-9][0-9]*)(\.[0-9]+)?$'::text)) OR (((value_type)::text = ANY ((ARRAY['enum'::character varying, 'string'::character varying])::text[])) AND (jsonb_typeof(value) = 'string'::text))))))
 );
 
 
@@ -678,6 +837,7 @@ CREATE TABLE public.subscriptions (
     ended_at timestamp(6) with time zone,
     created_at timestamp(6) with time zone NOT NULL,
     updated_at timestamp(6) with time zone NOT NULL,
+    lock_version integer DEFAULT 0 NOT NULL,
     CONSTRAINT subscriptions_interval_allowlist CHECK (((billing_interval)::text = ANY ((ARRAY['monthly'::character varying, 'annual'::character varying, 'custom'::character varying])::text[]))),
     CONSTRAINT subscriptions_lifecycle_shape CHECK (((((status)::text = 'active'::text) AND (ended_at IS NULL)) OR (((status)::text = 'inactive'::text) AND (ended_at IS NOT NULL)))),
     CONSTRAINT subscriptions_snapshot_price_shape CHECK (((((pricing_kind_snapshot)::text = 'fixed'::text) AND ((billing_interval)::text = ANY ((ARRAY['monthly'::character varying, 'annual'::character varying])::text[])) AND (price_cents_snapshot IS NOT NULL) AND (price_cents_snapshot >= 0)) OR (((pricing_kind_snapshot)::text = 'custom'::text) AND ((billing_interval)::text = 'custom'::text) AND (price_cents_snapshot IS NULL)))),
@@ -800,6 +960,22 @@ ALTER TABLE ONLY public.billing_plan_provider_mappings
 
 
 --
+-- Name: entitlement_definitions entitlement_definitions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entitlement_definitions
+    ADD CONSTRAINT entitlement_definitions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: entitlement_subscription_contexts entitlement_subscription_contexts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entitlement_subscription_contexts
+    ADD CONSTRAINT entitlement_subscription_contexts_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: identities identities_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -829,6 +1005,14 @@ ALTER TABLE ONLY public.memberships
 
 ALTER TABLE ONLY public.oauth_transactions
     ADD CONSTRAINT oauth_transactions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: organization_entitlement_overrides organization_entitlement_overrides_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organization_entitlement_overrides
+    ADD CONSTRAINT organization_entitlement_overrides_pkey PRIMARY KEY (id);
 
 
 --
@@ -869,6 +1053,14 @@ ALTER TABLE ONLY public.permissions
 
 ALTER TABLE ONLY public.plan_catalog_access_grants
     ADD CONSTRAINT plan_catalog_access_grants_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: plan_entitlements plan_entitlements_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.plan_entitlements
+    ADD CONSTRAINT plan_entitlements_pkey PRIMARY KEY (id);
 
 
 --
@@ -1056,6 +1248,48 @@ CREATE UNIQUE INDEX index_billing_plan_mappings_on_active_target ON public.billi
 --
 
 CREATE UNIQUE INDEX index_billing_plan_mappings_on_provider_variant ON public.billing_plan_provider_mappings USING btree (provider, environment, provider_variant_id);
+
+
+--
+-- Name: index_entitlement_contexts_on_active_organization; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_entitlement_contexts_on_active_organization ON public.entitlement_subscription_contexts USING btree (organization_id) WHERE (active = true);
+
+
+--
+-- Name: index_entitlement_definitions_on_id_and_type; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_entitlement_definitions_on_id_and_type ON public.entitlement_definitions USING btree (id, value_type);
+
+
+--
+-- Name: index_entitlement_definitions_on_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_entitlement_definitions_on_key ON public.entitlement_definitions USING btree (key);
+
+
+--
+-- Name: index_entitlement_overrides_on_active_definition; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_entitlement_overrides_on_active_definition ON public.organization_entitlement_overrides USING btree (organization_id, entitlement_definition_id) WHERE (revoked_at IS NULL);
+
+
+--
+-- Name: index_entitlement_overrides_on_validity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_entitlement_overrides_on_validity ON public.organization_entitlement_overrides USING btree (organization_id, starts_at, ends_at);
+
+
+--
+-- Name: index_entitlement_subscription_contexts_on_subscription_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_entitlement_subscription_contexts_on_subscription_id ON public.entitlement_subscription_contexts USING btree (subscription_id);
 
 
 --
@@ -1304,6 +1538,13 @@ CREATE UNIQUE INDEX index_plan_catalog_grants_on_active_permission ON public.pla
 
 
 --
+-- Name: index_plan_entitlements_on_version_and_definition; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_plan_entitlements_on_version_and_definition ON public.plan_entitlements USING btree (plan_version_id, entitlement_definition_id);
+
+
+--
 -- Name: index_plan_version_snapshot_references_on_identity; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1479,6 +1720,13 @@ CREATE UNIQUE INDEX index_subscriptions_on_active_organization ON public.subscri
 
 
 --
+-- Name: index_subscriptions_on_org_id_plan_version; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_subscriptions_on_org_id_plan_version ON public.subscriptions USING btree (organization_id, id, plan_version_id);
+
+
+--
 -- Name: index_subscriptions_on_plan_version_id_and_status; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1542,6 +1790,27 @@ CREATE UNIQUE INDEX index_users_on_active_normalized_email ON public.users USING
 
 
 --
+-- Name: entitlement_definitions entitlement_definitions_stable; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER entitlement_definitions_stable BEFORE DELETE OR UPDATE ON public.entitlement_definitions FOR EACH ROW EXECUTE FUNCTION public.enforce_entitlement_definition_stability();
+
+
+--
+-- Name: organization_entitlement_overrides organization_entitlement_overrides_append_only; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER organization_entitlement_overrides_append_only BEFORE DELETE OR UPDATE ON public.organization_entitlement_overrides FOR EACH ROW EXECUTE FUNCTION public.enforce_organization_entitlement_override_append_only();
+
+
+--
+-- Name: plan_entitlements plan_entitlements_immutable_snapshot; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER plan_entitlements_immutable_snapshot BEFORE DELETE OR UPDATE ON public.plan_entitlements FOR EACH ROW EXECUTE FUNCTION public.enforce_plan_entitlement_immutability();
+
+
+--
 -- Name: plan_versions plan_versions_immutable_snapshot; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -1580,6 +1849,38 @@ ALTER TABLE ONLY public.organization_ownerships
 
 
 --
+-- Name: entitlement_subscription_contexts fk_entitlement_contexts_subscription_identity; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entitlement_subscription_contexts
+    ADD CONSTRAINT fk_entitlement_contexts_subscription_identity FOREIGN KEY (organization_id, subscription_id, plan_version_id) REFERENCES public.subscriptions(organization_id, id, plan_version_id) ON DELETE RESTRICT;
+
+
+--
+-- Name: organization_entitlement_overrides fk_entitlement_overrides_definition_type; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organization_entitlement_overrides
+    ADD CONSTRAINT fk_entitlement_overrides_definition_type FOREIGN KEY (entitlement_definition_id, value_type) REFERENCES public.entitlement_definitions(id, value_type) ON DELETE RESTRICT;
+
+
+--
+-- Name: organization_entitlement_overrides fk_entitlement_overrides_same_org_creator; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organization_entitlement_overrides
+    ADD CONSTRAINT fk_entitlement_overrides_same_org_creator FOREIGN KEY (organization_id, created_by_membership_id) REFERENCES public.memberships(organization_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: organization_entitlement_overrides fk_entitlement_overrides_same_org_revoker; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organization_entitlement_overrides
+    ADD CONSTRAINT fk_entitlement_overrides_same_org_revoker FOREIGN KEY (organization_id, revoked_by_membership_id) REFERENCES public.memberships(organization_id, id) ON DELETE RESTRICT;
+
+
+--
 -- Name: invitations fk_invitations_same_org_acceptor; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1612,6 +1913,14 @@ ALTER TABLE ONLY public.organization_ownerships
 
 
 --
+-- Name: plan_entitlements fk_plan_entitlements_definition_type; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.plan_entitlements
+    ADD CONSTRAINT fk_plan_entitlements_definition_type FOREIGN KEY (entitlement_definition_id, value_type) REFERENCES public.entitlement_definitions(id, value_type) ON DELETE RESTRICT;
+
+
+--
 -- Name: billing_plan_provider_mappings fk_rails_0b34a5e891; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1633,6 +1942,14 @@ ALTER TABLE ONLY public.invitations
 
 ALTER TABLE ONLY public.subscriptions
     ADD CONSTRAINT fk_rails_1302dfcd89 FOREIGN KEY (plan_version_id) REFERENCES public.plan_versions(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: entitlement_subscription_contexts fk_rails_244e7733dc; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entitlement_subscription_contexts
+    ADD CONSTRAINT fk_rails_244e7733dc FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE RESTRICT;
 
 
 --
@@ -1732,6 +2049,14 @@ ALTER TABLE ONLY public.sessions
 
 
 --
+-- Name: entitlement_subscription_contexts fk_rails_8f660453e5; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.entitlement_subscription_contexts
+    ADD CONSTRAINT fk_rails_8f660453e5 FOREIGN KEY (plan_version_id) REFERENCES public.plan_versions(id) ON DELETE RESTRICT;
+
+
+--
 -- Name: memberships fk_rails_99326fb65d; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1753,6 +2078,14 @@ ALTER TABLE ONLY public.plan_version_snapshot_references
 
 ALTER TABLE ONLY public.plan_versions
     ADD CONSTRAINT fk_rails_ada72724a1 FOREIGN KEY (plan_id) REFERENCES public.plans(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: plan_entitlements fk_rails_b2e4cbe7bf; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.plan_entitlements
+    ADD CONSTRAINT fk_rails_b2e4cbe7bf FOREIGN KEY (plan_version_id) REFERENCES public.plan_versions(id) ON DELETE RESTRICT;
 
 
 --
@@ -1809,6 +2142,14 @@ ALTER TABLE ONLY public.organizations
 
 ALTER TABLE ONLY public.team_memberships
     ADD CONSTRAINT fk_rails_f815fd92e5 FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: organization_entitlement_overrides fk_rails_ff84dda40a; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.organization_entitlement_overrides
+    ADD CONSTRAINT fk_rails_ff84dda40a FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE RESTRICT;
 
 
 --
@@ -1898,6 +2239,7 @@ ALTER TABLE ONLY public.team_memberships
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904090000'),
 ('20260904088000'),
 ('20260904086000'),
 ('20260904084000'),

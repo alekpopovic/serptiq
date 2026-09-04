@@ -451,18 +451,37 @@ unique per provider/environment. Provider identifiers never become plan identity
 |---|---|---|
 | key | string | stable unique key |
 | value_type | string | boolean, integer, decimal, string, enum |
-| default_value | jsonb | safe default |
-| metered | boolean | |
-| unit | string | |
-| description | text | |
+| unit | string | customer-facing unit/capability taxonomy |
+| category | string | diagnostic grouping |
+| minimum_value / maximum_value | decimal | required bounds for numeric types |
+| allowed_values | jsonb | bounded exact enum strings |
+| max_length | integer | required only for strings |
+| allow_custom | boolean | permits explicit contract-required state |
+| security_sensitive | boolean | requires a fail-closed default |
+| system_default | jsonb | strictly typed safe default |
+| customer_description | string | bounded display text |
+| catalog_checksum | string | immutable governed definition revision |
 
 ### `plan_entitlements`
 
-Stores typed JSON value validated against definition. Unique `(plan_version_id, entitlement_definition_id)`.
+Stores `value_type`, `value_state` (`configured` or `custom`) and a typed JSON value validated against the
+definition through application validation, composite definition/type FK and JSON-shape checks. Unique
+`(plan_version_id, entitlement_definition_id)`. A trigger prevents update/delete once the parent plan version
+leaves draft.
+
+### `entitlement_subscription_contexts`
+
+Tenant-safe projection of the active Billing subscription used by the resolver. It carries organization,
+subscription, immutable plan version and non-negative subscription revision. A three-column FK proves that
+organization, subscription and plan version came from the same Billing row. Only one active context exists
+per organization.
 
 ### `organization_entitlement_overrides`
 
-Includes value, reason, source, starts/ends timestamps, and creator. An emergency deny can be modeled with highest precedence and immutable audit.
+Includes organization, composite definition/type reference, strictly typed value, validity window, bounded
+reason/source, same-organization creator, optional revocation time and same-organization revoker. Only one
+unrevoked override exists per organization/definition. Rows are append-only except for the one-way attributed
+revocation transition; every public mutation also creates a durable audit event.
 
 ### `billing_customers`
 

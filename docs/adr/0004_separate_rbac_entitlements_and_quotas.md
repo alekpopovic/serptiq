@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-09-04
 - Owners: Authorization, Entitlements, Usage
-- Last reviewed: 2026-09-04 (Prompt 005)
+- Last reviewed: 2026-09-04 (Prompt 038)
 
 ## Context
 
@@ -28,3 +28,10 @@ Use stable keys and immutable plan versions. Record usage in an append-only ledg
 - Custom roles cannot unlock unpaid features.
 - Quota concurrency and reconciliation require dedicated domain code/tests.
 - Every billable feature must document permission, entitlement and meter keys.
+
+## Implementation status
+
+Prompt 038 implements the strict typed definition/value catalog, tenant-consistent active-subscription
+projection, audited organization overrides and fail-closed resolver with provenance. Usage ledgers, atomic
+quota reservations and the unified orchestration decision remain the separate Prompt 039–042 work; this
+partial implementation does not collapse those controls.

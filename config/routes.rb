@@ -31,6 +31,9 @@ Rails.application.routes.draw do
   get "dashboard/organizations/:organization_slug/audit/export",
     to: "auditing/audit_events#export",
     as: :organization_audit_export
+  get "dashboard/organizations/:organization_slug/entitlements",
+    to: "entitlements/diagnostics#show",
+    as: :organization_entitlements
   get "dashboard/organizations/:organization_slug/settings/ownership-transfer",
     to: "tenancy/ownership_transfers#show",
     as: :organization_ownership_transfer

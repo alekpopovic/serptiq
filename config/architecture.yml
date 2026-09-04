@@ -30,7 +30,7 @@ modules:
     allowed_dependencies: [auditing, shared]
   entitlements:
     namespace: Entitlements
-    allowed_dependencies: [plans, shared]
+    allowed_dependencies: [plans, auditing, shared]
   usage:
     namespace: Usage
     allowed_dependencies: [entitlements, shared]

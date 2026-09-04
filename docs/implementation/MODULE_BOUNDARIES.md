@@ -106,6 +106,14 @@ does not gain authority to publish global pricing. `Administration` composes the
 Billing subscriber counts and mapping summaries for review, consistency checks and subscriber-aware
 retirement; neither domain reads the other's tables directly.
 
+Entitlements owns typed definitions, materialized plan values, organization overrides and the request-scoped
+resolver. Billing calls `Entitlements::Public.bind_subscription` in the subscription transaction; a composite
+database FK makes that projection tenant/plan-consistent without Entitlements reading Billing models.
+Entitlements may consume immutable plan snapshots through `Plans::Public` and append override/catalog events
+through `Auditing::Public`. It never calls Authorization or treats a role as a feature grant. Override
+operations accept only an already-approved global plan-catalog publication decision tied to the creating
+organization member; ordinary or custom organization roles are insufficient.
+
 ## Shared primitives
 
 `app/domains/shared/` is owned platform domain code, not a general utilities

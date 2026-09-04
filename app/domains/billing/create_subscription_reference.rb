@@ -19,7 +19,7 @@ module Billing
         )
         raise SubscriptionConflict.new(reason_code: "plan_version_not_purchasable") unless current.id == requested.id
 
-        Subscription.create!(
+        subscription = Subscription.create!(
           organization_id: organization_id,
           plan_version_id: current.id,
           status: "active",
@@ -32,6 +32,13 @@ module Billing
           price_cents_snapshot: current.price_for(interval),
           started_at: @clock.call
         )
+        Entitlements::Public.bind_subscription(
+          organization_id: subscription.organization_id,
+          subscription_id: subscription.id,
+          plan_version_id: subscription.plan_version_id,
+          subscription_revision: subscription.lock_version
+        )
+        subscription
       end
     rescue ArgumentError
       raise SubscriptionConflict.new(reason_code: "billing_interval_invalid"), cause: nil

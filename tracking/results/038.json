@@ -1,0 +1,86 @@
+{
+  "prompt_id": "038",
+  "title": "Implement typed entitlement definitions and resolution",
+  "status": "completed",
+  "started_at": "2026-09-04T11:01:34Z",
+  "finished_at": "2026-09-04T11:31:46Z",
+  "summary": "Implemented the 47-key typed entitlement catalog with strict normalization, tenant-safe plan and override persistence, deterministic resolution and caching, fail-closed diagnostics, authorization, documentation, migrations, and regression coverage.",
+  "tests": [
+    {
+      "command": "bin/rails test test/domain/entitlements test/requests/entitlement_diagnostics_test.rb test/domain/billing/subscription_reference_test.rb test/requests/organization_flows_test.rb",
+      "outcome": "passed",
+      "notes": "32 runs; 193 assertions; 0 failures; corrected an earlier invocation that referenced a non-existent organization_settings_test.rb file"
+    },
+    {
+      "command": "bin/rails test",
+      "outcome": "passed",
+      "notes": "447 runs; 3684 assertions; 0 failures"
+    },
+    {
+      "command": "bin/rails test:system",
+      "outcome": "passed",
+      "notes": "21 runs; 105 assertions; 0 failures"
+    },
+    {
+      "command": "bin/quality",
+      "outcome": "passed",
+      "notes": "13 checks; 546 Ruby files; 43 ERB files; no Brakeman warnings"
+    },
+    {
+      "command": "bin/rails db:rollback:primary STEP=1 and bin/rails db:migrate:primary",
+      "outcome": "passed",
+      "notes": "typed-entitlements migration reverted and reapplied successfully"
+    },
+    {
+      "command": "bin/rails plans:catalog:sync and bin/rails entitlements:catalog:sync",
+      "outcome": "passed",
+      "notes": "cold-start dry run reported 10 plan and 282 entitlement changes; apply succeeded; repeat reported zero changes"
+    },
+    {
+      "command": "ruby tracking/scripts/prompt_tracker.rb validate",
+      "outcome": "passed",
+      "notes": "120 prompts; catalog and state consistent before completion"
+    }
+  ],
+  "files_changed": [
+    "app/controllers/entitlements",
+    "app/controllers/tenancy/organization_settings_controller.rb",
+    "app/domains/entitlements",
+    "app/domains/entitlements.rb",
+    "app/domains/billing/create_subscription_reference.rb",
+    "app/domains/auditing/metadata_sanitizer.rb",
+    "app/models/current.rb",
+    "app/views/entitlements",
+    "app/views/tenancy/organization_settings/show.html.erb",
+    "config/architecture.yml",
+    "config/authorization_inventory.yml",
+    "config/routes.rb",
+    "config_blueprints/entitlements.yml",
+    "config_blueprints/README.md",
+    "db/migrate/20260904090000_create_typed_entitlements.rb",
+    "db/structure.sql",
+    "docs",
+    "lib/tasks",
+    "test/domain/entitlements",
+    "test/requests/entitlement_diagnostics_test.rb",
+    "tracking"
+  ],
+  "migrations": [
+    "20260904090000_create_typed_entitlements.rb creates typed definitions and plan values and subscription contexts and organization overrides; adds subscription lock_version; installs integrity and immutability constraints and backfills subscription context"
+  ],
+  "decisions": [
+    "Resolution precedence is organization override then active subscribed plan version then safe default",
+    "Unknown keys and invalid persisted values fail closed",
+    "Request cache keys include definition and subscription and plan and override revisions",
+    "Entitlement changes require platform plan-catalog authority plus active target-organization membership"
+  ],
+  "risks": [
+    "The current 47-key catalog uses boolean and integer and enum values; decimal and string are supported and truth-table tested but have no current production key",
+    "Future billing lifecycle operations must keep entitlement subscription context synchronized through the public binding API",
+    "Platform-wide emergency deny remains future policy-composition scope"
+  ],
+  "next_steps": [
+    "Stop after prompt 038 as requested; leave prompt 039 eligible and unstarted"
+  ],
+  "commit": null
+}
