@@ -1,0 +1,86 @@
+{
+  "prompt_id": "026",
+  "title": "Implement membership lifecycle",
+  "status": "completed",
+  "started_at": "2026-09-04T06:34:54Z",
+  "finished_at": "2026-09-04T06:47:22Z",
+  "summary": "Added durable invited active suspended and removed membership states; locked lifecycle operations; last-owner protection; immediate session revocation; hashed actor/subject audit; paginated member UI and retained attribution.",
+  "tests": [
+    {
+      "command": "bundle exec rails db:migrate:redo:primary VERSION=20260904065000",
+      "outcome": "passed",
+      "notes": "forward and rollback preserve rows while enforcing lifecycle checks"
+    },
+    {
+      "command": "bundle exec rails test test/domain/tenancy/membership_lifecycle_test.rb test/requests/membership_lifecycle_test.rb test/jobs/tenancy/current_organization_job_test.rb",
+      "outcome": "passed",
+      "notes": "12 runs and 82 assertions after cross-tenant mapping fix except display raw-SQL probe rerun separately"
+    },
+    {
+      "command": "bundle exec rails test test/domain/tenancy/membership_lifecycle_test.rb",
+      "outcome": "passed",
+      "notes": "5 runs and 34 assertions including direct database constraint probes"
+    },
+    {
+      "command": "bundle exec rails test test/database/membership_creation_concurrency_test.rb",
+      "outcome": "passed",
+      "notes": "1 run and 3 assertions with two PostgreSQL connections"
+    },
+    {
+      "command": "bundle exec rails test",
+      "outcome": "passed",
+      "notes": "305 runs and 2561 assertions"
+    },
+    {
+      "command": "bundle exec rails test:system",
+      "outcome": "passed",
+      "notes": "15 runs and 69 assertions"
+    },
+    {
+      "command": "bin/quality",
+      "outcome": "passed",
+      "notes": "12 checks with 299 Ruby files and zero security warnings"
+    },
+    {
+      "command": "bundle exec rails zeitwerk:check",
+      "outcome": "passed",
+      "notes": "application eager loaded successfully"
+    }
+  ],
+  "files_changed": [
+    "app/controllers/tenancy/members_controller.rb",
+    "app/domains/identity/public.rb",
+    "app/domains/identity/session_risk_response.rb",
+    "app/domains/shared/observability/context.rb",
+    "app/domains/shared/observability/event_emitter.rb",
+    "app/domains/shared/public.rb",
+    "app/domains/tenancy",
+    "app/views/layouts/authenticated.html.erb",
+    "app/views/tenancy/members",
+    "config/routes.rb",
+    "db/migrate/20260904065000_harden_membership_lifecycle.rb",
+    "db/schema.rb",
+    "docs/03_ERD.md",
+    "docs/implementation/MEMBERSHIP_LIFECYCLE.md",
+    "docs/implementation/README.md",
+    "test/database/membership_creation_concurrency_test.rb",
+    "test/domain/tenancy",
+    "test/jobs/tenancy/current_organization_job_test.rb",
+    "test/requests/membership_lifecycle_test.rb",
+    "test/requests/organization_context_test.rb",
+    "test/requests/organization_flows_test.rb"
+  ],
+  "migrations": [
+    "20260904065000 renames membership lifecycle timestamps; backfills safe display names; rewrites left to removed; adds checks and listing index; rollback retains new rows as legacy left"
+  ],
+  "decisions": [
+    "one durable membership row per organization and user; removed membership is terminal; all target identity sessions are revoked because sessions are not tenant-bound; owner-only management until RBAC"
+  ],
+  "risks": [
+    "migration backfill updates every membership row and requires a volume-sized maintenance window"
+  ],
+  "next_steps": [
+    "Prompt 027 adds same-organization teams and team membership lifecycle"
+  ],
+  "commit": null
+}

@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_09_04_063000) do
+ActiveRecord::Schema[8.1].define(version: 2026_09_04_065000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "citext"
   enable_extension "pg_catalog.plpgsql"
@@ -58,22 +58,25 @@ ActiveRecord::Schema[8.1].define(version: 2026_09_04_063000) do
   end
 
   create_table "memberships", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|
+    t.datetime "accepted_at"
     t.datetime "created_at", null: false
-    t.datetime "joined_at", null: false
+    t.string "display_name", limit: 160, null: false
     t.datetime "last_accessed_at"
-    t.datetime "left_at"
     t.integer "lock_version", default: 0, null: false
     t.uuid "organization_id", null: false
+    t.datetime "removed_at"
     t.string "status", limit: 32, default: "active", null: false
     t.datetime "suspended_at"
     t.datetime "updated_at", null: false
     t.uuid "user_id", null: false
     t.index ["organization_id", "id"], name: "index_memberships_on_organization_and_id", unique: true
+    t.index ["organization_id", "status", "created_at"], name: "index_memberships_on_org_status_and_created"
     t.index ["organization_id", "user_id"], name: "index_memberships_on_organization_id_and_user_id", unique: true
     t.index ["organization_id"], name: "index_memberships_on_organization_id"
     t.index ["user_id", "status", "organization_id"], name: "index_memberships_on_user_status_and_org"
-    t.check_constraint "status::text = 'active'::text AND suspended_at IS NULL AND left_at IS NULL OR status::text = 'suspended'::text AND suspended_at IS NOT NULL AND left_at IS NULL OR status::text = 'left'::text AND left_at IS NOT NULL", name: "memberships_lifecycle_consistency"
-    t.check_constraint "status::text = ANY (ARRAY['active'::character varying, 'suspended'::character varying, 'left'::character varying]::text[])", name: "memberships_status_allowlist"
+    t.check_constraint "char_length(display_name::text) >= 1 AND char_length(display_name::text) <= 160 AND display_name::text = btrim(display_name::text)", name: "memberships_display_name_format"
+    t.check_constraint "status::text = 'invited'::text AND accepted_at IS NULL AND suspended_at IS NULL AND removed_at IS NULL OR status::text = 'active'::text AND accepted_at IS NOT NULL AND suspended_at IS NULL AND removed_at IS NULL OR status::text = 'suspended'::text AND accepted_at IS NOT NULL AND suspended_at IS NOT NULL AND removed_at IS NULL OR status::text = 'removed'::text AND suspended_at IS NULL AND removed_at IS NOT NULL", name: "memberships_lifecycle_consistency"
+    t.check_constraint "status::text = ANY (ARRAY['invited'::character varying, 'active'::character varying, 'suspended'::character varying, 'removed'::character varying]::text[])", name: "memberships_status_allowlist"
   end
 
   create_table "oauth_transactions", id: :uuid, default: -> { "gen_random_uuid()" }, force: :cascade do |t|

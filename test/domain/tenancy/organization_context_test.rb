@@ -23,20 +23,33 @@ class TenancyOrganizationContextTest < ActiveSupport::TestCase
 
   test "switcher and first-run status include only active organizations and memberships" do
     user = create_identity_user
-    visible = create_organization_for(user: user, name: "Visible Org", slug: "visible-org")
-    suspended_membership = create_organization_for(user: user, name: "Hidden Member", slug: "hidden-member")
-    suspended_membership.membership.update!(status: "suspended", suspended_at: Time.current)
+    visible_owner = create_organization_for(name: "Visible Org", slug: "visible-org")
+    visible_membership = Tenancy::Public.create_membership(actor_membership: visible_owner.membership, user: user)
+    suspended_owner = create_organization_for(name: "Hidden Member", slug: "hidden-member")
+    suspended_membership = Tenancy::Public.create_membership(
+      actor_membership: suspended_owner.membership,
+      user: user
+    )
+    Tenancy::Public.change_membership_status(
+      actor_membership: suspended_owner.membership,
+      target_membership_id: suspended_membership.id,
+      operation: "suspend"
+    )
     foreign = create_organization_for(name: "Foreign Org", slug: "foreign-org")
 
     summaries = Tenancy::Public.organization_switcher(user: user)
 
-    assert_equal [ visible.organization.id ], summaries.map(&:id)
+    assert_equal [ visible_owner.organization.id ], summaries.map(&:id)
     assert_equal [ "Visible Org" ], summaries.map(&:name)
-    refute_includes summaries.map(&:id), suspended_membership.organization.id
+    refute_includes summaries.map(&:id), suspended_owner.organization.id
     refute_includes summaries.map(&:id), foreign.organization.id
     assert Tenancy::Public.first_run_status(user: user).returning?
 
-    visible.membership.update!(status: "suspended", suspended_at: Time.current)
+    Tenancy::Public.change_membership_status(
+      actor_membership: visible_owner.membership,
+      target_membership_id: visible_membership.id,
+      operation: "suspend"
+    )
     assert Tenancy::Public.first_run_status(user: user).no_organization?
   end
 

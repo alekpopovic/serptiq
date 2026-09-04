@@ -2,7 +2,10 @@
 <% organization_path = Current.organization && organization_dashboard_path(Current.organization.slug) %>
 <% navigation_items = [
   { label: "Dashboard", path: organization_path || dashboard_path },
-  *(Current.organization ? [ { label: "Organization settings", path: organization_settings_path(Current.organization.slug) } ] : [ { label: "Get started", path: onboarding_path } ]),
+  *(Current.organization ? [
+    { label: "Members", path: organization_members_path(Current.organization.slug) },
+    { label: "Organization settings", path: organization_settings_path(Current.organization.slug) }
+  ] : [ { label: "Get started", path: onboarding_path } ]),
   { label: "Account details", path: account_profile_path },
   { label: "Account security", path: account_security_path },
   { label: "Sessions", path: account_sessions_path }

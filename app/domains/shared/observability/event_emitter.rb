@@ -81,6 +81,13 @@ module Shared
           raise ArgumentError, "organization_id_hash must be a keyed digest"
         end
 
+        %w[actor_id_hash subject_id_hash].each do |name|
+          value = context[name]
+          next if value.nil? || Context::HASH_PATTERN.match?(value.to_s)
+
+          raise ArgumentError, "#{name} must be a keyed digest"
+        end
+
         %w[project_id scan_id].each do |name|
           value = context[name]
           next if value.nil? || Context::RESOURCE_ID_PATTERN.match?(value.to_s)

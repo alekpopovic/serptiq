@@ -199,15 +199,18 @@ with a PostgreSQL transaction advisory lock.
 | id | uuid | PK |
 | organization_id | uuid | FK |
 | user_id | uuid | FK |
-| status | string | active, suspended, left |
-| joined_at | timestamptz | |
+| status | string | invited, active, suspended, removed |
+| display_name | string | safe membership attribution snapshot; no email |
+| accepted_at | timestamptz | null while invited |
 | suspended_at | timestamptz | |
-| left_at | timestamptz | |
+| removed_at | timestamptz | |
 | last_accessed_at | timestamptz | |
 | lock_version | integer | optimistic lifecycle locking |
 
 Unique `(organization_id, user_id)`; lifecycle operations reactivate the durable
-membership row rather than creating ambiguous duplicate history.
+membership row rather than creating ambiguous duplicate history. Removed rows are
+retained for attribution and are not silently reactivated. The current ownership
+membership cannot leave the active state through membership lifecycle operations.
 
 ### `organization_ownerships`
 

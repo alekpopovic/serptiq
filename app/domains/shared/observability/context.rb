@@ -8,6 +8,7 @@ module Shared
       HASH_PATTERN = /\A[0-9a-f]{24}\z/
       FIELDS = %i[
         request_id trace_id job_id release environment organization_id_hash project_id scan_id
+        actor_id_hash subject_id_hash
       ].freeze
 
       attribute(*FIELDS)
@@ -34,11 +35,27 @@ module Shared
           snapshot
         end
 
+        def with_audit_principals(actor_id:, subject_id:, identifier_hasher: nil)
+          hasher = identifier_hasher || IdentifierHasher.default
+          attributes = {
+            actor_id_hash: actor_id && normalize_identifier_hash(hasher.call(actor_id)),
+            subject_id_hash: subject_id && normalize_identifier_hash(hasher.call(subject_id))
+          }
+          set(attributes) { yield }
+        end
+
         private
 
         def normalize_organization_hash(value)
           candidate = value.to_s
           raise ArgumentError, "organization hash must be a safe keyed digest" unless HASH_PATTERN.match?(candidate)
+
+          candidate.freeze
+        end
+
+        def normalize_identifier_hash(value)
+          candidate = value.to_s
+          raise ArgumentError, "identifier hash must be a safe keyed digest" unless HASH_PATTERN.match?(candidate)
 
           candidate.freeze
         end

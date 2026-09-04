@@ -39,7 +39,7 @@ class TenancyOrganizationTest < ActiveSupport::TestCase
     assert result.organization.active?
     assert result.membership.active?
     assert_equal user.id, result.membership.user_id
-    assert_equal now, result.membership.joined_at
+    assert_equal now, result.membership.accepted_at
     assert_equal result.organization.id, result.ownership.organization_id
     assert_equal result.membership.id, result.ownership.membership_id
     assert_equal result.ownership.id, result.organization.current_ownership_id
@@ -105,7 +105,8 @@ class TenancyOrganizationTest < ActiveSupport::TestCase
       organization: result.organization,
       user_id: create_identity_user.id,
       status: "active",
-      joined_at: Time.current
+      accepted_at: Time.current,
+      display_name: "Lifecycle Member"
     )
     now = Time.current.change(usec: 0)
 
@@ -150,7 +151,8 @@ class TenancyOrganizationTest < ActiveSupport::TestCase
       organization: result.organization,
       user_id: create_identity_user.id,
       status: "active",
-      joined_at: Time.current
+      accepted_at: Time.current,
+      display_name: "Settings Member"
     )
 
     updated = Tenancy::Public.update_organization(

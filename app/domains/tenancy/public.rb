@@ -38,6 +38,26 @@ module Tenancy
       AuthorizeOrganizationOwner.new.call(membership: membership)
     end
 
+    def create_membership(actor_membership:, user:, status: "active", clock: -> { Time.current })
+      CreateMembership.new(clock: clock).call(actor_membership: actor_membership, user: user, status: status)
+    end
+
+    def change_membership_status(actor_membership:, target_membership_id:, operation:, clock: -> { Time.current })
+      ChangeMembershipStatus.new(clock: clock).call(
+        actor_membership: actor_membership,
+        target_membership_id: target_membership_id,
+        operation: operation
+      )
+    end
+
+    def membership_page(actor_membership:, page: nil)
+      MembershipDirectory.new.page(actor_membership: actor_membership, number: page)
+    end
+
+    def membership_detail(actor_membership:, membership_id:)
+      MembershipDirectory.new.find(actor_membership: actor_membership, membership_id: membership_id)
+    end
+
     def update_organization(actor_membership:, name:, slug:, default_locale: nil, time_zone: nil)
       UpdateOrganization.new.call(
         actor_membership: actor_membership,

@@ -35,6 +35,21 @@ module Identity
       count
     end
 
+    def after_membership_deactivation!(user_id:)
+      now = @clock.call
+      count = Session.where(user_id: user_id, revoked_at: nil).update_all(
+        revoked_at: now,
+        revoke_reason: "privilege_changed",
+        updated_at: now
+      )
+      Audit.emit(
+        "session.risk_response_completed",
+        outcome: "succeeded",
+        operation: "membership_deactivation"
+      )
+      count
+    end
+
     private
 
     def rotate_only(current_session, metadata, operation)

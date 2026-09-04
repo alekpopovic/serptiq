@@ -48,4 +48,30 @@ class TenancyCurrentOrganizationJobTest < ActiveJob::TestCase
     assert_nil Current.organization
     assert_nil Current.membership
   end
+
+  test "job reauthorization rejects a suspended or removed membership" do
+    owner = create_organization_for(slug: "job-membership-lifecycle")
+    target_user = create_identity_user(display_name: "Job Target")
+    target = Tenancy::Public.create_membership(actor_membership: owner.membership, user: target_user)
+
+    Tenancy::Public.change_membership_status(
+      actor_membership: owner.membership,
+      target_membership_id: target.id,
+      operation: "suspend"
+    )
+    assert_raises(Tenancy::OrganizationAccessDenied) do
+      ContextProbeJob.perform_now(target_user.id, owner.organization.id)
+    end
+
+    Tenancy::Public.change_membership_status(
+      actor_membership: owner.membership,
+      target_membership_id: target.id,
+      operation: "remove"
+    )
+    assert_raises(Tenancy::OrganizationAccessDenied) do
+      ContextProbeJob.perform_now(target_user.id, owner.organization.id)
+    end
+    assert_nil Current.organization
+    assert_nil Current.membership
+  end
 end

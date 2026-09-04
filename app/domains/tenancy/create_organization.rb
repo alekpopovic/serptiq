@@ -32,8 +32,9 @@ module Tenancy
             id: membership_id,
             organization: organization,
             user_id: user.id,
+            display_name: user.display_name.to_s.strip.presence || "Member",
             status: "active",
-            joined_at: now
+            accepted_at: now
           )
           ownership = @ownership_model.create!(
             id: ownership_id,

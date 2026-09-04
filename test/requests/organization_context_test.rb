@@ -39,9 +39,17 @@ class OrganizationContextRequestTest < ActionDispatch::IntegrationTest
   end
 
   test "suspended membership and unknown slug have the same generic denial" do
-    @accessible.membership.update!(status: "suspended", suspended_at: Time.current)
+    owner = create_organization_for(name: "Suspended Access", slug: "suspended-access")
+    membership = Tenancy::Public.create_membership(actor_membership: owner.membership, user: @user)
+    Tenancy::Public.change_membership_status(
+      actor_membership: owner.membership,
+      target_membership_id: membership.id,
+      operation: "suspend"
+    )
+    reset!
+    authenticate_request(issue_identity_session(user: @user))
 
-    get organization_dashboard_path(@accessible.organization.slug)
+    get organization_dashboard_path(owner.organization.slug)
     assert_response :forbidden
     suspended_code = response.headers.fetch("X-SearchOps-Error-Code")
     suspended_title = css_select("h1").sole.text
@@ -50,6 +58,6 @@ class OrganizationContextRequestTest < ActionDispatch::IntegrationTest
     assert_response :forbidden
     assert_equal suspended_code, response.headers.fetch("X-SearchOps-Error-Code")
     assert_equal suspended_title, css_select("h1").sole.text
-    refute_includes response.body, @accessible.organization.name
+    refute_includes response.body, owner.organization.name
   end
 end

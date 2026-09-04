@@ -53,5 +53,7 @@ Do not pre-populate these reports with fictional implementation or test results.
   ownership and membership invariants plus verified request/job context.
 - [`ORGANIZATION_FLOWS.md`](./ORGANIZATION_FLOWS.md) defines accessible
   organization creation, switching, settings and controlled slug redirects.
+- [`MEMBERSHIP_LIFECYCLE.md`](./MEMBERSHIP_LIFECYCLE.md) defines durable member
+  states, last-owner protection, immediate session invalidation and safe attribution.
 - [`../../tracking/README.md`](../../tracking/README.md) defines prompt evidence,
   recovery and state integrity.

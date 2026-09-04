@@ -54,3 +54,5 @@
 | 2026-09-04T06:21:47Z | 024 | completed | Added constrained organization, durable ownership and membership aggregates; atomic owner creation; verified request/job tenant context; safe active-membership switcher; lifecycle/rename audit; tenant isolation helpers and documentation. |
 | 2026-09-04T06:23:02Z | 025 | started | Build organization creation, settings and switcher flows |
 | 2026-09-04T06:34:15Z | 025 | completed | Added accessible organization creation and owner-only settings; safe active-membership switching; suspended-state presentation; controlled historical slug redirects and reserved-slug enforcement. |
+| 2026-09-04T06:34:54Z | 026 | started | Implement membership lifecycle |
+| 2026-09-04T06:47:22Z | 026 | completed | Added durable invited active suspended and removed membership states; locked lifecycle operations; last-owner protection; immediate session revocation; hashed actor/subject audit; paginated member UI and retained attribution. |

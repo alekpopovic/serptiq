@@ -136,5 +136,9 @@ module Identity
     def revoke_sessions_after_suspected_compromise!(user:, clock: -> { Time.current })
       SessionRiskResponse.new(clock: clock).after_suspected_compromise!(user: user)
     end
+
+    def revoke_sessions_after_membership_deactivation!(user_id:, clock: -> { Time.current })
+      SessionRiskResponse.new(clock: clock).after_membership_deactivation!(user_id: user_id)
+    end
   end
 end

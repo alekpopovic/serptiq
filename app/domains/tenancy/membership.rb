@@ -4,7 +4,7 @@ module Tenancy
   class Membership < ApplicationRecord
     self.table_name = "memberships"
 
-    STATUSES = %w[active suspended left].freeze
+    STATUSES = %w[invited active suspended removed].freeze
 
     belongs_to :organization, class_name: "Tenancy::Organization", inverse_of: :memberships
     has_many :ownerships, class_name: "Tenancy::OrganizationOwnership", inverse_of: :membership,
@@ -12,12 +12,27 @@ module Tenancy
 
     validates :user_id, presence: true, uniqueness: { scope: :organization_id }
     validates :status, inclusion: { in: STATUSES }
-    validates :joined_at, presence: true
+    normalizes :display_name, with: ->(value) { value.to_s.strip }
+
+    validates :display_name, presence: true, length: { maximum: 160 }
     validate :user_exists
     validate :lifecycle_timestamps_are_consistent
+    validate :current_owner_remains_active
 
     def active?
       status == "active"
+    end
+
+    def invited?
+      status == "invited"
+    end
+
+    def suspended?
+      status == "suspended"
+    end
+
+    def removed?
+      status == "removed"
     end
 
     def user
@@ -38,12 +53,20 @@ module Tenancy
 
     def lifecycle_timestamps_are_consistent
       valid = case status
-      when "active" then suspended_at.nil? && left_at.nil?
-      when "suspended" then suspended_at.present? && left_at.nil?
-      when "left" then left_at.present?
+      when "invited" then accepted_at.nil? && suspended_at.nil? && removed_at.nil?
+      when "active" then accepted_at.present? && suspended_at.nil? && removed_at.nil?
+      when "suspended" then accepted_at.present? && suspended_at.present? && removed_at.nil?
+      when "removed" then suspended_at.nil? && removed_at.present?
       else false
       end
       errors.add(:status, "does not match lifecycle timestamps") unless valid
+    end
+
+    def current_owner_remains_active
+      return if active? || id.nil? || organization.nil?
+      return unless organization.current_ownership&.membership_id == id
+
+      errors.add(:status, "cannot deactivate the current owner")
     end
   end
 end

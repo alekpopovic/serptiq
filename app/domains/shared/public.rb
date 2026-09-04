@@ -23,5 +23,9 @@ module Shared
         context: Observability::Context.snapshot.merge("failed_event" => event_name)
       )
     end
+
+    def with_audit_principals(actor_id:, subject_id:, &block)
+      Observability::Context.with_audit_principals(actor_id: actor_id, subject_id: subject_id, &block)
+    end
   end
 end

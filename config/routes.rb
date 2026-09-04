@@ -17,6 +17,21 @@ Rails.application.routes.draw do
     as: :organization_settings
   patch "dashboard/organizations/:organization_slug/settings",
     to: "tenancy/organization_settings#update"
+  get "dashboard/organizations/:organization_slug/members",
+    to: "tenancy/members#index",
+    as: :organization_members
+  get "dashboard/organizations/:organization_slug/members/:id",
+    to: "tenancy/members#show",
+    as: :organization_member
+  patch "dashboard/organizations/:organization_slug/members/:id/suspend",
+    to: "tenancy/members#suspend",
+    as: :suspend_organization_member
+  patch "dashboard/organizations/:organization_slug/members/:id/reactivate",
+    to: "tenancy/members#reactivate",
+    as: :reactivate_organization_member
+  patch "dashboard/organizations/:organization_slug/members/:id/remove",
+    to: "tenancy/members#remove",
+    as: :remove_organization_member
   get "dashboard/organizations/:organization_slug", to: "dashboard#index", as: :organization_dashboard
   get "onboarding", to: "onboarding#show", as: :onboarding
   get "dashboard/account/profile", to: "identity/profiles#show", as: :account_profile

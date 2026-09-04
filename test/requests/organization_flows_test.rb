@@ -69,7 +69,8 @@ class OrganizationFlowsRequestTest < ActionDispatch::IntegrationTest
       organization: owned.organization,
       user_id: create_identity_user.id,
       status: "active",
-      joined_at: Time.current
+      accepted_at: Time.current,
+      display_name: "Ordinary Member"
     )
     reset!
     authenticate_request(issue_identity_session(user: ordinary_membership.user))

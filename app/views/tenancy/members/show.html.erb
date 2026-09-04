@@ -1,0 +1,39 @@
+<% content_for :title, "Member details" %>
+
+<div class="mx-auto max-w-3xl">
+  <%= render "shared/breadcrumbs", items: [
+    { label: "Dashboard", path: organization_dashboard_path(Current.organization.slug) },
+    { label: "Members", path: organization_members_path(Current.organization.slug) },
+    { label: @membership.display_name, path: nil }
+  ] %>
+  <section class="so-card mt-6 p-6 sm:p-8" aria-labelledby="member-title">
+    <div class="flex flex-wrap items-start justify-between gap-4">
+      <div>
+        <p class="so-eyebrow">Membership</p>
+        <h1 id="member-title" class="mt-2 text-3xl font-black tracking-tight text-slate-950"><%= @membership.display_name %></h1>
+      </div>
+      <span class="so-badge so-badge-neutral"><%= @membership.status.humanize %></span>
+    </div>
+
+    <dl class="mt-6 grid gap-4 sm:grid-cols-2">
+      <div><dt class="text-xs font-bold uppercase tracking-wide text-slate-500">Accepted</dt><dd class="mt-1 text-sm text-slate-800"><%= @membership.accepted_at ? l(@membership.accepted_at, format: :long) : "Not accepted" %></dd></div>
+      <div><dt class="text-xs font-bold uppercase tracking-wide text-slate-500">Access state</dt><dd class="mt-1 text-sm text-slate-800"><%= @membership.owner? ? "Protected owner" : @membership.status.humanize %></dd></div>
+    </dl>
+
+    <div class="mt-8 flex flex-wrap gap-3" aria-label="Membership actions">
+      <% if @membership.owner? %>
+        <p class="text-sm text-slate-600">The current owner cannot be suspended or removed. Transfer ownership through its dedicated secured workflow first.</p>
+      <% elsif @membership.status == "active" %>
+        <%= button_to "Suspend member", suspend_organization_member_path(Current.organization.slug, @membership.id), method: :patch, class: "so-button so-button-secondary" %>
+        <%= button_to "Remove member", remove_organization_member_path(Current.organization.slug, @membership.id), method: :patch, class: "so-button so-button-danger", form: { data: { turbo_confirm: "Remove this member while retaining historical attribution?" } } %>
+      <% elsif @membership.status == "suspended" %>
+        <%= button_to "Reactivate member", reactivate_organization_member_path(Current.organization.slug, @membership.id), method: :patch, class: "so-button so-button-primary" %>
+        <%= button_to "Remove member", remove_organization_member_path(Current.organization.slug, @membership.id), method: :patch, class: "so-button so-button-danger", form: { data: { turbo_confirm: "Remove this member while retaining historical attribution?" } } %>
+      <% elsif @membership.status == "invited" %>
+        <%= button_to "Remove invitation membership", remove_organization_member_path(Current.organization.slug, @membership.id), method: :patch, class: "so-button so-button-danger" %>
+      <% else %>
+        <p class="text-sm text-slate-600">Historical attribution is retained for this removed membership, which cannot be silently reactivated.</p>
+      <% end %>
+    </div>
+  </section>
+</div>
