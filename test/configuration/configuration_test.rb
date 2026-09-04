@@ -38,6 +38,12 @@ class SearchopsConfigurationTest < ActiveSupport::TestCase
     assert_equal 4096, configuration.fetch(:dns_verification_max_response_bytes)
     assert_equal 5, configuration.fetch(:dns_verification_max_cname_hops)
     assert_equal 8, configuration.fetch(:dns_verification_max_delegations)
+    assert_equal false, configuration.fetch(:http_verification_enabled)
+    assert_equal 3.0, configuration.fetch(:verification_http_dns_timeout)
+    assert_equal 2.0, configuration.fetch(:verification_http_open_timeout)
+    assert_equal 5.0, configuration.fetch(:verification_http_read_timeout)
+    assert_equal 262_144, configuration.fetch(:verification_http_max_response_bytes)
+    assert_equal 2, configuration.fetch(:verification_http_max_redirects)
   end
 
   test "environment overrides public config and credentials for secrets" do
@@ -72,6 +78,7 @@ class SearchopsConfigurationTest < ActiveSupport::TestCase
       "SEARCHOPS_SLACK_ENABLED" => "sometimes",
       "SEARCHOPS_BROWSER_TIMEOUT" => "45",
       "SEARCHOPS_DNS_VERIFICATION_TIMEOUT" => "11s",
+      "SEARCHOPS_VERIFICATION_HTTP_MAX_REDIRECTS" => "6",
       "SEARCHOPS_PROCESS_ROLE" => "root",
       "SEARCHOPS_APPLICATION_ORIGIN" => "https://user:password@example.com/path?token=secret"
     }

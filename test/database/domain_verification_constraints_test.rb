@@ -81,7 +81,10 @@ class DomainVerificationConstraintsTest < ActiveSupport::TestCase
     assert_equal "unverified", @property.reload.verification_status
   end
 
-  test "database allows normalized DNS categories and rejects arbitrary failure labels" do
+  test "database allows normalized HTTP categories and rejects arbitrary failure labels" do
+    inserted = duplicate_challenge(failure_category: "http_redirect_rejected")
+    assert_predicate inserted, :present?
+
     assert_raises(ActiveRecord::StatementInvalid) do
       Verification::Challenge.transaction(requires_new: true) do
         duplicate_challenge(failure_category: "resolver said token=secret")

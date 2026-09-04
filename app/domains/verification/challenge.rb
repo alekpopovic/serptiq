@@ -10,6 +10,8 @@ module Verification
       proof_missing proof_mismatch provider_unavailable provider_unauthorized unsafe_destination
       malformed_response attempt_limit dns_nxdomain dns_no_record dns_propagating dns_timeout
       dns_transient_failure dns_multiple_records dns_response_limit dns_cname_limit dns_delegation_limit
+      http_dns_failure http_timeout http_transport_failure http_redirect_rejected http_redirect_limit
+      http_response_too_large http_content_type_rejected duplicate_meta
     ].freeze
     DIGEST_PATTERN = /\A[0-9a-f]{64}\z/
 

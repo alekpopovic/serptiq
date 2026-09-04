@@ -58,6 +58,9 @@ narrow `Properties::Public.apply_verification_summary` operation projects primar
 exposing Verification internals to Properties. Verification's DNS resolver adapter owns bounded wire-response
 normalization; maintenance jobs pass explicit tenant/challenge identifiers back through the Verification
 boundary and never expose raw DNS material to other modules.
+HTTP verification consumes `Shared::Public.safe_http_client`, the single public-destination resolution, connection and
+redirect policy also reserved for Crawling. Verification owns the exact proof path/content decisions and the
+explicit canonical-host variant allowlist; Shared never learns challenge values or tenant records.
 
 This combined catalog preserves both the foundational architecture capabilities
 and the explicit boundaries established by Prompt 002. Unrecognized module
@@ -172,6 +175,7 @@ folder. It has no domain dependencies. Its permitted locations are:
 | `shared/idempotency/` | Idempotency keys and execution-result contracts |
 | `shared/errors/` | Domain error base types and stable error codes |
 | `shared/events/public/` | Versioned event envelopes and outbox-facing contracts |
+| `shared/network_safety/` | Public HTTP target, address and redirect decisions shared by Verification and Crawling |
 
 Generic framework configuration remains in `config/`; repository tooling stays
 in `script/support/`; Rake entry points stay in `lib/tasks/`. Code must not be

@@ -11,6 +11,7 @@ module Shared
     RateLimitError = Errors::RateLimitError
     TransientInfrastructureError = Errors::TransientInfrastructureError
     ValidationError = Errors::ValidationError
+    NetworkSafetyError = NetworkSafety::Error
     FILTERED_VALUE = Redaction::FILTERED
 
     module_function
@@ -21,6 +22,16 @@ module Shared
 
     def application_uuid?(value)
       Observability::Context::RESOURCE_ID_PATTERN.match?(value.to_s)
+    end
+
+    def safe_http_client(dns_timeout:, open_timeout:, read_timeout:, max_response_bytes:, max_redirects:)
+      NetworkSafety::SafeHttpClient.new(
+        resolver: NetworkSafety::PublicResolver.new(timeout: dns_timeout),
+        open_timeout: open_timeout,
+        read_timeout: read_timeout,
+        max_response_bytes: max_response_bytes,
+        max_redirects: max_redirects
+      )
     end
 
     def emit_structured_event(event_name, **attributes)

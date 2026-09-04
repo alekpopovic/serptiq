@@ -87,6 +87,8 @@ Do not pre-populate these reports with fictional implementation or test results.
   evidence, retry/expiry lifecycle and workload-specific freshness.
 - [`DNS_TXT_VERIFICATION.md`](./DNS_TXT_VERIFICATION.md) defines bounded exact-name DNS resolution, byte-exact
   TXT semantics, single-consumption concurrency and periodic ownership rechecks.
+- [`HTTP_VERIFICATION.md`](./HTTP_VERIFICATION.md) defines exact file/static-meta proof, centralized public-network
+  destination enforcement, explicit canonical redirects and bounded evidence.
 - [`BILLING_PROVIDER_CONTRACT.md`](./BILLING_PROVIDER_CONTRACT.md) defines normalized billing values,
   adapter operations/errors, transport policies, canonical lifecycle and second-provider requirements.
 - [`LEMON_SQUEEZY_ADAPTER.md`](./LEMON_SQUEEZY_ADAPTER.md) defines the first production adapter's exact

@@ -30,10 +30,16 @@ module Verification
           "Publish the exact value with unchanged case and whitespace, then retry. This challenge can be consumed only once."
         ]
       when "html_file"
-        [ "Serve a plain-text file at the exact HTTPS/HTTP location below.", "The response body must equal the exact value below." ]
+        [
+          "Serve a text/plain file at the exact HTTPS/HTTP location below.",
+          "The complete response body must equal the exact value below, with no added whitespace or markup."
+        ]
       when "meta_tag"
-        [ "Add this tag inside the <head> of the exact origin home page.",
-          %(<meta name="searchops-verification" content="#{value}">) ]
+        [
+          "Add exactly one verification tag to the static HTML <head> of the exact origin home page.",
+          %(<meta name="searchops-verification" content="#{value}">),
+          "JavaScript-generated tags are not executed or accepted."
+        ]
       when "search_console"
         [ "Connect a Search Console account with verified ownership.",
           "The adapter must confirm an exact property match for the origin below." ]

@@ -36,9 +36,20 @@ class VerificationAdapterContractTest < ActiveSupport::TestCase
   test "HTML file adapter requires the exact final origin and exact body" do
     value = "searchops-verification=#{SecureRandom.urlsafe_base64(32, false)}"
     challenge = stub_challenge(value, location: "https://example.com/.well-known/searchops-verification.txt")
-    response = { status: 200, final_origin: "https://other.example.com", body: value }
+    response = {
+      status: 200,
+      final_origin: "https://other.example.com",
+      final_url: "https://other.example.com/.well-known/searchops-verification.txt",
+      body: value,
+      redirect_count: 1,
+      content_type_allowed: true,
+      destination_approved: false,
+      request_match: true
+    }
     fetcher = Object.new
-    fetcher.define_singleton_method(:fetch_exact) { |origin:, url:| response.merge(seen: [ origin, url ]) }
+    fetcher.define_singleton_method(:fetch_exact) do |origin:, url:, **|
+      response.merge(seen: [ origin, url ])
+    end
 
     result = Verification::Adapters::HtmlFile.new(fetcher: fetcher).verify(
       challenge: challenge, expected_value: value
@@ -54,8 +65,17 @@ class VerificationAdapterContractTest < ActiveSupport::TestCase
     challenge = stub_challenge(value, location: "https://example.com/")
     html = %(<html><head><meta name="searchops-verification" content="#{value}"></head></html>)
     fetcher = Object.new
-    fetcher.define_singleton_method(:fetch_exact) do |origin:, url:|
-      { status: 200, final_origin: origin, body: html, url: url }
+    fetcher.define_singleton_method(:fetch_exact) do |origin:, url:, **|
+      {
+        status: 200,
+        final_origin: origin,
+        final_url: url,
+        body: html,
+        redirect_count: 0,
+        content_type_allowed: true,
+        destination_approved: true,
+        request_match: true
+      }
     end
 
     result = Verification::Adapters::MetaTag.new(fetcher: fetcher).verify(

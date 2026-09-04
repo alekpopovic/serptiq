@@ -425,6 +425,14 @@ relevant byte size, CNAME links and observed authority NS records are bounded; r
 counts and booleans. The resolver has no process-global decision cache. Periodic rechecks reload the explicit
 tenant/challenge pair and exact current origin; a failed observation does not renew the proof's freshness.
 
+HTML verification uses the centralized public-network destination client. It resolves and classifies every
+A/AAAA answer, pins the connection to one approved address while preserving TLS hostname verification, then
+repeats the full decision at every redirect. Redirects preserve the exact proof path, carry no query/fragment,
+never downgrade HTTPS and target only an explicit same-host or one-literal-`www` canonical variant. Responses
+are streamed under byte/time/redirect/content-type caps. File proof is a byte-exact whole-body comparison;
+meta proof requires exactly one matching static source tag parsed without JavaScript. Only bounded booleans,
+counts, status and stable error categories survive the request.
+
 ## 7. Browser isolation profile
 
 Minimum production expectations:

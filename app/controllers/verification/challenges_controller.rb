@@ -49,8 +49,11 @@ module Verification
       when "failed" then "Verification failed after the allowed attempts. Issue a new challenge."
       else
         failure_category = result.challenge.attempts.order(sequence: :desc).pick(:failure_category)
-        result.challenge.method == "dns_txt" ? DnsFailureMessage.for(failure_category) :
-          "Proof was not observed yet. Check the instructions before retrying."
+        case result.challenge.method
+        when "dns_txt" then DnsFailureMessage.for(failure_category)
+        when "html_file", "meta_tag" then HttpFailureMessage.for(failure_category)
+        else "Proof was not observed yet. Check the instructions before retrying."
+        end
       end
       redirect_to verification_path(challenge_id: result.challenge.id), notice: notice, status: :see_other
     end

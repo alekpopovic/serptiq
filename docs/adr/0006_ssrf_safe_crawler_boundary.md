@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-09-04
 - Owners: Security, Crawling
-- Last reviewed: 2026-09-04 (Prompt 052)
+- Last reviewed: 2026-09-04 (Prompt 055)
 
 ## Context
 
@@ -17,6 +17,12 @@ Property environment origins are stored in canonical lowercase ASCII IDNA form w
 separate derived Unicode display form. Origin admission rejects credentials, non-root URL components, IP
 literals, unqualified/internal names and ambiguous authority syntax. This admission parser is not SSRF
 authorization; the outbound worker still performs the full resolution and connection policy above.
+
+Prompt 055 establishes that central policy as `Shared::NetworkSafety`, exposed through
+`Shared::Public.safe_http_client`, and its pinned `Net::HTTP` transport.
+HTML ownership verification is its first production consumer; Crawling must reuse this boundary rather than
+introducing a direct customer-target HTTP client. Verification may redirect only to an explicitly enumerated
+same/canonical-host variant, with exact path preservation, no query/fragment and no HTTPS downgrade.
 
 ## Consequences
 

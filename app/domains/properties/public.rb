@@ -52,6 +52,10 @@ module Properties
       ProjectRollupReader.new
     end
 
+    def canonical_origin(origin:)
+      CanonicalOrigin.new(origin: origin)
+    end
+
     def reference(organization_id:, project_id:, property_id:)
       property = Property.includes(
         :website_property_config, :android_property_config, :ios_property_config
