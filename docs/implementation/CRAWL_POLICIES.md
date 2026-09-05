@@ -48,6 +48,11 @@ those conditions. The immutable scan settings preserve the selected behavior, bu
 DNS/address, redirect, quota or lifecycle checks. Retrieval and reproducible decisions are defined in
 [`ROBOTS_POLICY.md`](./ROBOTS_POLICY.md).
 
+Sitemap execution consumes configured URLs before robots candidates and can add exact-origin `/sitemap.xml`
+under the global well-known-candidate switch. Every candidate remains untrusted and must pass the stricter
+origin, public-network, redirect, parser and frontier controls in
+[`SITEMAP_DISCOVERY.md`](./SITEMAP_DISCOVERY.md).
+
 The reset action appends a plan-safe version: the exact environment root URL,
 tracking-parameter normalization, robots compliance, one concurrent request,
 no rendering, and the lower current URL/retention bounds. Updates and resets

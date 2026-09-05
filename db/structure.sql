@@ -555,6 +555,89 @@ $$;
 
 
 --
+-- Name: protect_crawl_sitemap_discovery(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.protect_crawl_sitemap_discovery() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    IF resource_deletion_stage_authorized(
+      OLD.organization_id, OLD.project_id, OLD.property_id, 'scans_and_findings'
+    ) THEN RETURN OLD; END IF;
+    RAISE EXCEPTION 'sitemap discovery deletion requires an active lifecycle workflow';
+  END IF;
+  IF OLD.status <> 'running' THEN
+    RAISE EXCEPTION 'terminal sitemap discoveries are immutable';
+  END IF;
+  IF NEW.organization_id IS DISTINCT FROM OLD.organization_id
+    OR NEW.project_id IS DISTINCT FROM OLD.project_id
+    OR NEW.property_id IS DISTINCT FROM OLD.property_id
+    OR NEW.environment_id IS DISTINCT FROM OLD.environment_id
+    OR NEW.scan_id IS DISTINCT FROM OLD.scan_id
+    OR NEW.started_at IS DISTINCT FROM OLD.started_at
+    OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+    RAISE EXCEPTION 'sitemap discovery identity is immutable';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: protect_crawl_sitemap_entry(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.protect_crawl_sitemap_entry() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF TG_OP = 'DELETE' AND resource_deletion_stage_authorized(
+    OLD.organization_id, OLD.project_id, OLD.property_id, 'scans_and_findings'
+  ) THEN RETURN OLD; END IF;
+  RAISE EXCEPTION 'sitemap entries are immutable';
+END;
+$$;
+
+
+--
+-- Name: protect_crawl_sitemap_file(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.protect_crawl_sitemap_file() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    IF resource_deletion_stage_authorized(
+      OLD.organization_id, OLD.project_id, OLD.property_id, 'scans_and_findings'
+    ) THEN RETURN OLD; END IF;
+    RAISE EXCEPTION 'sitemap file deletion requires an active lifecycle workflow';
+  END IF;
+  IF OLD.status <> 'pending' THEN
+    RAISE EXCEPTION 'terminal sitemap files are immutable';
+  END IF;
+  IF NEW.organization_id IS DISTINCT FROM OLD.organization_id
+    OR NEW.project_id IS DISTINCT FROM OLD.project_id
+    OR NEW.property_id IS DISTINCT FROM OLD.property_id
+    OR NEW.environment_id IS DISTINCT FROM OLD.environment_id
+    OR NEW.scan_id IS DISTINCT FROM OLD.scan_id
+    OR NEW.sitemap_discovery_id IS DISTINCT FROM OLD.sitemap_discovery_id
+    OR NEW.parent_sitemap_file_id IS DISTINCT FROM OLD.parent_sitemap_file_id
+    OR NEW.url IS DISTINCT FROM OLD.url
+    OR NEW.url_digest IS DISTINCT FROM OLD.url_digest
+    OR NEW.source IS DISTINCT FROM OLD.source
+    OR NEW.index_depth IS DISTINCT FROM OLD.index_depth
+    OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+    RAISE EXCEPTION 'sitemap file provenance is immutable';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: protect_crawl_url_identity(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -963,7 +1046,7 @@ CREATE TABLE public.audit_target_tombstones (
     property_id uuid,
     deleted_at timestamp(6) with time zone NOT NULL,
     created_at timestamp(6) with time zone NOT NULL,
-    CONSTRAINT audit_tombstones_target_type CHECK (((target_type)::text = ANY ((ARRAY['Project'::character varying, 'Property'::character varying, 'PropertyEnvironment'::character varying, 'DomainVerification'::character varying, 'CrawlPolicy'::character varying, 'Scan'::character varying])::text[])))
+    CONSTRAINT audit_tombstones_target_type CHECK (((target_type)::text = ANY (ARRAY[('Project'::character varying)::text, ('Property'::character varying)::text, ('PropertyEnvironment'::character varying)::text, ('DomainVerification'::character varying)::text, ('CrawlPolicy'::character varying)::text, ('Scan'::character varying)::text])))
 );
 
 
@@ -1381,10 +1464,144 @@ CREATE TABLE public.crawl_robots_snapshots (
     warnings jsonb DEFAULT '[]'::jsonb NOT NULL,
     malformed boolean DEFAULT false NOT NULL,
     created_at timestamp(6) with time zone NOT NULL,
-    CONSTRAINT crawl_robots_snapshots_http_shape CHECK (((((retrieval_status)::text <> 'fetched'::text) OR (((http_status >= 200) AND (http_status <= 299)) AND (artifact_sha256 IS NOT NULL) AND (final_url IS NOT NULL))) AND (((retrieval_status)::text <> 'unavailable'::text) OR ((http_status >= 400) AND (http_status <= 499))))),
-    CONSTRAINT crawl_robots_snapshots_identity_shape CHECK ((((octet_length(origin) >= 1) AND (octet_length(origin) <= 2048)) AND ((octet_length(source_url) >= 1) AND (octet_length(source_url) <= 2048)) AND ((final_url IS NULL) OR ((octet_length(final_url) >= 1) AND (octet_length(final_url) <= 2048))) AND ((origin_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((artifact_sha256 IS NULL) OR ((artifact_sha256)::text ~ '^[0-9a-f]{64}$'::text)))),
+    CONSTRAINT crawl_robots_snapshots_http_shape CHECK (((((retrieval_status)::text <> 'fetched'::text) OR ((http_status >= 200) AND (http_status <= 299) AND (artifact_sha256 IS NOT NULL) AND (final_url IS NOT NULL))) AND (((retrieval_status)::text <> 'unavailable'::text) OR ((http_status >= 400) AND (http_status <= 499))))),
+    CONSTRAINT crawl_robots_snapshots_identity_shape CHECK (((octet_length(origin) >= 1) AND (octet_length(origin) <= 2048) AND ((octet_length(source_url) >= 1) AND (octet_length(source_url) <= 2048)) AND ((final_url IS NULL) OR ((octet_length(final_url) >= 1) AND (octet_length(final_url) <= 2048))) AND ((origin_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((artifact_sha256 IS NULL) OR ((artifact_sha256)::text ~ '^[0-9a-f]{64}$'::text)))),
     CONSTRAINT crawl_robots_snapshots_payload_shape CHECK (((jsonb_typeof(groups) = 'array'::text) AND (pg_column_size(groups) <= 1048576) AND (jsonb_typeof(warnings) = 'array'::text) AND (pg_column_size(warnings) <= 1048576) AND (cardinality(sitemap_urls) <= 100) AND (array_position(sitemap_urls, NULL::text) IS NULL) AND (octet_length(array_to_string(sitemap_urls, ''::text)) <= 204800))),
     CONSTRAINT crawl_robots_snapshots_result_shape CHECK ((((retrieval_status)::text = ANY (ARRAY[('fetched'::character varying)::text, ('unavailable'::character varying)::text, ('unreachable'::character varying)::text, ('oversized'::character varying)::text, ('malformed'::character varying)::text])) AND (parser_version > 0) AND ((redirect_count >= 0) AND (redirect_count <= 5)) AND ((http_status IS NULL) OR ((http_status >= 100) AND (http_status <= 599))) AND ((error_code IS NULL) OR ((error_code)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text))))
+);
+
+
+--
+-- Name: crawl_sitemap_discoveries; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.crawl_sitemap_discoveries (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_id uuid NOT NULL,
+    environment_id uuid NOT NULL,
+    scan_id uuid NOT NULL,
+    status character varying(32) DEFAULT 'running'::character varying NOT NULL,
+    documents_discovered_count bigint DEFAULT 0 NOT NULL,
+    documents_processed_count bigint DEFAULT 0 NOT NULL,
+    documents_succeeded_count bigint DEFAULT 0 NOT NULL,
+    documents_failed_count bigint DEFAULT 0 NOT NULL,
+    entries_observed_count bigint DEFAULT 0 NOT NULL,
+    entries_in_scope_count bigint DEFAULT 0 NOT NULL,
+    entries_out_of_scope_count bigint DEFAULT 0 NOT NULL,
+    entries_invalid_count bigint DEFAULT 0 NOT NULL,
+    frontier_inserted_count bigint DEFAULT 0 NOT NULL,
+    fetch_attempt_count bigint DEFAULT 0 NOT NULL,
+    metered_fetch_count bigint DEFAULT 0 NOT NULL,
+    compressed_bytes_count bigint DEFAULT 0 NOT NULL,
+    decompressed_bytes_count bigint DEFAULT 0 NOT NULL,
+    warning_count bigint DEFAULT 0 NOT NULL,
+    warning_codes text[] DEFAULT '{}'::text[] NOT NULL,
+    started_at timestamp(6) with time zone NOT NULL,
+    finished_at timestamp(6) with time zone,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT crawl_sitemap_discoveries_counters CHECK (((documents_discovered_count >= 0) AND (documents_processed_count >= 0) AND (documents_succeeded_count >= 0) AND (documents_failed_count >= 0) AND (entries_observed_count >= 0) AND (entries_in_scope_count >= 0) AND (entries_out_of_scope_count >= 0) AND (entries_invalid_count >= 0) AND (frontier_inserted_count >= 0) AND (fetch_attempt_count >= 0) AND (metered_fetch_count >= 0) AND (compressed_bytes_count >= 0) AND (decompressed_bytes_count >= 0) AND (warning_count >= 0) AND (documents_processed_count = (documents_succeeded_count + documents_failed_count)) AND (entries_observed_count = ((entries_in_scope_count + entries_out_of_scope_count) + entries_invalid_count)) AND (frontier_inserted_count <= entries_in_scope_count) AND (metered_fetch_count <= fetch_attempt_count))),
+    CONSTRAINT crawl_sitemap_discoveries_lifecycle CHECK ((((status)::text = ANY ((ARRAY['running'::character varying, 'completed'::character varying, 'partially_completed'::character varying, 'failed'::character varying])::text[])) AND ((((status)::text = 'running'::text) AND (finished_at IS NULL)) OR (((status)::text <> 'running'::text) AND (finished_at IS NOT NULL) AND (finished_at >= started_at))))),
+    CONSTRAINT crawl_sitemap_discoveries_warnings CHECK (((cardinality(warning_codes) <= 1000) AND (array_position(warning_codes, NULL::text) IS NULL) AND (octet_length(array_to_string(warning_codes, ''::text)) <= 64000)))
+);
+
+
+--
+-- Name: crawl_sitemap_entries; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.crawl_sitemap_entries (
+    id bigint NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_id uuid NOT NULL,
+    environment_id uuid NOT NULL,
+    scan_id uuid NOT NULL,
+    sitemap_file_id uuid NOT NULL,
+    entry_index integer NOT NULL,
+    entry_kind character varying(16) NOT NULL,
+    location_url text NOT NULL,
+    location_digest character varying(64) NOT NULL,
+    normalization_version integer NOT NULL,
+    scope_status character varying(24) NOT NULL,
+    scope_reason character varying(64) NOT NULL,
+    relationship_status character varying(32) NOT NULL,
+    lastmod_text text,
+    lastmod_at timestamp(6) with time zone,
+    lastmod_precision character varying(16),
+    crawl_url_id bigint,
+    child_sitemap_file_id uuid,
+    created_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT crawl_sitemap_entries_identity CHECK (((entry_index > 0) AND ((entry_kind)::text = ANY ((ARRAY['page'::character varying, 'sitemap'::character varying])::text[])) AND ((octet_length(location_url) >= 1) AND (octet_length(location_url) <= 8192)) AND ((location_digest)::text ~ '^[0-9a-f]{64}$'::text) AND (normalization_version > 0))),
+    CONSTRAINT crawl_sitemap_entries_lastmod CHECK ((((lastmod_text IS NULL) AND (lastmod_at IS NULL) AND (lastmod_precision IS NULL)) OR ((lastmod_text IS NOT NULL) AND ((octet_length(lastmod_text) >= 1) AND (octet_length(lastmod_text) <= 64)) AND ((lastmod_precision)::text = ANY ((ARRAY['date'::character varying, 'datetime'::character varying, 'invalid'::character varying])::text[])) AND ((((lastmod_precision)::text = 'invalid'::text) AND (lastmod_at IS NULL)) OR (((lastmod_precision)::text <> 'invalid'::text) AND (lastmod_at IS NOT NULL)))))),
+    CONSTRAINT crawl_sitemap_entries_outcome CHECK ((((scope_status)::text = ANY ((ARRAY['in_scope'::character varying, 'out_of_scope'::character varying])::text[])) AND ((scope_reason)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text) AND ((relationship_status)::text = ANY ((ARRAY['frontier_inserted'::character varying, 'frontier_duplicate'::character varying, 'frontier_limit'::character varying, 'queued'::character varying, 'duplicate'::character varying, 'circular'::character varying, 'depth_rejected'::character varying, 'document_limit'::character varying, 'out_of_scope'::character varying])::text[])) AND (((scope_status)::text <> 'out_of_scope'::text) OR ((relationship_status)::text = 'out_of_scope'::text)) AND ((crawl_url_id IS NULL) OR ((entry_kind)::text = 'page'::text)) AND ((child_sitemap_file_id IS NULL) OR ((entry_kind)::text = 'sitemap'::text)) AND (((relationship_status)::text <> 'frontier_inserted'::text) OR (crawl_url_id IS NOT NULL)) AND (((relationship_status)::text <> ALL ((ARRAY['queued'::character varying, 'duplicate'::character varying, 'circular'::character varying])::text[])) OR (child_sitemap_file_id IS NOT NULL))))
+);
+
+
+--
+-- Name: crawl_sitemap_entries_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.crawl_sitemap_entries_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: crawl_sitemap_entries_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.crawl_sitemap_entries_id_seq OWNED BY public.crawl_sitemap_entries.id;
+
+
+--
+-- Name: crawl_sitemap_files; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.crawl_sitemap_files (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_id uuid NOT NULL,
+    environment_id uuid NOT NULL,
+    scan_id uuid NOT NULL,
+    sitemap_discovery_id uuid NOT NULL,
+    parent_sitemap_file_id uuid,
+    url text NOT NULL,
+    url_digest character varying(64) NOT NULL,
+    source character varying(24) NOT NULL,
+    index_depth integer NOT NULL,
+    status character varying(24) DEFAULT 'pending'::character varying NOT NULL,
+    document_kind character varying(24),
+    final_url text,
+    http_status integer,
+    retrieved_at timestamp(6) with time zone,
+    artifact_sha256 character varying(64),
+    content_type character varying(128),
+    gzip boolean,
+    compressed_bytes bigint,
+    decompressed_bytes bigint,
+    redirect_count integer,
+    parser_version integer,
+    entry_count bigint DEFAULT 0 NOT NULL,
+    entries_in_scope_count bigint DEFAULT 0 NOT NULL,
+    entries_out_of_scope_count bigint DEFAULT 0 NOT NULL,
+    entries_invalid_count bigint DEFAULT 0 NOT NULL,
+    child_count bigint DEFAULT 0 NOT NULL,
+    warning_count integer DEFAULT 0 NOT NULL,
+    warnings jsonb DEFAULT '[]'::jsonb NOT NULL,
+    error_code character varying(64),
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT crawl_sitemap_files_counters CHECK (((entry_count >= 0) AND (entries_in_scope_count >= 0) AND (entries_out_of_scope_count >= 0) AND (entries_invalid_count >= 0) AND (entry_count = ((entries_in_scope_count + entries_out_of_scope_count) + entries_invalid_count)) AND (child_count >= 0) AND ((warning_count >= 0) AND (warning_count <= 1000)) AND (jsonb_typeof(warnings) = 'array'::text) AND (pg_column_size(warnings) <= 131072))),
+    CONSTRAINT crawl_sitemap_files_identity CHECK ((((octet_length(url) >= 1) AND (octet_length(url) <= 8192)) AND ((url_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((final_url IS NULL) OR ((octet_length(final_url) >= 1) AND (octet_length(final_url) <= 8192))) AND ((artifact_sha256 IS NULL) OR ((artifact_sha256)::text ~ '^[0-9a-f]{64}$'::text)))),
+    CONSTRAINT crawl_sitemap_files_provenance CHECK ((((source)::text = ANY ((ARRAY['configured'::character varying, 'robots'::character varying, 'well_known'::character varying, 'sitemap_index'::character varying])::text[])) AND ((index_depth >= 0) AND (index_depth <= 10)) AND ((parent_sitemap_file_id IS NULL) OR (parent_sitemap_file_id <> id)))),
+    CONSTRAINT crawl_sitemap_files_result CHECK ((((status)::text = ANY ((ARRAY['pending'::character varying, 'fetched'::character varying, 'unavailable'::character varying, 'unreachable'::character varying, 'oversized'::character varying, 'malformed'::character varying, 'rejected'::character varying])::text[])) AND ((document_kind IS NULL) OR ((document_kind)::text = ANY ((ARRAY['urlset'::character varying, 'sitemap_index'::character varying])::text[]))) AND ((http_status IS NULL) OR ((http_status >= 100) AND (http_status <= 599))) AND ((content_type IS NULL) OR ((octet_length((content_type)::text) >= 1) AND (octet_length((content_type)::text) <= 128))) AND ((redirect_count IS NULL) OR ((redirect_count >= 0) AND (redirect_count <= 5))) AND ((parser_version IS NULL) OR (parser_version > 0)) AND ((compressed_bytes IS NULL) OR (compressed_bytes >= 0)) AND ((decompressed_bytes IS NULL) OR (decompressed_bytes >= 0)) AND ((error_code IS NULL) OR ((error_code)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text)) AND (((status)::text <> 'pending'::text) OR ((retrieved_at IS NULL) AND (artifact_sha256 IS NULL) AND (http_status IS NULL) AND (final_url IS NULL) AND (document_kind IS NULL) AND (compressed_bytes IS NULL) AND (decompressed_bytes IS NULL) AND (redirect_count IS NULL) AND (parser_version IS NULL) AND (error_code IS NULL))) AND (((status)::text <> 'fetched'::text) OR (((http_status >= 200) AND (http_status <= 299)) AND (retrieved_at IS NOT NULL) AND (artifact_sha256 IS NOT NULL) AND (final_url IS NOT NULL) AND (document_kind IS NOT NULL) AND (parser_version IS NOT NULL))) AND (((status)::text <> 'rejected'::text) OR ((retrieved_at IS NULL) AND (http_status IS NULL) AND (artifact_sha256 IS NULL) AND (error_code IS NOT NULL)))))
 );
 
 
@@ -1424,11 +1641,11 @@ CREATE TABLE public.crawl_urls (
     created_at timestamp(6) with time zone NOT NULL,
     updated_at timestamp(6) with time zone NOT NULL,
     fetch_url text NOT NULL,
-    CONSTRAINT crawl_urls_attempt_shape CHECK ((((state)::text = ANY ((ARRAY['pending'::character varying, 'leased'::character varying, 'succeeded'::character varying, 'rejected'::character varying, 'failed'::character varying, 'exhausted'::character varying])::text[])) AND ((attempts >= 0) AND (attempts <= maximum_attempts)) AND ((maximum_attempts >= 1) AND (maximum_attempts <= 10)) AND (((state)::text <> 'pending'::text) OR (attempts < maximum_attempts)))),
-    CONSTRAINT crawl_urls_discovery_shape CHECK ((((depth >= 0) AND (depth <= 100)) AND ((priority >= '-1000000'::integer) AND (priority <= 1000000)) AND ((discovery_source)::text = ANY ((ARRAY['seed'::character varying, 'sitemap'::character varying, 'link'::character varying, 'redirect'::character varying, 'canonical'::character varying])::text[])) AND ((discovered_from_id IS NULL) OR (discovered_from_id <> id)))),
+    CONSTRAINT crawl_urls_attempt_shape CHECK ((((state)::text = ANY (ARRAY[('pending'::character varying)::text, ('leased'::character varying)::text, ('succeeded'::character varying)::text, ('rejected'::character varying)::text, ('failed'::character varying)::text, ('exhausted'::character varying)::text])) AND ((attempts >= 0) AND (attempts <= maximum_attempts)) AND ((maximum_attempts >= 1) AND (maximum_attempts <= 10)) AND (((state)::text <> 'pending'::text) OR (attempts < maximum_attempts)))),
+    CONSTRAINT crawl_urls_discovery_shape CHECK (((depth >= 0) AND (depth <= 100) AND ((priority >= '-1000000'::integer) AND (priority <= 1000000)) AND ((discovery_source)::text = ANY (ARRAY[('seed'::character varying)::text, ('sitemap'::character varying)::text, ('link'::character varying)::text, ('redirect'::character varying)::text, ('canonical'::character varying)::text])) AND ((discovered_from_id IS NULL) OR (discovered_from_id <> id)))),
     CONSTRAINT crawl_urls_fetch_url_shape CHECK (((fetch_url IS NOT NULL) AND ((octet_length(fetch_url) >= 1) AND (octet_length(fetch_url) <= 8192)))),
-    CONSTRAINT crawl_urls_last_outcome_shape CHECK (((((last_lease_token_digest IS NULL) AND (last_lease_outcome IS NULL)) OR (((last_lease_token_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((last_lease_outcome)::text = ANY ((ARRAY['retry'::character varying, 'stale_recovered'::character varying, 'succeeded'::character varying, 'rejected'::character varying, 'failed'::character varying, 'exhausted'::character varying])::text[])))) AND ((last_failure_category IS NULL) OR ((last_failure_category)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text)))),
-    CONSTRAINT crawl_urls_lifecycle_shape CHECK (((((state)::text = 'pending'::text) AND (leased_by IS NULL) AND (lease_token_digest IS NULL) AND (leased_at IS NULL) AND (lease_expires_at IS NULL) AND (completed_at IS NULL) AND (next_attempt_at IS NOT NULL)) OR (((state)::text = 'leased'::text) AND ((leased_by)::text ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'::text) AND ((lease_token_digest)::text ~ '^[0-9a-f]{64}$'::text) AND (leased_at IS NOT NULL) AND (lease_expires_at > leased_at) AND (completed_at IS NULL) AND (next_attempt_at IS NULL)) OR (((state)::text = ANY ((ARRAY['succeeded'::character varying, 'rejected'::character varying, 'failed'::character varying, 'exhausted'::character varying])::text[])) AND (leased_by IS NULL) AND (lease_token_digest IS NULL) AND (leased_at IS NULL) AND (lease_expires_at IS NULL) AND (next_attempt_at IS NULL) AND (completed_at IS NOT NULL) AND (last_lease_token_digest IS NOT NULL) AND ((last_lease_outcome)::text = (state)::text)))),
+    CONSTRAINT crawl_urls_last_outcome_shape CHECK (((((last_lease_token_digest IS NULL) AND (last_lease_outcome IS NULL)) OR (((last_lease_token_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((last_lease_outcome)::text = ANY (ARRAY[('retry'::character varying)::text, ('stale_recovered'::character varying)::text, ('succeeded'::character varying)::text, ('rejected'::character varying)::text, ('failed'::character varying)::text, ('exhausted'::character varying)::text])))) AND ((last_failure_category IS NULL) OR ((last_failure_category)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text)))),
+    CONSTRAINT crawl_urls_lifecycle_shape CHECK (((((state)::text = 'pending'::text) AND (leased_by IS NULL) AND (lease_token_digest IS NULL) AND (leased_at IS NULL) AND (lease_expires_at IS NULL) AND (completed_at IS NULL) AND (next_attempt_at IS NOT NULL)) OR (((state)::text = 'leased'::text) AND ((leased_by)::text ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'::text) AND ((lease_token_digest)::text ~ '^[0-9a-f]{64}$'::text) AND (leased_at IS NOT NULL) AND (lease_expires_at > leased_at) AND (completed_at IS NULL) AND (next_attempt_at IS NULL)) OR (((state)::text = ANY (ARRAY[('succeeded'::character varying)::text, ('rejected'::character varying)::text, ('failed'::character varying)::text, ('exhausted'::character varying)::text])) AND (leased_by IS NULL) AND (lease_token_digest IS NULL) AND (leased_at IS NULL) AND (lease_expires_at IS NULL) AND (next_attempt_at IS NULL) AND (completed_at IS NOT NULL) AND (last_lease_token_digest IS NOT NULL) AND ((last_lease_outcome)::text = (state)::text)))),
     CONSTRAINT crawl_urls_normalized_identity_shape CHECK (((normalization_version > 0) AND ((normalized_url_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((host_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((octet_length(normalized_url) >= 1) AND (octet_length(normalized_url) <= 8192)))),
     CONSTRAINT crawl_urls_result_shape CHECK (((((fetch_result_id IS NULL) AND (http_status_code IS NULL)) OR ((fetch_result_id > 0) AND ((http_status_code IS NULL) OR ((http_status_code >= 100) AND (http_status_code <= 599))))) AND (((state)::text <> 'succeeded'::text) OR (fetch_result_id IS NOT NULL))))
 );
@@ -2332,8 +2549,8 @@ CREATE TABLE public.scan_events (
     CONSTRAINT scan_events_digest_shape CHECK ((((idempotency_key_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((payload_digest)::text ~ '^[0-9a-f]{64}$'::text))),
     CONSTRAINT scan_events_failure_category CHECK (((failure_category IS NULL) OR ((failure_category)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text))),
     CONSTRAINT scan_events_positive_sequence CHECK ((sequence > 0)),
-    CONSTRAINT scan_events_status_allowlist CHECK ((((from_status IS NULL) OR ((from_status)::text = ANY ((ARRAY['requested'::character varying, 'admitted'::character varying, 'queued'::character varying, 'running'::character varying, 'cancel_requested'::character varying, 'canceled'::character varying, 'completed'::character varying, 'partially_completed'::character varying, 'failed'::character varying])::text[]))) AND ((to_status)::text = ANY ((ARRAY['requested'::character varying, 'admitted'::character varying, 'queued'::character varying, 'running'::character varying, 'cancel_requested'::character varying, 'canceled'::character varying, 'completed'::character varying, 'partially_completed'::character varying, 'failed'::character varying])::text[])))),
-    CONSTRAINT scan_events_type_allowlist CHECK (((event_type)::text = ANY ((ARRAY['scan.requested'::character varying, 'scan.admitted'::character varying, 'scan.queued'::character varying, 'scan.started'::character varying, 'scan.cancel_requested'::character varying, 'scan.canceled'::character varying, 'scan.completed'::character varying, 'scan.partially_completed'::character varying, 'scan.failed'::character varying, 'scan.progress_recorded'::character varying])::text[])))
+    CONSTRAINT scan_events_status_allowlist CHECK ((((from_status IS NULL) OR ((from_status)::text = ANY (ARRAY[('requested'::character varying)::text, ('admitted'::character varying)::text, ('queued'::character varying)::text, ('running'::character varying)::text, ('cancel_requested'::character varying)::text, ('canceled'::character varying)::text, ('completed'::character varying)::text, ('partially_completed'::character varying)::text, ('failed'::character varying)::text]))) AND ((to_status)::text = ANY (ARRAY[('requested'::character varying)::text, ('admitted'::character varying)::text, ('queued'::character varying)::text, ('running'::character varying)::text, ('cancel_requested'::character varying)::text, ('canceled'::character varying)::text, ('completed'::character varying)::text, ('partially_completed'::character varying)::text, ('failed'::character varying)::text])))),
+    CONSTRAINT scan_events_type_allowlist CHECK (((event_type)::text = ANY (ARRAY[('scan.requested'::character varying)::text, ('scan.admitted'::character varying)::text, ('scan.queued'::character varying)::text, ('scan.started'::character varying)::text, ('scan.cancel_requested'::character varying)::text, ('scan.canceled'::character varying)::text, ('scan.completed'::character varying)::text, ('scan.partially_completed'::character varying)::text, ('scan.failed'::character varying)::text, ('scan.progress_recorded'::character varying)::text])))
 );
 
 
@@ -2415,16 +2632,16 @@ CREATE TABLE public.scans (
     dispatch_enqueued_at timestamp(6) with time zone,
     dispatch_attempt_count integer DEFAULT 0 NOT NULL,
     dispatch_last_error_category character varying(64),
-    CONSTRAINT scans_admission_provenance_shape CHECK ((((admission_version IS NULL) AND (request_source IS NULL) AND (request_idempotency_digest IS NULL) AND (request_checksum IS NULL) AND (usage_quota_reservation_id IS NULL) AND (domain_verification_id IS NULL) AND (preflight_checked_at IS NULL) AND (preflight_status_code IS NULL) AND (preflight_destination_digest IS NULL) AND (credit_estimate IS NULL)) OR ((admission_version = 1) AND ((request_source)::text = ANY ((ARRAY['manual'::character varying, 'schedule'::character varying, 'release'::character varying])::text[])) AND ((request_idempotency_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((request_checksum)::text ~ '^[0-9a-f]{64}$'::text) AND (usage_quota_reservation_id IS NOT NULL) AND (domain_verification_id IS NOT NULL) AND (preflight_checked_at IS NOT NULL) AND ((preflight_status_code >= 100) AND (preflight_status_code <= 499)) AND ((preflight_destination_digest)::text ~ '^[0-9a-f]{64}$'::text) AND (credit_estimate > (0)::numeric)))),
+    CONSTRAINT scans_admission_provenance_shape CHECK ((((admission_version IS NULL) AND (request_source IS NULL) AND (request_idempotency_digest IS NULL) AND (request_checksum IS NULL) AND (usage_quota_reservation_id IS NULL) AND (domain_verification_id IS NULL) AND (preflight_checked_at IS NULL) AND (preflight_status_code IS NULL) AND (preflight_destination_digest IS NULL) AND (credit_estimate IS NULL)) OR ((admission_version = 1) AND ((request_source)::text = ANY (ARRAY[('manual'::character varying)::text, ('schedule'::character varying)::text, ('release'::character varying)::text])) AND ((request_idempotency_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((request_checksum)::text ~ '^[0-9a-f]{64}$'::text) AND (usage_quota_reservation_id IS NOT NULL) AND (domain_verification_id IS NOT NULL) AND (preflight_checked_at IS NOT NULL) AND ((preflight_status_code >= 100) AND (preflight_status_code <= 499)) AND ((preflight_destination_digest)::text ~ '^[0-9a-f]{64}$'::text) AND (credit_estimate > (0)::numeric)))),
     CONSTRAINT scans_bounded_snapshots CHECK (((jsonb_typeof(settings_snapshot) = 'object'::text) AND (octet_length((settings_snapshot)::text) <= 32768) AND (jsonb_typeof(entitlement_snapshot) = 'object'::text) AND (octet_length((entitlement_snapshot)::text) <= 32768))),
-    CONSTRAINT scans_counter_consistency CHECK (((targets_count >= 0) AND (urls_discovered_count >= 0) AND (urls_queued_count >= 0) AND (urls_running_count >= 0) AND (urls_processed_count >= 0) AND (urls_succeeded_count >= 0) AND (urls_failed_count >= 0) AND (urls_skipped_count >= 0) AND (findings_count >= 0) AND (progress_sequence > 0) AND (urls_processed_count = ((urls_succeeded_count + urls_failed_count) + urls_skipped_count)) AND (urls_discovered_count >= ((urls_processed_count + urls_queued_count) + urls_running_count)) AND (((status)::text <> ALL ((ARRAY['canceled'::character varying, 'completed'::character varying, 'partially_completed'::character varying, 'failed'::character varying])::text[])) OR ((urls_queued_count = 0) AND (urls_running_count = 0))))),
+    CONSTRAINT scans_counter_consistency CHECK (((targets_count >= 0) AND (urls_discovered_count >= 0) AND (urls_queued_count >= 0) AND (urls_running_count >= 0) AND (urls_processed_count >= 0) AND (urls_succeeded_count >= 0) AND (urls_failed_count >= 0) AND (urls_skipped_count >= 0) AND (findings_count >= 0) AND (progress_sequence > 0) AND (urls_processed_count = ((urls_succeeded_count + urls_failed_count) + urls_skipped_count)) AND (urls_discovered_count >= ((urls_processed_count + urls_queued_count) + urls_running_count)) AND (((status)::text <> ALL (ARRAY[('canceled'::character varying)::text, ('completed'::character varying)::text, ('partially_completed'::character varying)::text, ('failed'::character varying)::text])) OR ((urls_queued_count = 0) AND (urls_running_count = 0))))),
     CONSTRAINT scans_dispatch_shape CHECK (((dispatch_attempt_count >= 0) AND ((dispatch_attempt_count = 0) OR (dispatch_attempted_at IS NOT NULL)) AND ((dispatch_enqueued_at IS NULL) OR ((dispatch_attempted_at IS NOT NULL) AND (dispatch_enqueued_at >= dispatch_attempted_at) AND (dispatch_last_error_category IS NULL))) AND ((dispatch_last_error_category IS NULL) OR ((dispatch_last_error_category)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text)))),
     CONSTRAINT scans_distinct_baseline CHECK (((baseline_scan_id IS NULL) OR (baseline_scan_id <> id))),
-    CONSTRAINT scans_initiator_shape CHECK ((((initiator_type)::text = ANY ((ARRAY['membership'::character varying, 'schedule'::character varying, 'release'::character varying, 'system'::character varying])::text[])) AND ((((initiator_type)::text = 'membership'::text) AND (initiated_by_membership_id IS NOT NULL)) OR (((initiator_type)::text <> 'membership'::text) AND (initiated_by_membership_id IS NULL))))),
-    CONSTRAINT scans_lifecycle_shape CHECK (((requested_at IS NOT NULL) AND ((admitted_at IS NULL) OR (admitted_at >= requested_at)) AND ((queued_at IS NULL) OR ((admitted_at IS NOT NULL) AND (queued_at >= admitted_at))) AND ((started_at IS NULL) OR ((queued_at IS NOT NULL) AND (started_at >= queued_at))) AND ((cancel_requested_at IS NULL) OR (cancel_requested_at >= requested_at)) AND ((canceled_at IS NULL) OR ((cancel_requested_at IS NOT NULL) AND (canceled_at >= cancel_requested_at))) AND ((completed_at IS NULL) OR ((started_at IS NOT NULL) AND (completed_at >= started_at))) AND ((failed_at IS NULL) OR (failed_at >= requested_at)) AND ((((status)::text = 'requested'::text) AND (admitted_at IS NULL) AND (queued_at IS NULL) AND (started_at IS NULL) AND (cancel_requested_at IS NULL) AND (canceled_at IS NULL) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((status)::text = 'admitted'::text) AND (admitted_at IS NOT NULL) AND (queued_at IS NULL) AND (started_at IS NULL) AND (cancel_requested_at IS NULL) AND (canceled_at IS NULL) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((status)::text = 'queued'::text) AND (admitted_at IS NOT NULL) AND (queued_at IS NOT NULL) AND (started_at IS NULL) AND (cancel_requested_at IS NULL) AND (canceled_at IS NULL) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((status)::text = 'running'::text) AND (admitted_at IS NOT NULL) AND (queued_at IS NOT NULL) AND (started_at IS NOT NULL) AND (cancel_requested_at IS NULL) AND (canceled_at IS NULL) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((status)::text = 'cancel_requested'::text) AND (admitted_at IS NOT NULL) AND (queued_at IS NOT NULL) AND (cancel_requested_at IS NOT NULL) AND (canceled_at IS NULL) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((status)::text = 'canceled'::text) AND (cancel_requested_at IS NOT NULL) AND (canceled_at IS NOT NULL) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((status)::text = ANY ((ARRAY['completed'::character varying, 'partially_completed'::character varying])::text[])) AND (started_at IS NOT NULL) AND (completed_at IS NOT NULL) AND (canceled_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((status)::text = 'failed'::text) AND (failed_at IS NOT NULL) AND (completed_at IS NULL) AND (canceled_at IS NULL) AND ((failure_category)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text))))),
+    CONSTRAINT scans_initiator_shape CHECK ((((initiator_type)::text = ANY (ARRAY[('membership'::character varying)::text, ('schedule'::character varying)::text, ('release'::character varying)::text, ('system'::character varying)::text])) AND ((((initiator_type)::text = 'membership'::text) AND (initiated_by_membership_id IS NOT NULL)) OR (((initiator_type)::text <> 'membership'::text) AND (initiated_by_membership_id IS NULL))))),
+    CONSTRAINT scans_lifecycle_shape CHECK (((requested_at IS NOT NULL) AND ((admitted_at IS NULL) OR (admitted_at >= requested_at)) AND ((queued_at IS NULL) OR ((admitted_at IS NOT NULL) AND (queued_at >= admitted_at))) AND ((started_at IS NULL) OR ((queued_at IS NOT NULL) AND (started_at >= queued_at))) AND ((cancel_requested_at IS NULL) OR (cancel_requested_at >= requested_at)) AND ((canceled_at IS NULL) OR ((cancel_requested_at IS NOT NULL) AND (canceled_at >= cancel_requested_at))) AND ((completed_at IS NULL) OR ((started_at IS NOT NULL) AND (completed_at >= started_at))) AND ((failed_at IS NULL) OR (failed_at >= requested_at)) AND ((((status)::text = 'requested'::text) AND (admitted_at IS NULL) AND (queued_at IS NULL) AND (started_at IS NULL) AND (cancel_requested_at IS NULL) AND (canceled_at IS NULL) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((status)::text = 'admitted'::text) AND (admitted_at IS NOT NULL) AND (queued_at IS NULL) AND (started_at IS NULL) AND (cancel_requested_at IS NULL) AND (canceled_at IS NULL) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((status)::text = 'queued'::text) AND (admitted_at IS NOT NULL) AND (queued_at IS NOT NULL) AND (started_at IS NULL) AND (cancel_requested_at IS NULL) AND (canceled_at IS NULL) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((status)::text = 'running'::text) AND (admitted_at IS NOT NULL) AND (queued_at IS NOT NULL) AND (started_at IS NOT NULL) AND (cancel_requested_at IS NULL) AND (canceled_at IS NULL) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((status)::text = 'cancel_requested'::text) AND (admitted_at IS NOT NULL) AND (queued_at IS NOT NULL) AND (cancel_requested_at IS NOT NULL) AND (canceled_at IS NULL) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((status)::text = 'canceled'::text) AND (cancel_requested_at IS NOT NULL) AND (canceled_at IS NOT NULL) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((status)::text = ANY (ARRAY[('completed'::character varying)::text, ('partially_completed'::character varying)::text])) AND (started_at IS NOT NULL) AND (completed_at IS NOT NULL) AND (canceled_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((status)::text = 'failed'::text) AND (failed_at IS NOT NULL) AND (completed_at IS NULL) AND (canceled_at IS NULL) AND ((failure_category)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text))))),
     CONSTRAINT scans_snapshot_digests CHECK ((((settings_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((entitlement_digest)::text ~ '^[0-9a-f]{64}$'::text))),
-    CONSTRAINT scans_status_allowlist CHECK (((status)::text = ANY ((ARRAY['requested'::character varying, 'admitted'::character varying, 'queued'::character varying, 'running'::character varying, 'cancel_requested'::character varying, 'canceled'::character varying, 'completed'::character varying, 'partially_completed'::character varying, 'failed'::character varying])::text[]))),
-    CONSTRAINT scans_type_allowlist CHECK (((scan_type)::text = ANY ((ARRAY['full'::character varying, 'targeted'::character varying, 'verification'::character varying])::text[]))),
+    CONSTRAINT scans_status_allowlist CHECK (((status)::text = ANY (ARRAY[('requested'::character varying)::text, ('admitted'::character varying)::text, ('queued'::character varying)::text, ('running'::character varying)::text, ('cancel_requested'::character varying)::text, ('canceled'::character varying)::text, ('completed'::character varying)::text, ('partially_completed'::character varying)::text, ('failed'::character varying)::text]))),
+    CONSTRAINT scans_type_allowlist CHECK (((scan_type)::text = ANY (ARRAY[('full'::character varying)::text, ('targeted'::character varying)::text, ('verification'::character varying)::text]))),
     CONSTRAINT scans_version_provenance CHECK (((configuration_version > 0) AND ((engine_version)::text ~ '^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$'::text) AND ((rule_set_version)::text ~ '^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$'::text)))
 );
 
@@ -2837,6 +3054,13 @@ ALTER TABLE ONLY public.authentication_rate_limit_buckets ALTER COLUMN id SET DE
 
 
 --
+-- Name: crawl_sitemap_entries id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_sitemap_entries ALTER COLUMN id SET DEFAULT nextval('public.crawl_sitemap_entries_id_seq'::regclass);
+
+
+--
 -- Name: crawl_urls id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -3006,6 +3230,30 @@ ALTER TABLE ONLY public.crawl_policy_versions
 
 ALTER TABLE ONLY public.crawl_robots_snapshots
     ADD CONSTRAINT crawl_robots_snapshots_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: crawl_sitemap_discoveries crawl_sitemap_discoveries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_sitemap_discoveries
+    ADD CONSTRAINT crawl_sitemap_discoveries_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: crawl_sitemap_entries crawl_sitemap_entries_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_sitemap_entries
+    ADD CONSTRAINT crawl_sitemap_entries_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: crawl_sitemap_files crawl_sitemap_files_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_sitemap_files
+    ADD CONSTRAINT crawl_sitemap_files_pkey PRIMARY KEY (id);
 
 
 --
@@ -3703,6 +3951,76 @@ CREATE UNIQUE INDEX index_crawl_robots_snapshots_on_scan_origin ON public.crawl_
 --
 
 CREATE INDEX index_crawl_robots_snapshots_on_tenant_scan ON public.crawl_robots_snapshots USING btree (organization_id, project_id, property_id, scan_id);
+
+
+--
+-- Name: index_crawl_sitemap_discoveries_on_scan_and_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_sitemap_discoveries_on_scan_and_id ON public.crawl_sitemap_discoveries USING btree (scan_id, id);
+
+
+--
+-- Name: index_crawl_sitemap_discoveries_on_scan_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_sitemap_discoveries_on_scan_id ON public.crawl_sitemap_discoveries USING btree (scan_id);
+
+
+--
+-- Name: index_crawl_sitemap_discoveries_on_tenant_scan; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_sitemap_discoveries_on_tenant_scan ON public.crawl_sitemap_discoveries USING btree (organization_id, project_id, property_id, scan_id);
+
+
+--
+-- Name: index_crawl_sitemap_entries_on_file_location; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_sitemap_entries_on_file_location ON public.crawl_sitemap_entries USING btree (sitemap_file_id, entry_kind, location_digest);
+
+
+--
+-- Name: index_crawl_sitemap_entries_on_file_position; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_sitemap_entries_on_file_position ON public.crawl_sitemap_entries USING btree (sitemap_file_id, entry_index);
+
+
+--
+-- Name: index_crawl_sitemap_entries_on_scan_location; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_sitemap_entries_on_scan_location ON public.crawl_sitemap_entries USING btree (scan_id, entry_kind, location_digest);
+
+
+--
+-- Name: index_crawl_sitemap_entries_on_scan_outcome; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_sitemap_entries_on_scan_outcome ON public.crawl_sitemap_entries USING btree (scan_id, scope_status, relationship_status);
+
+
+--
+-- Name: index_crawl_sitemap_files_on_discovery_queue; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_sitemap_files_on_discovery_queue ON public.crawl_sitemap_files USING btree (sitemap_discovery_id, status, index_depth, created_at);
+
+
+--
+-- Name: index_crawl_sitemap_files_on_scan_and_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_sitemap_files_on_scan_and_id ON public.crawl_sitemap_files USING btree (scan_id, id);
+
+
+--
+-- Name: index_crawl_sitemap_files_on_scan_url; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_sitemap_files_on_scan_url ON public.crawl_sitemap_files USING btree (scan_id, url_digest);
 
 
 --
@@ -4458,28 +4776,28 @@ CREATE UNIQUE INDEX index_scan_events_on_sequence ON public.scan_events USING bt
 -- Name: index_scans_on_active_global_work; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_scans_on_active_global_work ON public.scans USING btree (status) WHERE ((status)::text = ANY ((ARRAY['admitted'::character varying, 'queued'::character varying, 'running'::character varying, 'cancel_requested'::character varying])::text[]));
+CREATE INDEX index_scans_on_active_global_work ON public.scans USING btree (status) WHERE ((status)::text = ANY (ARRAY[('admitted'::character varying)::text, ('queued'::character varying)::text, ('running'::character varying)::text, ('cancel_requested'::character varying)::text]));
 
 
 --
 -- Name: index_scans_on_active_organization_work; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_scans_on_active_organization_work ON public.scans USING btree (organization_id, status) WHERE ((status)::text = ANY ((ARRAY['admitted'::character varying, 'queued'::character varying, 'running'::character varying, 'cancel_requested'::character varying])::text[]));
+CREATE INDEX index_scans_on_active_organization_work ON public.scans USING btree (organization_id, status) WHERE ((status)::text = ANY (ARRAY[('admitted'::character varying)::text, ('queued'::character varying)::text, ('running'::character varying)::text, ('cancel_requested'::character varying)::text]));
 
 
 --
 -- Name: index_scans_on_active_project_admissions; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_scans_on_active_project_admissions ON public.scans USING btree (organization_id, project_id, status) WHERE ((status)::text = ANY ((ARRAY['admitted'::character varying, 'queued'::character varying, 'running'::character varying, 'cancel_requested'::character varying])::text[]));
+CREATE INDEX index_scans_on_active_project_admissions ON public.scans USING btree (organization_id, project_id, status) WHERE ((status)::text = ANY (ARRAY[('admitted'::character varying)::text, ('queued'::character varying)::text, ('running'::character varying)::text, ('cancel_requested'::character varying)::text]));
 
 
 --
 -- Name: index_scans_on_active_project_work; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE INDEX index_scans_on_active_project_work ON public.scans USING btree (organization_id, project_id, status, updated_at) WHERE ((status)::text = ANY ((ARRAY['requested'::character varying, 'admitted'::character varying, 'queued'::character varying, 'running'::character varying, 'cancel_requested'::character varying])::text[]));
+CREATE INDEX index_scans_on_active_project_work ON public.scans USING btree (organization_id, project_id, status, updated_at) WHERE ((status)::text = ANY (ARRAY[('requested'::character varying)::text, ('admitted'::character varying)::text, ('queued'::character varying)::text, ('running'::character varying)::text, ('cancel_requested'::character varying)::text]));
 
 
 --
@@ -4889,6 +5207,27 @@ CREATE TRIGGER crawl_robots_snapshots_immutable BEFORE DELETE OR UPDATE ON publi
 
 
 --
+-- Name: crawl_sitemap_discoveries crawl_sitemap_discoveries_protect; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER crawl_sitemap_discoveries_protect BEFORE DELETE OR UPDATE ON public.crawl_sitemap_discoveries FOR EACH ROW EXECUTE FUNCTION public.protect_crawl_sitemap_discovery();
+
+
+--
+-- Name: crawl_sitemap_entries crawl_sitemap_entries_immutable; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER crawl_sitemap_entries_immutable BEFORE DELETE OR UPDATE ON public.crawl_sitemap_entries FOR EACH ROW EXECUTE FUNCTION public.protect_crawl_sitemap_entry();
+
+
+--
+-- Name: crawl_sitemap_files crawl_sitemap_files_protect; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER crawl_sitemap_files_protect BEFORE DELETE OR UPDATE ON public.crawl_sitemap_files FOR EACH ROW EXECUTE FUNCTION public.protect_crawl_sitemap_file();
+
+
+--
 -- Name: crawl_urls crawl_urls_protect_identity; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -5203,6 +5542,70 @@ ALTER TABLE ONLY public.crawl_policy_versions
 
 ALTER TABLE ONLY public.crawl_robots_snapshots
     ADD CONSTRAINT fk_crawl_robots_snapshots_exact_scan FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id) REFERENCES public.scans(organization_id, project_id, property_id, environment_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_sitemap_discoveries fk_crawl_sitemap_discoveries_exact_scan; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_sitemap_discoveries
+    ADD CONSTRAINT fk_crawl_sitemap_discoveries_exact_scan FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id) REFERENCES public.scans(organization_id, project_id, property_id, environment_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_sitemap_entries fk_crawl_sitemap_entries_exact_scan; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_sitemap_entries
+    ADD CONSTRAINT fk_crawl_sitemap_entries_exact_scan FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id) REFERENCES public.scans(organization_id, project_id, property_id, environment_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_sitemap_entries fk_crawl_sitemap_entries_same_scan_child; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_sitemap_entries
+    ADD CONSTRAINT fk_crawl_sitemap_entries_same_scan_child FOREIGN KEY (scan_id, child_sitemap_file_id) REFERENCES public.crawl_sitemap_files(scan_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_sitemap_entries fk_crawl_sitemap_entries_same_scan_file; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_sitemap_entries
+    ADD CONSTRAINT fk_crawl_sitemap_entries_same_scan_file FOREIGN KEY (scan_id, sitemap_file_id) REFERENCES public.crawl_sitemap_files(scan_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_sitemap_entries fk_crawl_sitemap_entries_same_scan_url; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_sitemap_entries
+    ADD CONSTRAINT fk_crawl_sitemap_entries_same_scan_url FOREIGN KEY (scan_id, crawl_url_id) REFERENCES public.crawl_urls(scan_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_sitemap_files fk_crawl_sitemap_files_exact_scan; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_sitemap_files
+    ADD CONSTRAINT fk_crawl_sitemap_files_exact_scan FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id) REFERENCES public.scans(organization_id, project_id, property_id, environment_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_sitemap_files fk_crawl_sitemap_files_same_scan_discovery; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_sitemap_files
+    ADD CONSTRAINT fk_crawl_sitemap_files_same_scan_discovery FOREIGN KEY (scan_id, sitemap_discovery_id) REFERENCES public.crawl_sitemap_discoveries(scan_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_sitemap_files fk_crawl_sitemap_files_same_scan_parent; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_sitemap_files
+    ADD CONSTRAINT fk_crawl_sitemap_files_same_scan_parent FOREIGN KEY (scan_id, parent_sitemap_file_id) REFERENCES public.crawl_sitemap_files(scan_id, id) ON DELETE RESTRICT;
 
 
 --
@@ -6124,6 +6527,7 @@ ALTER TABLE ONLY public.website_property_configs
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904152000'),
 ('20260904151000'),
 ('20260904150000'),
 ('20260904149000'),

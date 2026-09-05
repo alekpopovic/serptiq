@@ -72,6 +72,10 @@ module Crawling
       ReadRobotsSitemaps.new.call(**attributes)
     end
 
+    def discover_sitemaps(clock: -> { Time.current }, **attributes)
+      DiscoverSitemaps.new(clock: clock).call(**attributes)
+    end
+
     def discover_frontier(clock: -> { Time.current }, **attributes)
       DiscoverFrontier.new(clock: clock).call(**attributes)
     end

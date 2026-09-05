@@ -84,6 +84,60 @@ class AdministrationResourceDeletionWorkflowTest < ActiveSupport::TestCase
       warnings: [],
       created_at: Time.current
     )
+    @sitemap_discovery = Crawling::SitemapDiscovery.create!(
+      organization_id: @scan.organization_id,
+      project_id: @scan.project_id,
+      property_id: @scan.property_id,
+      environment_id: @scan.environment_id,
+      scan_id: @scan.id,
+      status: "running",
+      started_at: Time.current
+    )
+    @sitemap_file = Crawling::SitemapFile.create!(
+      organization_id: @scan.organization_id,
+      project_id: @scan.project_id,
+      property_id: @scan.property_id,
+      environment_id: @scan.environment_id,
+      scan_id: @scan.id,
+      sitemap_discovery_id: @sitemap_discovery.id,
+      url: "https://delete.example.com/sitemap.xml",
+      url_digest: Digest::SHA256.hexdigest("https://delete.example.com/sitemap.xml"),
+      source: "configured",
+      index_depth: 0,
+      status: "pending"
+    )
+    @sitemap_child = Crawling::SitemapFile.create!(
+      organization_id: @scan.organization_id,
+      project_id: @scan.project_id,
+      property_id: @scan.property_id,
+      environment_id: @scan.environment_id,
+      scan_id: @scan.id,
+      sitemap_discovery_id: @sitemap_discovery.id,
+      parent_sitemap_file_id: @sitemap_file.id,
+      url: "https://delete.example.com/sitemap-child.xml",
+      url_digest: Digest::SHA256.hexdigest("https://delete.example.com/sitemap-child.xml"),
+      source: "sitemap_index",
+      index_depth: 1,
+      status: "pending"
+    )
+    @sitemap_entry = Crawling::SitemapEntry.create!(
+      organization_id: @scan.organization_id,
+      project_id: @scan.project_id,
+      property_id: @scan.property_id,
+      environment_id: @scan.environment_id,
+      scan_id: @scan.id,
+      sitemap_file_id: @sitemap_file.id,
+      entry_index: 1,
+      entry_kind: "page",
+      location_url: "https://delete.example.com/",
+      location_digest: Digest::SHA256.hexdigest("https://delete.example.com/"),
+      normalization_version: 2,
+      scope_status: "in_scope",
+      scope_reason: "same_origin",
+      relationship_status: "frontier_duplicate",
+      crawl_url_id: @crawl_url.id,
+      created_at: Time.current
+    )
   end
 
   test "project hold stops admission, signals prior work and deletes in durable stage order" do
@@ -126,6 +180,10 @@ class AdministrationResourceDeletionWorkflowTest < ActiveSupport::TestCase
     assert_empty Crawling::PolicySet.where(project_id: @project.id)
     refute Crawling::CrawlUrl.exists?(@crawl_url.id)
     refute Crawling::RobotsSnapshot.exists?(@robots_snapshot.id)
+    refute Crawling::SitemapEntry.exists?(@sitemap_entry.id)
+    refute Crawling::SitemapFile.exists?(@sitemap_file.id)
+    refute Crawling::SitemapFile.exists?(@sitemap_child.id)
+    refute Crawling::SitemapDiscovery.exists?(@sitemap_discovery.id)
     refute Crawling::Scan.exists?(@scan.id)
     assert_equal [ [ "organizations/#{@owner.organization.id}/projects/#{@project.id}/", nil ] ],
       store.delete_calls

@@ -274,6 +274,13 @@ syntactic candidates, never destination approval or an instruction to fetch. An 
 override changes only crawl-policy evaluation and cannot bypass scope, DNS/address, redirect or quota controls.
 Robots exclusion is not treated or described as access authorization.
 
+Sitemap discovery applies exact-origin scope before DNS, and restricts every redirect to that origin in
+addition to the public-address policy. XML uses a strict streaming `NONET` parser with entity substitution,
+DTD loading, XInclude and parser limit relaxation disabled; document/entity nodes are rejected explicitly.
+Compressed and decompressed bytes, XML nesting, entries, documents and index recursion are independently
+bounded. PostgreSQL retains only normalized graph/status/`lastmod` evidence and response digests, never raw
+XML or gzip bodies.
+
 ### T-08 Denial of service and resource exhaustion
 
 Attack examples:

@@ -1,0 +1,124 @@
+{
+  "prompt_id": "067",
+  "title": "Implement sitemap discovery and bounded XML parsing",
+  "status": "completed",
+  "started_at": "2026-09-05T05:30:54Z",
+  "finished_at": "2026-09-05T06:26:06Z",
+  "summary": "Implemented deterministic tenant-safe sitemap candidate discovery, exact-origin SSRF-safe retrieval, bounded gzip/XML parsing, recursive index provenance, lastmod preservation, scoped frontier insertion, immutable database evidence, lifecycle deletion, documentation and comprehensive regression coverage; also corrected the billing customer-mapping read-after-uniqueness race exposed by the full suite.",
+  "tests": [
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test test/domain/crawling/sitemap_parser_test.rb test/domain/crawling/sitemap_retrieval_test.rb test/domain/crawling/sitemap_discovery_test.rb test/database/crawl_sitemap_constraints_test.rb test/domain/administration/resource_deletion_workflow_test.rb test/security/safe_http_client_test.rb test/configuration/configuration_test.rb",
+      "outcome": "passed",
+      "notes": "40 runs, 507 assertions, 0 failures, 0 errors, 0 skips on final code after clean schema load."
+    },
+    {
+      "command": "docker compose --profile test run --rm test",
+      "outcome": "passed",
+      "notes": "912 runs, 7606 assertions, 0 failures, 0 errors, 0 skips on final code."
+    },
+    {
+      "command": "five repeated docker compose concurrency test runs",
+      "outcome": "passed",
+      "notes": "Each run: 3 runs, 12 assertions, 0 failures, validating the read-after-uniqueness race correction."
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test test/domain/billing/provider_mapping_test.rb test/database/billing_checkout_concurrency_test.rb",
+      "outcome": "passed",
+      "notes": "6 runs, 24 assertions, 0 failures, 0 errors, 0 skips."
+    },
+    {
+      "command": "SEARCHOPS_PROCESS_ROLE=worker_default bin/quality",
+      "outcome": "passed",
+      "notes": "14 checks passed; RuboCop, ERB, data contracts, architecture, authorization, Brakeman and dependency audits clean."
+    },
+    {
+      "command": "docker compose --profile test run --rm --entrypoint /rails/bin/rails test db:drop db:create db:schema:load",
+      "outcome": "passed",
+      "notes": "All four isolated test databases recreated and loaded successfully from structure.sql."
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails db:rollback:primary STEP=1",
+      "outcome": "passed",
+      "notes": "Prompt migration rolled back successfully in 0.0333s."
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails db:migrate:primary and db:migrate:status:primary",
+      "outcome": "passed",
+      "notes": "Prompt migration reapplied; status confirms 20260904152000 is up."
+    },
+    {
+      "command": "ruby tracking/scripts/prompt_tracker.rb validate",
+      "outcome": "passed",
+      "notes": "VALID: 120 prompts; catalog and state are consistent."
+    }
+  ],
+  "files_changed": [
+    ".env.example",
+    "app/adapters/shared/network_safety/net_http_transport.rb",
+    "app/adapters/shared/network_safety/safe_http_client.rb",
+    "app/domains/billing/register_customer_mapping.rb",
+    "app/domains/crawling/decode_sitemap_payload.rb",
+    "app/domains/crawling/delete_for_lifecycle.rb",
+    "app/domains/crawling/discover_sitemaps.rb",
+    "app/domains/crawling/parsed_sitemap.rb",
+    "app/domains/crawling/public.rb",
+    "app/domains/crawling/retrieve_sitemap.rb",
+    "app/domains/crawling/scan.rb",
+    "app/domains/crawling/sitemap_discovery.rb",
+    "app/domains/crawling/sitemap_entry.rb",
+    "app/domains/crawling/sitemap_file.rb",
+    "app/domains/crawling/sitemap_parsed_entry.rb",
+    "app/domains/crawling/sitemap_parser.rb",
+    "app/domains/crawling/sitemap_payload.rb",
+    "app/domains/crawling/sitemap_payload_error.rb",
+    "app/domains/crawling/sitemap_retrieval.rb",
+    "app/domains/crawling/sitemap_warning.rb",
+    "app/domains/shared/network_safety/public_redirect_policy.rb",
+    "config/authorization_inventory.yml",
+    "config/searchops.yml",
+    "config/searchops/configuration.rb",
+    "db/migrate/20260904152000_create_crawl_sitemap_discovery.rb",
+    "db/structure.sql",
+    "docs/03_ERD.md",
+    "docs/07_SECURITY_AND_THREAT_MODEL.md",
+    "docs/12_SOURCE_REFERENCES.md",
+    "docs/implementation/CONFIGURATION.md",
+    "docs/implementation/CRAWL_POLICIES.md",
+    "docs/implementation/MODULE_BOUNDARIES.md",
+    "docs/implementation/README.md",
+    "docs/implementation/SITEMAP_DISCOVERY.md",
+    "test/configuration/configuration_test.rb",
+    "test/database/crawl_sitemap_constraints_test.rb",
+    "test/domain/administration/resource_deletion_workflow_test.rb",
+    "test/domain/crawling/sitemap_discovery_test.rb",
+    "test/domain/crawling/sitemap_parser_test.rb",
+    "test/domain/crawling/sitemap_retrieval_test.rb",
+    "test/fixtures/files/crawling/sitemap_decompression_bomb.gz.b64",
+    "test/fixtures/files/crawling/sitemap_index.xml",
+    "test/fixtures/files/crawling/sitemap_malformed.xml",
+    "test/fixtures/files/crawling/sitemap_partial.xml",
+    "test/fixtures/files/crawling/sitemap_urlset.xml",
+    "test/fixtures/files/crawling/sitemap_urlset.xml.gz.b64",
+    "test/fixtures/files/crawling/sitemap_xxe.xml",
+    "test/security/safe_http_client_test.rb"
+  ],
+  "migrations": [
+    "20260904152000_create_crawl_sitemap_discovery.rb: creates constrained crawl_sitemap_discoveries",
+    "crawl_sitemap_files and crawl_sitemap_entries with immutable terminal-state triggers; no backfill; brief DDL lock risk."
+  ],
+  "decisions": [
+    "Use configured candidates before robots candidates and optional well-known fallback",
+    "Require exact-origin redirect allowlists plus DNS rebinding checks before sitemap network access",
+    "Parse XML with strict NONET streaming Reader and explicit byte/depth/document/entry bounds",
+    "Preserve original and normalized URL plus lastmod provenance while only frontiering in-scope page entries",
+    "Count accepted responses and request attempts on the scan for Prompt 072 reservation finalization",
+    "Treat equivalent Rails uniqueness-validation and database-constraint races as idempotent customer-mapping replays."
+  ],
+  "risks": [
+    "Raw sitemap bodies are represented by digests until artifact transport is implemented; usage charging remains reservation-backed per-scan observation for Prompt 072 finalization. Two intermediate full-suite runs exposed the now-fixed billing uniqueness race; repeated targeted and final full-suite verification are clean."
+  ],
+  "next_steps": [
+    "Prompt 068: implement same-origin link extraction and relationship provenance using the normalized scoped frontier."
+  ],
+  "commit": null
+}

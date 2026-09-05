@@ -20,6 +20,7 @@ module Shared
 
         request = Net::HTTP::Get.new(target.request_uri)
         request["Accept"] = "text/plain, text/html;q=0.9"
+        request["Accept-Encoding"] = "identity"
         request["User-Agent"] = normalize_user_agent(user_agent)
         response = nil
         body = +"".b

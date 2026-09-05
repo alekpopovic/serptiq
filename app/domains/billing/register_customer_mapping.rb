@@ -19,14 +19,11 @@ module Billing
 
       snapshot(CustomerMapping.create!(attributes.merge(created_at: @clock.call, updated_at: @clock.call)))
     rescue ActiveRecord::RecordNotUnique
-      replay = CustomerMapping.find_by(attributes.slice(:organization_id, :provider, :environment))
-      return snapshot(replay) if replay&.provider_customer_id == attributes[:provider_customer_id]
-
-      raise ProviderMappingMissing.new(reason_code: "billing_customer_mapping_conflict"), cause: nil
+      replay_or_conflict(attributes)
     rescue ActiveRecord::RecordInvalid => error
       if error.record.errors.of_kind?(:organization_id, :taken) ||
           error.record.errors.of_kind?(:provider_customer_id, :taken)
-        raise ProviderMappingMissing.new(reason_code: "billing_customer_mapping_conflict"), cause: nil
+        return replay_or_conflict(attributes)
       end
 
       raise ProviderMappingMissing.new(reason_code: "billing_customer_mapping_invalid"), cause: error
@@ -35,6 +32,13 @@ module Billing
     end
 
     private
+
+    def replay_or_conflict(attributes)
+      replay = CustomerMapping.find_by(attributes.slice(:organization_id, :provider, :environment))
+      return snapshot(replay) if replay&.provider_customer_id == attributes[:provider_customer_id]
+
+      raise ProviderMappingMissing.new(reason_code: "billing_customer_mapping_conflict"), cause: nil
+    end
 
     def normalized_attributes(organization_id:, provider:, environment:, provider_customer_id:)
       {

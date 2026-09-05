@@ -151,6 +151,41 @@ module Searchops
       ),
       crawler_robots_max_redirects: Definition.new("SEARCHOPS_CRAWLER_ROBOTS_MAX_REDIRECTS", :integer,
         5, 0, 5, nil, false, nil),
+      crawler_sitemap_well_known_enabled: Definition.new(
+        "SEARCHOPS_CRAWLER_SITEMAP_WELL_KNOWN_ENABLED", :boolean, true, nil, nil, nil, false, nil
+      ),
+      crawler_sitemap_dns_timeout: Definition.new("SEARCHOPS_CRAWLER_SITEMAP_DNS_TIMEOUT", :duration,
+        "3s", 0.1, 10, nil, false, nil),
+      crawler_sitemap_open_timeout: Definition.new("SEARCHOPS_CRAWLER_SITEMAP_OPEN_TIMEOUT", :duration,
+        "2s", 0.1, 10, nil, false, nil),
+      crawler_sitemap_read_timeout: Definition.new("SEARCHOPS_CRAWLER_SITEMAP_READ_TIMEOUT", :duration,
+        "10s", 0.1, 30, nil, false, nil),
+      crawler_sitemap_max_response_bytes: Definition.new(
+        "SEARCHOPS_CRAWLER_SITEMAP_MAX_RESPONSE_BYTES", :integer,
+        10_485_760, 1024, 52_428_800, nil, false, nil
+      ),
+      crawler_sitemap_max_decompressed_bytes: Definition.new(
+        "SEARCHOPS_CRAWLER_SITEMAP_MAX_DECOMPRESSED_BYTES", :integer,
+        52_428_800, 1024, 52_428_800, nil, false, nil
+      ),
+      crawler_sitemap_max_documents: Definition.new("SEARCHOPS_CRAWLER_SITEMAP_MAX_DOCUMENTS", :integer,
+        1000, 1, 10_000, nil, false, nil),
+      crawler_sitemap_max_entries_per_document: Definition.new(
+        "SEARCHOPS_CRAWLER_SITEMAP_MAX_ENTRIES_PER_DOCUMENT", :integer,
+        50_000, 1, 50_000, nil, false, nil
+      ),
+      crawler_sitemap_max_entries_per_scan: Definition.new(
+        "SEARCHOPS_CRAWLER_SITEMAP_MAX_ENTRIES_PER_SCAN", :integer,
+        200_000, 1, 1_000_000, nil, false, nil
+      ),
+      crawler_sitemap_max_index_depth: Definition.new(
+        "SEARCHOPS_CRAWLER_SITEMAP_MAX_INDEX_DEPTH", :integer, 3, 0, 10, nil, false, nil
+      ),
+      crawler_sitemap_max_xml_depth: Definition.new(
+        "SEARCHOPS_CRAWLER_SITEMAP_MAX_XML_DEPTH", :integer, 32, 4, 128, nil, false, nil
+      ),
+      crawler_sitemap_max_redirects: Definition.new("SEARCHOPS_CRAWLER_SITEMAP_MAX_REDIRECTS", :integer,
+        5, 0, 5, nil, false, nil),
       browser_timeout: Definition.new("SEARCHOPS_BROWSER_TIMEOUT", :duration, "45s", 1, 300, nil, false, nil),
       browser_memory_mb: Definition.new("SEARCHOPS_BROWSER_MEMORY_MB", :integer, 1024, 256, 8192, nil, false, nil),
       browser_max_requests: Definition.new("SEARCHOPS_BROWSER_MAX_REQUESTS", :integer, 200, 1, 5000, nil, false, nil),

@@ -892,6 +892,16 @@ tenant and first-discovery provenance. The bigint row ID is also the monotonic d
 priority and depth. Scan aggregate counters are updated transactionally by frontier batches so dashboard reads do
 not count this high-volume table.
 
+### `crawl_sitemap_discoveries` / `crawl_sitemap_files` / `crawl_sitemap_entries`
+
+One exact-tenant discovery aggregate per scan retains terminal document, entry, byte, warning, fetch-attempt,
+accepted-response meter and frontier-insertion counters. Sitemap files form a bounded, URL-deduplicated
+first-parent index graph and retain status, raw-artifact digest, response provenance, parser version and
+compressed/decompressed byte counts without storing XML in PostgreSQL. Entry rows retain source position,
+normalized URL identity, `lastmod` value/precision, scope outcome and the same-scan child-sitemap or frontier
+relationship. Composite foreign keys prevent tenant, scan, child and crawl-URL substitution; terminal rows
+are immutable except through the authorized resource-deletion stage.
+
 ### `crawl_fetches`
 
 Records requested URL, final URL, approved resolved address metadata, status, headers allowlist, timing, byte count, MIME, redirect chain, outcome, error classification, and artifact references.

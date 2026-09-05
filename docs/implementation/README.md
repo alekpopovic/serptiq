@@ -109,6 +109,8 @@ Do not pre-populate these reports with fictional implementation or test results.
   normalization, query identity filtering, explicit scope reason codes and the HTML-canonical trust boundary.
 - [`ROBOTS_POLICY.md`](./ROBOTS_POLICY.md) defines the SearchOps crawler identity, RFC 9309 parsing and status
   decisions, immutable per-scan provenance, verified-owner override and untrusted sitemap boundary.
+- [`SITEMAP_DISCOVERY.md`](./SITEMAP_DISCOVERY.md) defines exact-origin candidate discovery, streaming
+  XXE-safe XML/gzip limits, immutable graph evidence, scope-gated frontier insertion and per-scan metering.
 - [`RESOURCE_DELETION.md`](./RESOURCE_DELETION.md) defines exact-target deletion requests, the 30-day hold,
   cooperative cancellation, durable ordered cleanup, object reconciliation and retained tombstones.
 - [`BILLING_PROVIDER_CONTRACT.md`](./BILLING_PROVIDER_CONTRACT.md) defines normalized billing values,

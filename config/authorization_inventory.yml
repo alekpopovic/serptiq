@@ -436,6 +436,9 @@ domain_operations:
   Crawling::Public.robots_sitemap_candidates:
     kind: system
     reason: exact_tenant_untrusted_robots_sitemap_observations
+  Crawling::Public.discover_sitemaps:
+    kind: system
+    reason: exact_tenant_bounded_sitemap_graph_and_frontier_discovery
   Crawling::Public.discover_frontier:
     kind: system
     reason: exact_tenant_scan_frontier_discovery

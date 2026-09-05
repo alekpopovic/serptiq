@@ -23,6 +23,12 @@ class SafeHttpClientTest < ActiveSupport::TestCase
       responses.shift
     end
   end
+  RebindingResolver = Struct.new(:answers, :calls, keyword_init: true) do
+    def resolve(host:)
+      calls << host
+      answers.shift
+    end
+  end
 
   setup do
     @fixture = TestSupport::Network::MaliciousHttpFixture.new.start
@@ -141,6 +147,60 @@ class SafeHttpClientTest < ActiveSupport::TestCase
     assert_equal [ "example.com", "robots.example.net" ], resolver.calls
     assert_equal [ "93.184.216.34", "93.184.216.35" ],
       transport.calls.map { |call| call.fetch(:ip_address) }
+  end
+
+  test "rejects an out-of-scope sitemap redirect before resolving or connecting to it" do
+    resolver = FixtureResolver.new(
+      addresses: {
+        "example.com" => [ "93.184.216.34" ],
+        "outside.example.net" => [ "169.254.169.254" ]
+      },
+      calls: []
+    )
+    transport = RecordingTransport.new(
+      responses: [ response(302, location: "https://outside.example.net/sitemap.xml") ],
+      calls: []
+    )
+    client = Shared::NetworkSafety::SafeHttpClient.new(resolver: resolver, transport: transport)
+
+    error = assert_raises(Shared::NetworkSafety::Error) do
+      client.fetch_public_redirects(
+        origin: "https://example.com",
+        url: "https://example.com/sitemap.xml",
+        approved_redirect_origins: [ "https://example.com" ],
+        allowed_content_types: [ "application/xml" ]
+      )
+    end
+
+    assert_equal "redirect_rejected", error.reason_code
+    assert_equal [ "example.com" ], resolver.calls
+    assert_equal 1, transport.calls.length
+  end
+
+  test "revalidates a same-origin sitemap redirect and blocks a private DNS rebinding answer" do
+    resolver = RebindingResolver.new(
+      answers: [ [ "93.184.216.34" ], [ "127.0.0.1" ] ],
+      calls: []
+    )
+    transport = RecordingTransport.new(
+      responses: [ response(302, location: "/sitemap-current.xml") ],
+      calls: []
+    )
+    client = Shared::NetworkSafety::SafeHttpClient.new(resolver: resolver, transport: transport)
+
+    error = assert_raises(Shared::NetworkSafety::Error) do
+      client.fetch_public_redirects(
+        origin: "https://example.com",
+        url: "https://example.com/sitemap.xml",
+        approved_redirect_origins: [ "https://example.com" ],
+        allowed_content_types: [ "application/xml" ]
+      )
+    end
+
+    assert_equal "unsafe_destination", error.reason_code
+    assert_equal 1, error.evidence.fetch(:redirect_count)
+    assert_equal %w[example.com example.com], resolver.calls
+    assert_equal 1, transport.calls.length
   end
 
   test "rejects unsafe robots redirect destinations and HTTPS downgrade" do

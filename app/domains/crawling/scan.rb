@@ -30,6 +30,12 @@ module Crawling
       dependent: :restrict_with_exception
     has_many :robots_snapshots, class_name: "Crawling::RobotsSnapshot", inverse_of: :scan,
       dependent: :restrict_with_exception
+    has_one :sitemap_discovery, class_name: "Crawling::SitemapDiscovery", inverse_of: :scan,
+      dependent: :restrict_with_exception
+    has_many :sitemap_files, class_name: "Crawling::SitemapFile", inverse_of: :scan,
+      dependent: :restrict_with_exception
+    has_many :sitemap_entries, class_name: "Crawling::SitemapEntry", inverse_of: :scan,
+      dependent: :restrict_with_exception
     has_one :policy_snapshot, class_name: "Crawling::PolicySnapshot", inverse_of: false,
       dependent: :restrict_with_exception
     belongs_to :baseline_scan, class_name: "Crawling::Scan", optional: true

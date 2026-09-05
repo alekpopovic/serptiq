@@ -194,6 +194,10 @@ Robots retrieval, RFC parsing, immutable per-scan provenance and allow/deny/unkn
 Crawling-owned. Shared provides a domain-neutral public-redirect transport that re-resolves and validates every
 hop; it does not interpret robots content. Sitemap directives leave Crawling only as untrusted candidate values
 and do not authorize a destination or initiate an HTTP request.
+Sitemap discovery remains Crawling-owned: it turns configured, robots and optional exact-origin candidates
+into a bounded per-scan graph, delegates every destination decision and pinned connection to Shared, and
+admits only normalized in-scope page entries through the public frontier operation. Its accepted-response
+counter is an observation for later idempotent Usage reservation finalization, not a second direct charge.
 
 Administration owns the durable cross-domain deletion workflow and calls only narrow owning-module cleanup
 APIs. It does not delete another module's rows directly. Each owner validates explicit tenant/resource IDs;

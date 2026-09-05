@@ -56,6 +56,9 @@ Checked on **2026-09-04** unless an item states otherwise. These sources provide
 ## Crawling and discovery
 
 - Robots Exclusion Protocol, RFC 9309: <https://www.rfc-editor.org/rfc/rfc9309>
+- Sitemaps XML protocol: <https://www.sitemaps.org/protocol.html>
+- Nokogiri untrusted XML parsing options: <https://nokogiri.org/tutorials/parsing_an_html_xml_document.html>
+- Nokogiri streaming XML reader: <https://nokogiri.org/rdoc/Nokogiri/XML/Reader.html>
 - IndexNow documentation: <https://www.indexnow.org/documentation>
 - OpenAI crawlers and user agents: <https://platform.openai.com/docs/bots>
 

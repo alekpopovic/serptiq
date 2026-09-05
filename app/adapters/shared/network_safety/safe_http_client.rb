@@ -27,8 +27,13 @@ module Shared
         fetch_with_policy(policy, allowed_content_types, user_agent)
       end
 
-      def fetch_public_redirects(origin:, url:, allowed_content_types:, user_agent: nil)
-        policy = PublicRedirectPolicy.new(origin: origin, url: url)
+      def fetch_public_redirects(origin:, url:, allowed_content_types:, approved_redirect_origins: nil,
+        user_agent: nil)
+        policy = PublicRedirectPolicy.new(
+          origin: origin,
+          url: url,
+          approved_redirect_origins: approved_redirect_origins
+        )
         fetch_with_policy(policy, allowed_content_types, user_agent)
       end
 
@@ -79,6 +84,7 @@ module Shared
             final_origin: target.origin,
             final_url: target.url,
             redirect_count: redirects,
+            content_type: media_type(response),
             content_type_allowed: content_type_allowed,
             destination_approved: policy.approved_origin?(target.origin),
             request_match: true
@@ -86,7 +92,10 @@ module Shared
         end
       rescue Error => error
         rejected_destination = %w[unsafe_destination dns_failure redirect_rejected].include?(error.reason_code)
-        evidence = { destination_approved: !rejected_destination }.merge(error.evidence)
+        evidence = {
+          destination_approved: !rejected_destination,
+          redirect_count: redirects
+        }.merge(error.evidence)
         raise Error.new(reason_code: error.reason_code, evidence: evidence), cause: nil
       rescue ArgumentError, KeyError, TypeError
         raise Error.new(reason_code: "malformed_response"), cause: nil
@@ -102,13 +111,17 @@ module Shared
       end
 
       def content_type_allowed?(response, allowed)
-        observed = response.headers.fetch("content-type", "").split(";", 2).first.to_s.strip.downcase
+        observed = media_type(response)
         Array(allowed).map { |value| value.to_s.downcase }.include?(observed)
+      end
+
+      def media_type(response)
+        response.headers.fetch("content-type", "").split(";", 2).first.to_s.strip.downcase
       end
 
       def validate_limits!
         valid = @open_timeout.between?(0.1, 10) && @read_timeout.between?(0.1, 30) &&
-          @max_response_bytes.between?(128, 1.megabyte) && @max_redirects.between?(0, 5)
+          @max_response_bytes.between?(128, 50.megabytes) && @max_redirects.between?(0, 5)
         raise ArgumentError, "safe HTTP client limits are invalid" unless valid
       end
     end

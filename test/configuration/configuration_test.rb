@@ -22,6 +22,18 @@ class SearchopsConfigurationTest < ActiveSupport::TestCase
     assert_equal 5.0, configuration.fetch(:crawler_robots_read_timeout)
     assert_equal 512_000, configuration.fetch(:crawler_robots_max_response_bytes)
     assert_equal 5, configuration.fetch(:crawler_robots_max_redirects)
+    assert configuration.fetch(:crawler_sitemap_well_known_enabled)
+    assert_equal 3.0, configuration.fetch(:crawler_sitemap_dns_timeout)
+    assert_equal 2.0, configuration.fetch(:crawler_sitemap_open_timeout)
+    assert_equal 10.0, configuration.fetch(:crawler_sitemap_read_timeout)
+    assert_equal 10_485_760, configuration.fetch(:crawler_sitemap_max_response_bytes)
+    assert_equal 52_428_800, configuration.fetch(:crawler_sitemap_max_decompressed_bytes)
+    assert_equal 1000, configuration.fetch(:crawler_sitemap_max_documents)
+    assert_equal 50_000, configuration.fetch(:crawler_sitemap_max_entries_per_document)
+    assert_equal 200_000, configuration.fetch(:crawler_sitemap_max_entries_per_scan)
+    assert_equal 3, configuration.fetch(:crawler_sitemap_max_index_depth)
+    assert_equal 32, configuration.fetch(:crawler_sitemap_max_xml_depth)
+    assert_equal 5, configuration.fetch(:crawler_sitemap_max_redirects)
     assert_equal 5.0, configuration.fetch(:crawler_connect_timeout)
     assert_equal false, configuration.fetch(:oauth_google_enabled)
     assert_equal 2.0, configuration.fetch(:oauth_http_open_timeout)
@@ -81,6 +93,14 @@ class SearchopsConfigurationTest < ActiveSupport::TestCase
       "SEARCHOPS_CRAWLER_MAX_REDIRECTS" => "21",
       "SEARCHOPS_CRAWLER_ROBOTS_MAX_RESPONSE_BYTES" => "511999",
       "SEARCHOPS_CRAWLER_ROBOTS_MAX_REDIRECTS" => "6",
+      "SEARCHOPS_CRAWLER_SITEMAP_MAX_RESPONSE_BYTES" => "52428801",
+      "SEARCHOPS_CRAWLER_SITEMAP_MAX_DECOMPRESSED_BYTES" => "1000",
+      "SEARCHOPS_CRAWLER_SITEMAP_MAX_DOCUMENTS" => "10001",
+      "SEARCHOPS_CRAWLER_SITEMAP_MAX_ENTRIES_PER_DOCUMENT" => "50001",
+      "SEARCHOPS_CRAWLER_SITEMAP_MAX_ENTRIES_PER_SCAN" => "1000001",
+      "SEARCHOPS_CRAWLER_SITEMAP_MAX_INDEX_DEPTH" => "11",
+      "SEARCHOPS_CRAWLER_SITEMAP_MAX_XML_DEPTH" => "3",
+      "SEARCHOPS_CRAWLER_SITEMAP_MAX_REDIRECTS" => "6",
       "SEARCHOPS_OAUTH_HTTP_OPEN_TIMEOUT" => "0ms",
       "SEARCHOPS_OAUTH_HTTP_MAX_RESPONSE_BYTES" => "100",
       "SEARCHOPS_OAUTH_HTTP_SAFE_RETRIES" => "4",
