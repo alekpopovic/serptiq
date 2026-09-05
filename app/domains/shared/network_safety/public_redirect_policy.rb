@@ -46,7 +46,12 @@ module Shared
       def normalize_approved_origins(values)
         return if values.nil?
 
-        Array(values).map { |value| HttpTarget.new(url: "#{value}/").origin }.uniq.freeze
+        Array(values).map do |value|
+          target = HttpTarget.new(url: "#{value.to_s.delete_suffix("/")}/")
+          raise ArgumentError, "redirect origin is invalid" unless target.request_uri == "/"
+
+          target.origin
+        end.uniq.freeze
       end
     end
   end

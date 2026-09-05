@@ -95,6 +95,8 @@ Do not pre-populate these reports with fictional implementation or test results.
   destination enforcement, explicit canonical redirects and bounded evidence.
 - [`NETWORK_SAFETY.md`](./NETWORK_SAFETY.md) defines centralized destination resolution, address classification,
   pinned HTTP transport, redirect revalidation, safe denial evidence and infrastructure egress enforcement.
+- [`HTTP_FETCHER.md`](./HTTP_FETCHER.md) defines bounded GET/HEAD transport, TLS and response limits,
+  manual redirect provenance, streaming/hash behavior, safe retries, cancellation and crawler identity.
 - [`SEARCH_CONSOLE_VERIFICATION.md`](./SEARCH_CONSOLE_VERIFICATION.md) defines separate provider consent,
   exact URL-prefix/domain matching, dual authorization and connection-change revalidation.
 - [`PROJECT_ONBOARDING.md`](./PROJECT_ONBOARDING.md) defines the persisted guided setup state machine,

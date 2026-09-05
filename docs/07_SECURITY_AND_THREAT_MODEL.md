@@ -265,6 +265,15 @@ render workers also require an operator attestation for the separately applied
 default-deny egress contract in `config/crawler_egress_policy.yml`; the runtime
 flag is not itself a firewall.
 
+Prompt 069 layers the only general crawl fetcher over that approval. It accepts
+GET/HEAD only, manually validates every redirect, requires verified TLS, and
+applies independent header/body/total deadlines plus header, compressed,
+decoded and decompression-ratio limits. Decoded content is streamed and hashed
+without transport retention. Only explicitly transient failures/statuses may
+retry; every retry re-resolves the target and checks cancellation. Strong
+declared-type/signature conflicts are rejected before an artifact handle is
+returned, and fetch telemetry excludes URLs, addresses, headers and bodies.
+
 Property environment origins use one immutable value contract before any network activity. It lowercases the
 scheme and DNS identity, converts Unicode names to a stable ASCII IDNA network form, derives a normalized
 Unicode display form, collapses HTTP 80/HTTPS 443, removes one terminal DNS dot and treats only an empty/root

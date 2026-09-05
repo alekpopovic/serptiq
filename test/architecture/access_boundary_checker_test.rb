@@ -68,6 +68,10 @@ class AccessBoundaryCheckerTest < ActiveSupport::TestCase
       "app/adapters/shared/network_safety/net_http_transport.rb",
       "Net::HTTP.new(target.host)\n"
     )
+    write(
+      "app/adapters/shared/network_safety/pinned_http_transport.rb",
+      "Socket.tcp(target.address, target.port)\n"
+    )
 
     assert_empty checker.check
   end

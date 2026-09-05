@@ -30,6 +30,7 @@ module Searchops
         app/adapters/billing/lemon_squeezy/net_http_transport.rb
         app/adapters/identity/net_http_transport.rb
         app/adapters/shared/network_safety/net_http_transport.rb
+        app/adapters/shared/network_safety/pinned_http_transport.rb
       ].freeze
 
       def initialize(root:)

@@ -435,8 +435,10 @@ queries A and AAAA, rejects a mixed public/disallowed answer set, returns an
 immutable approved set and safe count-only provenance, and gives the pinned
 set to the only customer-target HTTP transport. That transport disables proxy
 routing and automatic retries, retains the DNS hostname for `Host`, SNI and TLS
-verification, and checks the connected peer before consuming bytes. Direct
-target HTTP clients elsewhere under `app/` fail the architecture gate.
+verification, and bounds each protocol stage plus header, encoded and decoded
+response consumption. Crawling manually validates redirects, reauthorizes each
+retry, checks cancellation and streams/hashes bodies into caller-owned sinks.
+Direct target HTTP clients elsewhere under `app/` fail the architecture gate.
 
 Application policy is reinforced by a default-deny crawl/render worker network
 policy. Its versioned contract is `config/crawler_egress_policy.yml`; protected

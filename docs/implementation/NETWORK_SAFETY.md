@@ -45,13 +45,20 @@ credentials/fragments and HTTPS downgrade, and selects either an exact
 verification allowlist or the bounded public mode used by Crawling. A prior
 approval is never reused for the next hop.
 
-The production transport accepts only an `ApprovedDestination`; it does not
-resolve the host again. `Net::HTTP#ipaddr=` pins the TCP connection while its
-original address remains the hostname used by HTTP and TLS. Proxy routing and
-automatic retries are disabled, peer-address equality is checked before body
-consumption, TLS peer and hostname verification are mandatory, and response
-bytes plus open/read time are bounded. A retry is a new higher-level request
-and therefore requires a new destination decision.
+The crawler production transport accepts only an `ApprovedDestination`; it
+does not resolve the host again. Its raw bounded HTTP/1.1 socket connects to the
+approved IP while retaining the original hostname for `Host`, TLS SNI and
+certificate verification. It does not use environment proxy routing or
+automatic retries. TLS requires peer/hostname verification and TLS 1.2 or
+newer. Complete header/body stages, total time, header count/bytes, compressed
+bytes, decoded bytes and decompression ratio are independently bounded. A
+retry is a new higher-level request and therefore requires a new destination
+decision. The earlier small-response verification client remains on its
+separately bounded pinned `Net::HTTP` adapter.
+
+`Crawling::HttpFetcher` owns GET/HEAD-only retries, manual redirect policy,
+cancellation, normalized metadata and streamed artifact hashing. Its complete
+contract is documented in [HTTP_FETCHER.md](HTTP_FETCHER.md).
 
 ## Evidence and denial telemetry
 
@@ -91,8 +98,10 @@ mapped addresses, mixed answers, rebinding, excessive DNS answers, redirect
 revalidation, safe telemetry and randomized reserved/private IPv4 samples.
 Loopback-only malicious DNS and HTTP fixtures prove behavior without weakening
 production policy. Transport tests separately prove IP pinning with the
-canonical `Host` value, TLS settings, proxy/retry denial and peer mismatch
-rejection. CI runs these contracts explicitly, and `bin/quality` validates
-both architecture access and the infrastructure policy file.
+canonical `Host` value, TLS certificate/hostname enforcement, fixed-size
+streaming, timeout/size/decompression controls and higher-level retry,
+redirect and cancellation behavior. CI runs these contracts explicitly, and
+`bin/quality` validates both architecture access and the infrastructure policy
+file.
 
 There is no database migration or data backfill for this boundary.

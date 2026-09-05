@@ -1,7 +1,9 @@
 # frozen_string_literal: true
 
 require "socket"
+require "stringio"
 require "uri"
+require "zlib"
 
 module TestSupport
   module Network
@@ -62,15 +64,21 @@ module TestSupport
         path = URI.parse(target).path
         requests << { method: method, path: path }.freeze
         request_headers << headers.freeze
-        status, headers, body = response_for(path)
+        status, headers, body, behavior = response_for(path)
+        sleep(behavior.fetch(:header_delay)) if behavior[:header_delay]
         socket.write("HTTP/1.1 #{status}\r\n")
-        headers.merge("Connection" => "close", "Content-Length" => body.bytesize.to_s).each do |key, value|
+        response_headers = headers.merge("Connection" => "close")
+        response_headers["Content-Length"] = body.bytesize.to_s unless behavior[:chunked]
+        response_headers.each do |key, value|
           socket.write("#{key}: #{value}\r\n")
         end
         socket.write("\r\n")
-        socket.write(body)
+        sleep(behavior.fetch(:body_delay)) if behavior[:body_delay]
+        write_body(socket, method, body, behavior)
       rescue URI::InvalidURIError
         socket.write("HTTP/1.1 400 Bad Request\r\nConnection: close\r\nContent-Length: 0\r\n\r\n")
+      rescue IOError, SystemCallError
+        nil
       ensure
         socket.close
       end
@@ -92,15 +100,67 @@ module TestSupport
       def response_for(path)
         case path
         when "/redirect-loop"
-          [ "302 Found", { "Location" => "#{base_url}/redirect-loop" }, "" ]
+          [ "302 Found", { "Location" => "#{base_url}/redirect-loop" }, "", {} ]
         when "/redirect-private"
-          [ "302 Found", { "Location" => "http://169.254.169.254/latest/meta-data" }, "" ]
+          [ "302 Found", { "Location" => "http://169.254.169.254/latest/meta-data" }, "", {} ]
         when "/oversized"
-          [ "200 OK", { "Content-Type" => "text/plain" }, "x" * OVERSIZED_BODY_BYTES ]
+          [ "200 OK", { "Content-Type" => "text/plain" }, "x" * OVERSIZED_BODY_BYTES, {} ]
+        when "/oversized-header"
+          [ "200 OK", { "Content-Type" => "text/plain", "X-Oversized" => "x" * 70.kilobytes }, "body", {} ]
+        when "/gzip"
+          [ "200 OK", { "Content-Type" => "text/plain; charset=UTF-8", "Content-Encoding" => "gzip" },
+            gzip("compressed fixture body"), {} ]
+        when "/deflate"
+          [ "200 OK", { "Content-Type" => "text/plain", "Content-Encoding" => "deflate" },
+            Zlib::Deflate.deflate("deflated fixture body"), {} ]
+        when "/malformed-gzip"
+          [ "200 OK", { "Content-Type" => "text/plain", "Content-Encoding" => "gzip" },
+            "not a gzip stream", {} ]
+        when "/gzip-bomb"
+          [ "200 OK", { "Content-Type" => "text/plain", "Content-Encoding" => "gzip" },
+            gzip("z" * 128.kilobytes), {} ]
+        when "/unsupported-encoding"
+          [ "200 OK", { "Content-Type" => "text/plain", "Content-Encoding" => "br" }, "encoded", {} ]
+        when "/misleading"
+          [ "200 OK", { "Content-Type" => "text/html" }, "%PDF-1.7\nsynthetic", {} ]
+        when "/slow-headers"
+          [ "200 OK", { "Content-Type" => "text/plain" }, "slow", { header_delay: 0.25 } ]
+        when "/slow-body"
+          [ "200 OK", { "Content-Type" => "text/plain" }, "slow", { body_delay: 0.25 } ]
+        when "/chunked"
+          [ "200 OK", { "Content-Type" => "text/plain", "Transfer-Encoding" => "chunked" },
+            "chunked fixture body", { chunked: true } ]
+        when "/oversized-chunk"
+          [ "200 OK", { "Content-Type" => "text/plain", "Transfer-Encoding" => "chunked" },
+            "", { chunked: true, advertised_chunk_size: 1.gigabyte } ]
         when "/malformed"
-          [ "200 OK", { "Content-Type" => "application/xml" }, "<broken>" ]
+          [ "200 OK", { "Content-Type" => "application/xml" }, "<broken>", {} ]
         else
-          [ "200 OK", { "Content-Type" => "text/plain" }, "local fixture" ]
+          [ "200 OK", { "Content-Type" => "text/plain" }, "local fixture", {} ]
+        end
+      end
+
+      def gzip(value)
+        output = StringIO.new("".b)
+        writer = Zlib::GzipWriter.new(output)
+        writer.write(value)
+        writer.close
+        output.string
+      end
+
+      def write_body(socket, method, body, behavior)
+        return if method == "HEAD"
+
+        if behavior[:advertised_chunk_size]
+          socket.write("#{behavior.fetch(:advertised_chunk_size).to_s(16)}\r\n")
+        elsif behavior[:chunked]
+          body.bytes.each_slice(5) do |bytes|
+            chunk = bytes.pack("C*")
+            socket.write("#{chunk.bytesize.to_s(16)}\r\n#{chunk}\r\n")
+          end
+          socket.write("0\r\n\r\n")
+        else
+          socket.write(body)
         end
       end
     end

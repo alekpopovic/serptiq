@@ -1,0 +1,77 @@
+{
+  "prompt_id": "069",
+  "title": "Implement the bounded HTTP fetcher and redirect handling",
+  "status": "completed",
+  "started_at": "2026-09-05T07:00:51Z",
+  "finished_at": "2026-09-05T07:43:46Z",
+  "summary": "Implemented an approved-destination-only HTTP/1.1 GET/HEAD transport with mandatory TLS verification; bounded connect, TLS, header, body and total deadlines; fixed-size streaming and SHA-256 hashing; identity/gzip/deflate decoding under compressed, decoded and ratio caps; manual redirect revalidation with hop provenance; safe transient retries, cancellation, normalized metadata/outcomes, honest crawler identity and redacted telemetry. Added hostile HTTP/TLS fixtures, architecture enforcement, CI coverage and synchronized operator/security documentation.",
+  "tests": [
+    {
+      "command": "docker compose --profile test run --rm test bin/rails test test/security/destination_policy_test.rb test/security/malicious_http_fixture_test.rb test/security/safe_http_client_test.rb test/adapters/shared/network_safety_net_http_transport_test.rb test/adapters/shared/pinned_http_transport_test.rb test/domain/crawling/http_fetcher_test.rb test/configuration/configuration_test.rb test/architecture/access_boundary_checker_test.rb",
+      "outcome": "passed",
+      "notes": "71 runs, 1132 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "docker compose --profile test run --rm test bin/rails test",
+      "outcome": "passed",
+      "notes": "955 runs, 8375 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "docker compose --profile test run --rm test bin/rails test:all",
+      "outcome": "passed",
+      "notes": "998 runs, 8611 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "bin/quality",
+      "outcome": "passed",
+      "notes": "15 checks passed; 1219 Ruby files clean, architecture/access/egress/CI/data/blueprint gates passed, Brakeman 0 warnings, no dependency advisories"
+    },
+    {
+      "command": "ruby tracking/scripts/prompt_tracker.rb validate",
+      "outcome": "passed",
+      "notes": "120 prompts; catalog and state consistent before completion"
+    }
+  ],
+  "files_changed": [
+    ".env.example",
+    ".github/workflows/ci.yml",
+    "app/adapters/shared/network_safety/pinned_http_transport.rb",
+    "app/domains/crawling/http_fetch_hop.rb",
+    "app/domains/crawling/http_fetch_recorder.rb",
+    "app/domains/crawling/http_fetch_result.rb",
+    "app/domains/crawling/http_fetcher.rb",
+    "app/domains/crawling/public.rb",
+    "app/domains/shared/network_safety/bounded_transport_response.rb",
+    "app/domains/shared/network_safety/error.rb",
+    "app/domains/shared/network_safety/public_redirect_policy.rb",
+    "app/domains/shared/network_safety/transport_limits.rb",
+    "app/domains/shared/public.rb",
+    "config/searchops.yml",
+    "config/searchops/configuration.rb",
+    "docs/02_ARCHITECTURE.md",
+    "docs/07_SECURITY_AND_THREAT_MODEL.md",
+    "docs/adr/0006_ssrf_safe_crawler_boundary.md",
+    "docs/implementation/CONFIGURATION.md",
+    "docs/implementation/HTTP_FETCHER.md",
+    "docs/implementation/MODULE_BOUNDARIES.md",
+    "docs/implementation/NETWORK_SAFETY.md",
+    "docs/implementation/README.md",
+    "script/support/access_boundary_checker.rb",
+    "test/adapters/shared/pinned_http_transport_test.rb",
+    "test/architecture/access_boundary_checker_test.rb",
+    "test/configuration/configuration_test.rb",
+    "test/domain/crawling/http_fetcher_test.rb",
+    "test/support/network/malicious_http_fixture.rb",
+    "test/support/network/malicious_tls_fixture.rb"
+  ],
+  "migrations": [],
+  "decisions": [],
+  "risks": [
+    "Transport intentionally supports HTTP/1.1 only; private artifact persistence begins in Prompt 070 and durable fetch-row persistence belongs to Prompt 073. No database migration or backfill in this prompt."
+  ],
+  "next_steps": [
+    "Prompt 070: implement private artifact storage and lifecycle",
+    "then compose its streaming sink with this fetcher."
+  ],
+  "commit": null
+}

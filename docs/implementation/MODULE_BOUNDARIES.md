@@ -190,6 +190,10 @@ token for mutation. Frontier batches maintain Scan aggregate counters; other mod
 Canonical URL identity and scope decisions are pure Crawling values. Exact scan-policy resolution reloads the
 tenant-bound environment; DNS classification and connection pinning remain exclusively Shared network-safety
 responsibilities.
+Bounded GET/HEAD fetch orchestration, manual redirect allowlists, safe transient retry/cancellation decisions,
+response normalization and artifact-sink lifecycle are Crawling-owned. Shared accepts only an immutable approved
+destination and owns the raw socket/TLS/header/body/decompression limits; it does not select crawl origins or
+persist fetches. Durable fetch metadata is introduced by static crawl orchestration after artifact and usage APIs.
 Robots retrieval, RFC parsing, immutable per-scan provenance and allow/deny/unknown decisions are
 Crawling-owned. Shared provides a domain-neutral public-redirect transport that re-resolves and validates every
 hop; it does not interpret robots content. Sitemap directives leave Crawling only as untrusted candidate values

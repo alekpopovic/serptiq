@@ -50,6 +50,22 @@ module Shared
       )
     end
 
+    def network_address_policy_version
+      NetworkSafety::AddressPolicy::POLICY_VERSION
+    end
+
+    def pinned_http_transport
+      NetworkSafety::PinnedHttpTransport.new
+    end
+
+    def http_transport_limits(**attributes)
+      NetworkSafety::TransportLimits.new(**attributes)
+    end
+
+    def public_redirect_policy(**attributes)
+      NetworkSafety::PublicRedirectPolicy.new(**attributes)
+    end
+
     def http_target(url:)
       NetworkSafety::HttpTarget.new(url: url)
     end

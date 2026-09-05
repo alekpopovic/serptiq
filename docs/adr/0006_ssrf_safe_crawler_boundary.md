@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-09-04
 - Owners: Security, Crawling
-- Last reviewed: 2026-09-05 (Prompt 068)
+- Last reviewed: 2026-09-05 (Prompt 069)
 
 ## Context
 
@@ -48,6 +48,15 @@ The defense-in-depth worker egress contract is machine-readable and
 default-deny. Staging/production crawl and render processes refuse to boot
 without an operator attestation that deployment applied it; the attestation is
 not a substitute for the network control.
+
+Prompt 069 adds the crawler's bounded HTTP/1.1 GET/HEAD transport and
+higher-level fetch operation. It uses the immutable approved address directly,
+requires TLS peer and hostname validation, streams/hashes decoded bytes through
+a caller sink, and independently caps stage/total time, header/body sizes and
+decompression. Redirects and transient retries are explicit higher-level
+requests with fresh destination decisions and cancellation checks. Durable
+fetch/artifact persistence remains owned by later orchestration and storage
+prompts.
 
 ## Consequences
 

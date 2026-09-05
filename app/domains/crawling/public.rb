@@ -52,6 +52,10 @@ module Crawling
       CrawlerIdentity.http_user_agent(**attributes)
     end
 
+    def fetch_http(**attributes)
+      HttpFetcher.new.call(**attributes)
+    end
+
     def url_scope_policy(**attributes)
       UrlScopePolicy.new(**attributes)
     end

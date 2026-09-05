@@ -144,6 +144,8 @@ jobs:
             test/security/malicious_http_fixture_test.rb \
             test/security/safe_http_client_test.rb \
             test/adapters/shared/network_safety_net_http_transport_test.rb \
+            test/adapters/shared/pinned_http_transport_test.rb \
+            test/domain/crawling/http_fetcher_test.rb \
             test/adapters/contracts
 
   system_test:
