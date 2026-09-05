@@ -8,6 +8,10 @@ module Auditing
       RecordEvent.new.call(**attributes)
     end
 
+    def record_target_tombstone!(**attributes)
+      RecordTargetTombstone.new.call(**attributes)
+    end
+
     def audit_page(organization_id:, authorization:, filters: {}, page: nil)
       AuthorizeAccess.new.call(
         organization_id: organization_id,

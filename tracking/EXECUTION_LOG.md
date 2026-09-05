@@ -122,3 +122,5 @@
 | 2026-09-05T00:04:58Z | 058 | completed | Implemented tenant-safe, immutable, versioned crawl policies with entitlement/global bounds, exact-origin URL and bounded glob validation, public configuration/reset UI, governed credit estimates, audit metadata, and idempotent per-scan policy snapshots. |
 | 2026-09-05T00:06:09Z | 059 | started | Complete project- and property-scoped access enforcement |
 | 2026-09-05T00:29:25Z | 059 | completed | Enforced project/property collection visibility, nested resource authorization metadata, scoped navigation, parent masking, and reusable cross-tenant access tests. |
+| 2026-09-05T00:31:03Z | 060 | started | Implement archive, deletion and retention workflows |
+| 2026-09-05T01:26:30Z | 060 | completed | Implemented project/property archive and durable 30-day retention deletion workflows with recent authentication, cooperative cancellation, ordered leased cleanup, object reconciliation, audit tombstones, guarded database deletion, confirmation UI, and synchronized operations/privacy documentation. |

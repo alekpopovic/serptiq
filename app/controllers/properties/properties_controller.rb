@@ -16,7 +16,9 @@ module Properties
 
     before_action :establish_current_organization!
     before_action :load_project!
-    before_action :load_property!, only: %i[show edit update archive reactivate]
+    before_action :load_property!, only: %i[
+      show edit update archive reactivate deletion destroy cancel_deletion
+    ]
 
     authorization_exempt :index, reason: "scope_filtered_property_directory"
     permission_required "properties.manage", only: %i[new create], scope: -> { { project: @project } }
@@ -24,11 +26,15 @@ module Properties
       scope: -> { { project: @project, property: @property } }
     permission_required "properties.manage", only: %i[edit update archive reactivate],
       scope: -> { { project: @project, property: @property } }
+    permission_required "projects.delete", only: %i[deletion destroy cancel_deletion],
+      scope: -> { { project: @project, property: @property } }
 
     permission_hint "properties.manage", only: :index, scope: -> { { project: @project } }
     permission_hint "properties.manage", only: :show,
       scope: -> { { project: @project, property: @property } }
     permission_hint "projects.read", only: %i[index new show], scope: -> { { project: @project } }
+    permission_hint "projects.delete", only: :show,
+      scope: -> { { project: @project, property: @property } }
 
     def index
       @property_page = Public.property_page(
@@ -67,6 +73,11 @@ module Properties
         actor_membership: Current.membership,
         project_id: @project.id,
         property_id: @property.id
+      )
+      @deletion_status = Administration::Public.deletion_status(
+        organization_id: Current.organization.id,
+        target_type: "Property",
+        target_id: @property.id
       )
     end
 
@@ -113,6 +124,43 @@ module Properties
       redirect_to organization_project_property_path(
         Current.organization.slug, @project.slug, @property.id
       ), notice: "Property reactivated.", status: :see_other
+    end
+
+    def deletion
+      prepare_deletion_review
+    end
+
+    def destroy
+      unless params[:confirmation].to_s == @property.display_name
+        prepare_deletion_review
+        @confirmation_error = "Enter the exact property name to confirm deletion."
+        return render :deletion, status: :unprocessable_content
+      end
+
+      Administration::Public.request_resource_deletion(
+        actor_membership: Current.membership,
+        target_type: "Property",
+        project_id: @project.id,
+        property_id: @property.id,
+        current_session: Current.session,
+        user_id: Current.user.id
+      )
+      redirect_to organization_project_property_path(
+        Current.organization.slug, @project.slug, @property.id
+      ), notice: "Property deletion requested. You can cancel during the retention hold.",
+        status: :see_other
+    end
+
+    def cancel_deletion
+      Administration::Public.cancel_resource_deletion(
+        actor_membership: Current.membership,
+        target_type: "Property",
+        project_id: @project.id,
+        property_id: @property.id
+      )
+      redirect_to organization_project_property_path(
+        Current.organization.slug, @project.slug, @property.id
+      ), notice: "Property deletion canceled. The property remains archived.", status: :see_other
     end
 
     private
@@ -168,6 +216,10 @@ module Properties
     def prepare_form
       @property_types = PROPERTY_TYPES
       @submitted_configuration ||= configuration_values(@property)
+    end
+
+    def prepare_deletion_review
+      @deletion_hold_until = Time.current + Administration::RequestResourceDeletion::GRACE_PERIOD
     end
 
     def configuration_values(property)

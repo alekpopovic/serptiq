@@ -113,7 +113,7 @@ insufficient. DNS/HTML/meta verification remains governed by `properties.verify`
 | `projects.create` | Projects | medium | organization | Create a project |
 | `projects.update` | Projects | medium | project | Update project settings |
 | `projects.archive` | Projects | high | project | Archive or restore a project |
-| `projects.delete` | Projects | critical | project | Request permanent project deletion |
+| `projects.delete` | Projects | critical | project | Request/cancel permanent project or exact child-property deletion |
 | `properties.read` | Properties | low | project | View project properties |
 | `properties.manage` | Properties | high | project | Create and update properties |
 | `properties.verify` | Properties | high | project | Create and execute ownership verification |

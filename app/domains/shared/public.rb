@@ -12,6 +12,9 @@ module Shared
     TransientInfrastructureError = Errors::TransientInfrastructureError
     ValidationError = Errors::ValidationError
     NetworkSafetyError = NetworkSafety::Error
+    TransientJobError = JobErrors::TransientInfrastructure
+    CanceledJobError = JobErrors::Canceled
+    SecurityRejectedJobError = JobErrors::SecurityRejected
     FILTERED_VALUE = Redaction::FILTERED
 
     module_function

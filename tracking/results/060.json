@@ -1,0 +1,31 @@
+{
+  "prompt_id": "060",
+  "title": "Implement archive, deletion and retention workflows",
+  "status": "completed",
+  "started_at": "2026-09-05T00:31:03Z",
+  "finished_at": "2026-09-05T01:26:30Z",
+  "summary": "Implemented project/property archive and durable 30-day retention deletion workflows with recent authentication, cooperative cancellation, ordered leased cleanup, object reconciliation, audit tombstones, guarded database deletion, confirmation UI, and synchronized operations/privacy documentation.",
+  "tests": [
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails db:rollback:primary STEP=1 and db:migrate:primary::passed::migration rollback and re-apply on PostgreSQL",
+      "outcome": "passed",
+      "notes": "Recorded through legacy --tests option."
+    }
+  ],
+  "files_changed": [
+    "app/controllers/projects/projects_controller.rb; app/controllers/properties/properties_controller.rb; app/domains/administration; app/domains/auditing; app/domains/crawling; app/domains/projects; app/domains/properties; app/domains/integrations/public.rb; app/domains/onboarding; app/domains/verification; app/jobs/administration; app/views/projects/projects; app/views/properties/properties; config; db/migrate/20260904146000_implement_resource_deletion_workflows.rb; db/structure.sql; docs; test"
+  ],
+  "migrations": [],
+  "decisions": [],
+  "risks": [
+    "The empty object-store adapter is intentional until Prompt 070 introduces private artifact persistence. Future scan",
+    "finding",
+    "report",
+    "API",
+    "and webhook prompts must connect their resource-owned cleanup APIs. Production rollout still requires the documented privacy/legal retention approval."
+  ],
+  "next_steps": [
+    "Proceed with Prompt 061 only in a new sequential prompt run."
+  ],
+  "commit": null
+}

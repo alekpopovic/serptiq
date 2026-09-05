@@ -5,7 +5,7 @@ module Properties
     self.table_name = "properties"
 
     KINDS = %w[website web_application android_app ios_app].freeze
-    STATUSES = %w[active archived].freeze
+    STATUSES = %w[active archived pending_deletion].freeze
     VERIFICATION_STATUSES = %w[unverified pending verified failed expired revoked].freeze
     CONFIGURATION_VERSION = 1
 
@@ -40,11 +40,16 @@ module Properties
     scope :mobile_family, -> { where(kind: %w[android_app ios_app]) }
 
     def active?
-      status == "active" && archived_at.nil?
+      status == "active" && archived_at.nil? && deletion_requested_at.nil? && deletion_workflow_id.nil?
     end
 
     def archived?
-      status == "archived" && archived_at.present?
+      status == "archived" && archived_at.present? && deletion_requested_at.nil? && deletion_workflow_id.nil?
+    end
+
+    def pending_deletion?
+      status == "pending_deletion" && archived_at.present? && deletion_requested_at.present? &&
+        deletion_workflow_id.present?
     end
 
     def verified?
@@ -53,6 +58,10 @@ module Properties
 
     def scan_available?
       active? && verified?
+    end
+
+    def cancellation_requested_for?(work_started_at)
+      work_cancellation_cutoff_at.present? && work_started_at <= work_cancellation_cutoff_at
     end
 
     def configuration_record
@@ -79,7 +88,9 @@ module Properties
     end
 
     def lifecycle_is_consistent
-      errors.add(:status, "does not match archived timestamp") unless active? || archived?
+      valid = active? || archived? || pending_deletion?
+      valid &&= deletion_requested_at >= archived_at if pending_deletion?
+      errors.add(:status, "does not match lifecycle timestamps") unless valid
     end
 
     def verification_is_consistent

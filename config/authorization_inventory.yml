@@ -68,7 +68,9 @@ controllers:
       update: *update_projects
       archive: &archive_projects { kind: permission, permission: projects.archive, scope: project }
       reactivate: *archive_projects
-      destroy: { kind: permission, permission: projects.delete, scope: project }
+      deletion: &delete_projects { kind: permission, permission: projects.delete, scope: project }
+      destroy: *delete_projects
+      cancel_deletion: *delete_projects
   Onboarding::ProjectSetupsController:
     source: app/controllers/onboarding/project_setups_controller.rb
     actions:
@@ -89,6 +91,9 @@ controllers:
       update: *manage_properties
       archive: *manage_properties
       reactivate: *manage_properties
+      deletion: &delete_properties { kind: permission, permission: projects.delete, scope: property }
+      destroy: *delete_properties
+      cancel_deletion: *delete_properties
   Properties::EnvironmentsController:
     source: app/controllers/properties/environments_controller.rb
     actions:
@@ -212,12 +217,21 @@ jobs:
   Verification::DnsRecheckSweepJob:
     kind: system
     name: dns_verification_recheck_sweep
+  Administration::DeletionWorkflowJob:
+    kind: system
+    name: resource_deletion_workflow
+  Administration::DeletionSweepJob:
+    kind: system
+    name: resource_deletion_sweep
 
 domain_operations:
   Auditing::Public.audit_page: { kind: permission, permission: audit_log.read }
   Auditing::Public.export!: { kind: permission, permission: audit_log.export }
   Auditing::Public.consistency_issues: { kind: system, reason: operator_diagnostic }
   Auditing::Public.record!: { kind: context, reason: append_only_internal_audit_sink }
+  Auditing::Public.record_target_tombstone!:
+    kind: context
+    reason: append_only_internal_deleted_target_identity_sink
   Tenancy::Public.create_organization: { kind: exempt, reason: creates_first_tenant_context }
   Tenancy::Public.resolve_organization_context: { kind: context, reason: validates_active_membership }
   Tenancy::Public.organization_switcher: { kind: context, reason: returns_only_active_memberships }
@@ -271,6 +285,12 @@ domain_operations:
   Projects::Public.active_count:
     kind: context
     reason: caller_authorized_tenant_capacity_projection
+  Projects::Public.cancellation_requested?:
+    kind: context
+    reason: exact_tenant_resource_cancellation_signal_for_authorized_work
+  Projects::Public.delete_for_lifecycle!:
+    kind: system
+    reason: database_authorized_retention_workflow_stage
   Projects::Public.normalize_slug: { kind: context, reason: pure_project_slug_normalization }
   Projects::Public.valid_slug?: { kind: context, reason: pure_project_slug_validation }
   Onboarding::Public.start_draft:
@@ -297,6 +317,9 @@ domain_operations:
   Onboarding::Public.readiness:
     kind: context
     reason: authorized_factual_readiness_projection
+  Onboarding::Public.delete_for_lifecycle!:
+    kind: system
+    reason: database_authorized_retention_workflow_stage
   Properties::Public.create_property: { kind: permission, permission: properties.manage }
   Properties::Public.update_property: { kind: permission, permission: properties.manage }
   Properties::Public.transition_property: { kind: permission, permission: properties.manage }
@@ -330,6 +353,12 @@ domain_operations:
   Properties::Public.reference:
     kind: context
     reason: explicit_tenant_project_property_projection_for_downstream_modules
+  Properties::Public.cancellation_requested?:
+    kind: context
+    reason: exact_tenant_resource_cancellation_signal_for_authorized_work
+  Properties::Public.delete_for_lifecycle!:
+    kind: system
+    reason: database_authorized_retention_workflow_stage
   Integrations::Public.register_search_console_connection: { kind: permission, permission: integrations.manage }
   Integrations::Public.search_console_connections:
     kind: context
@@ -337,6 +366,9 @@ domain_operations:
   Integrations::Public.search_console_connection:
     kind: context
     reason: exact_tenant_connection_projection_for_authorized_verification
+  Integrations::Public.prepare_resource_deletion:
+    kind: system
+    reason: database_authorized_retention_workflow_stage
   Verification::Public.issue_challenge: { kind: permission, permission: properties.verify }
   Verification::Public.attempt_challenge: { kind: permission, permission: properties.verify }
   Verification::Public.revoke_challenge: { kind: permission, permission: properties.verify }
@@ -345,6 +377,9 @@ domain_operations:
   Verification::Public.fresh_verification:
     kind: context
     reason: explicit_tenant_environment_freshness_projection_for_authorized_scan_admission
+  Verification::Public.delete_for_lifecycle!:
+    kind: system
+    reason: database_authorized_retention_workflow_stage
   Crawling::Public.policy: { kind: permission, permission: scans.configure }
   Crawling::Public.configure_policy: { kind: permission, permission: scans.configure }
   Crawling::Public.reset_policy: { kind: permission, permission: scans.configure }
@@ -354,6 +389,12 @@ domain_operations:
   Crawling::Public.compile_glob:
     kind: context
     reason: pure_bounded_glob_compilation
+  Crawling::Public.delete_for_lifecycle!:
+    kind: system
+    reason: database_authorized_retention_workflow_stage
+  Crawling::Public.signed_artifact_url:
+    kind: permission
+    permission: scans.read
   Verification::Public.schedule_dns_rechecks:
     kind: system
     reason: bounded_scheduled_dns_verification_refresh
@@ -407,6 +448,21 @@ domain_operations:
   Administration::Public.plan_catalog_review: { kind: context, reason: called_after_platform_catalog_authorization }
   Administration::Public.retire_plan_version: { kind: context, reason: requires_platform_catalog_decision }
   Administration::Public.plan_catalog_consistency: { kind: system, reason: operator_catalog_diagnostic }
+  Administration::Public.request_resource_deletion:
+    kind: context
+    reason: composes_recent_authentication_and_projects_delete_authorization
+  Administration::Public.cancel_resource_deletion:
+    kind: context
+    reason: composes_projects_delete_authorization_and_hold_state
+  Administration::Public.deletion_status:
+    kind: context
+    reason: exact_tenant_target_projection_after_resource_authorization
+  Administration::Public.execute_deletion:
+    kind: system
+    reason: durable_database_authorized_retention_workflow
+  Administration::Public.schedule_due_deletions:
+    kind: system
+    reason: bounded_scheduled_retention_reconciliation
   Plans::Public.validate_catalog: { kind: system, reason: governed_catalog_validation }
   Plans::Public.sync_catalog: { kind: system, reason: operator_catalog_synchronization }
   Plans::Public.compare_catalog: { kind: system, reason: governed_catalog_diff }

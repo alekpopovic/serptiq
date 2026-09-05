@@ -35,5 +35,9 @@ module Onboarding
     def readiness(**attributes)
       BuildReadiness.new.call(**attributes)
     end
+
+    def delete_for_lifecycle!(**attributes)
+      DeleteForLifecycle.new.call(**attributes)
+    end
   end
 end

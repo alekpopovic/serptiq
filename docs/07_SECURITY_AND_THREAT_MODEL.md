@@ -335,6 +335,13 @@ Controls:
 - no public bucket listing;
 - delete/export reconciliation across database and storage.
 
+Project/property deletion additionally uses an exact-target 30-day hold, recent authentication, durable
+ordered stage state and a PostgreSQL guard that accepts physical deletion only for the matching tenant,
+workflow lease and stage. Private artifact signing fails before the signer is called when either parent is
+archived, pending deletion, deleted or belongs to another tenant. Final cleanup retains only minimized target
+tombstones plus separately governed billing/security evidence. Hold length, backup erasure and exceptional
+legal/fraud holds require product privacy/legal approval rather than being inferred from this control.
+
 ### T-12 XML and parser attacks
 
 Controls:
@@ -480,6 +487,8 @@ api.rate_limited
 webhook.delivery_disabled
 artifact.access_denied
 data.deletion_requested
+data.deletion_canceled
+data.deletion_completed
 ```
 
 Security events contain correlation and stable reason codes, not secrets.

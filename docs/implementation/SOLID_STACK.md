@@ -76,6 +76,9 @@ checks finalized reservations against their immutable ledger events. Finished jo
 which preserves recurring de-duplication during that window. The scheduler owns schedule creation and the
 default worker owns the `maintenance` executions. DNS ownership recheck discovery runs hourly at minute 17,
 selects at most 200 due proofs, and enqueues jobs carrying only explicit organization/challenge identifiers.
+Resource-deletion reconciliation runs hourly at minute 37, selects at most 200 due holds, retryable workflows
+or expired leases and enqueues maintenance jobs containing only organization/workflow UUIDs. Workflow stages
+persist their own attempt/progress state; an object-store failure is never hidden by queue retry state.
 
 ## Cache and cable bounds
 

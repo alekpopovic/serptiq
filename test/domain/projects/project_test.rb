@@ -82,17 +82,17 @@ class ProjectsProjectTest < ActiveSupport::TestCase
     assert restored.project.active?
     assert Authorization::ScopeReference.find(project.id).active?
 
-    deletion = Projects::Public.transition_project(
+    workflow = Administration::Public.request_resource_deletion(
       actor_membership: @owner.membership,
+      target_type: "Project",
       project_id: project.id,
-      operation: "request_deletion",
       current_session: issue_identity_session(user: @owner.membership.user).session,
       user_id: @owner.membership.user_id,
       clock: -> { now + 3.minutes }
     )
-    assert deletion.changed?
-    assert deletion.project.pending_deletion?
-    assert_equal now + 3.minutes, deletion.project.deletion_requested_at
+    assert workflow.holding?
+    assert project.reload.pending_deletion?
+    assert_equal now + 3.minutes, project.deletion_requested_at
     assert Authorization::ScopeReference.find(project.id).archived?
 
     assert_raises(Projects::ProjectTransitionInvalid) do

@@ -23,5 +23,13 @@ module Crawling
     def compile_glob(value)
       GlobPattern.new(value: value)
     end
+
+    def delete_for_lifecycle!(clock: -> { Time.current }, **attributes)
+      DeleteForLifecycle.new(clock: clock).call(**attributes)
+    end
+
+    def signed_artifact_url(**attributes)
+      SignArtifact.new.call(**attributes)
+    end
   end
 end

@@ -179,6 +179,11 @@ effective entitlement limits, governed usage weights, the append-only audit sink
 normalization. A stored policy is crawl intent rather than network authorization: later workers must still
 apply the Shared public-address and redirect policy to every request.
 
+Administration owns the durable cross-domain deletion workflow and calls only narrow owning-module cleanup
+APIs. It does not delete another module's rows directly. Each owner validates explicit tenant/resource IDs;
+PostgreSQL additionally requires the exact leased workflow stage. Auditing owns immutable target tombstones,
+while Crawling owns the signed-artifact authorization gate and object-key lifecycle contract.
+
 ## Shared primitives
 
 `app/domains/shared/` is owned platform domain code, not a general utilities

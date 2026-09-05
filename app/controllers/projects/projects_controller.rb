@@ -9,14 +9,17 @@ module Projects
 
     before_action :establish_current_organization!
     before_action :redirect_alias_to_canonical_slug
-    before_action :load_project!, only: %i[show edit update archive reactivate destroy]
+    before_action :load_project!, only: %i[
+      show edit update archive reactivate deletion destroy cancel_deletion
+    ]
 
     authorization_exempt :index, reason: "scope_filtered_project_directory"
     permission_required "projects.create", only: %i[new create]
     permission_required "projects.read", only: :show, scope: -> { { project: @project } }
     permission_required "projects.update", only: %i[edit update], scope: -> { { project: @project } }
     permission_required "projects.archive", only: %i[archive reactivate], scope: -> { { project: @project } }
-    permission_required "projects.delete", only: :destroy, scope: -> { { project: @project } }
+    permission_required "projects.delete", only: %i[deletion destroy cancel_deletion],
+      scope: -> { { project: @project } }
 
     permission_hint "projects.create", only: :index
     permission_hint "projects.update", only: :show, scope: -> { { project: @project } }
@@ -60,6 +63,11 @@ module Projects
         project_id: @project.id,
         read_models: Properties::Public.project_rollup_reader
       )
+      @deletion_status = Administration::Public.deletion_status(
+        organization_id: Current.organization.id,
+        target_type: "Project",
+        target_id: @project.id
+      )
     end
 
     def edit
@@ -97,15 +105,35 @@ module Projects
     end
 
     def destroy
-      Public.transition_project(
+      unless params[:confirmation].to_s == @project.slug
+        prepare_deletion_review
+        @confirmation_error = "Enter the exact project slug to confirm deletion."
+        return render :deletion, status: :unprocessable_content
+      end
+
+      Administration::Public.request_resource_deletion(
         actor_membership: Current.membership,
+        target_type: "Project",
         project_id: @project.id,
-        operation: "request_deletion",
         current_session: Current.session,
         user_id: Current.user.id
       )
-      redirect_to organization_projects_path(Current.organization.slug),
-        notice: "Project deletion requested. Its retained history is read-only.", status: :see_other
+      redirect_to organization_project_path(Current.organization.slug, @project.slug),
+        notice: "Project deletion requested. You can cancel during the retention hold.", status: :see_other
+    end
+
+    def deletion
+      prepare_deletion_review
+    end
+
+    def cancel_deletion
+      Administration::Public.cancel_resource_deletion(
+        actor_membership: Current.membership,
+        target_type: "Project",
+        project_id: @project.id
+      )
+      redirect_to organization_project_path(Current.organization.slug, @project.slug),
+        notice: "Project deletion canceled. The project remains archived.", status: :see_other
     end
 
     private
@@ -129,6 +157,10 @@ module Projects
     def prepare_form
       @locales = I18n.available_locales.map { |locale| [ locale.to_s, locale.to_s ] }.freeze
       @time_zones = ActiveSupport::TimeZone.all.map(&:name).freeze
+    end
+
+    def prepare_deletion_review
+      @deletion_hold_until = Time.current + Administration::RequestResourceDeletion::GRACE_PERIOD
     end
 
     def redirect_alias_to_canonical_slug

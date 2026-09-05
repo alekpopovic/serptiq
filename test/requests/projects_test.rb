@@ -136,11 +136,13 @@ class ProjectsRequestTest < ActionDispatch::IntegrationTest
     project = create_project_for(@owner, slug: "retained-project")
 
     assert_no_difference("Projects::Project.count") do
-      delete organization_project_path(@owner.organization.slug, project.slug)
+      delete organization_project_path(@owner.organization.slug, project.slug),
+        params: { confirmation: project.slug }
     end
-    assert_redirected_to organization_projects_path(@owner.organization.slug)
+    assert_redirected_to organization_project_path(@owner.organization.slug, project.slug)
     assert project.reload.pending_deletion?
     assert Auditing::AuditEvent.exists?(action: "project.deletion_requested", target_id: project.id)
+    assert Administration::DeletionWorkflow.exists?(target_id: project.id, state: "holding")
   end
 
   test "deletion request requires a recent session at the lifecycle boundary" do
@@ -148,9 +150,26 @@ class ProjectsRequestTest < ActionDispatch::IntegrationTest
     reset!
     authenticate_request(issue_identity_session(user: @user, at: 30.minutes.ago))
 
-    delete organization_project_path(@owner.organization.slug, project.slug)
+    delete organization_project_path(@owner.organization.slug, project.slug),
+      params: { confirmation: project.slug }
 
     assert_response :unauthorized
+    assert project.reload.active?
+  end
+
+  test "deletion review warns about exports and requires the exact project slug" do
+    project = create_project_for(@owner, slug: "confirm-project")
+
+    get deletion_organization_project_path(@owner.organization.slug, project.slug)
+    assert_response :success
+    assert_includes response.body, "Archive or export anything you need first"
+    assert_includes response.body, "retention hold"
+
+    assert_no_difference("Administration::DeletionWorkflow.count") do
+      delete organization_project_path(@owner.organization.slug, project.slug),
+        params: { confirmation: "wrong-project" }
+    end
+    assert_response :unprocessable_content
     assert project.reload.active?
   end
 

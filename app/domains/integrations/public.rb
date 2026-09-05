@@ -8,6 +8,16 @@ module Integrations
 
     module_function
 
+    # Connections currently belong to the organization rather than a project.
+    # The ordered deletion stage is still explicit so a later project-scoped
+    # credential cannot ship without extending this boundary.
+    def prepare_resource_deletion(organization_id:, project_id:, property_id: nil)
+      project = Projects::Public.reference(organization_id: organization_id, project_id: project_id)
+      return 0 if project
+
+      raise AccessDenied
+    end
+
     def register_search_console_connection(**attributes)
       RegisterSearchConsoleConnection.new.call(**attributes)
     end

@@ -34,5 +34,14 @@ class ProjectsSystemTest < ApplicationSystemTestCase
     click_button "Reactivate project"
     assert_text "Project reactivated"
     assert_text "Customer Discovery"
+
+    click_link "Request deletion"
+    assert_text "Archive or export anything you need first"
+    fill_in "confirmation", with: "customer-website"
+    click_button "Request project deletion"
+    assert_text "Project deletion requested"
+    assert_text "Retained history remains reviewable"
+    click_button "Cancel deletion"
+    assert_text "Project deletion canceled"
   end
 end

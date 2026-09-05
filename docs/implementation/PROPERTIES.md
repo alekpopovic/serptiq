@@ -46,6 +46,9 @@ create an assignment.
 `mobile_properties.max` counts active Android plus iOS properties. Create and reactivate operations use a
 group-specific PostgreSQL advisory transaction lock before counting, preventing concurrent limit overflow.
 Archived rows retain names and normalized identifiers and do not consume active capacity or permit scans.
+Property deletion additionally requires `projects.delete` for the exact property, a recently authenticated
+session and typed-name confirmation. It moves the property to read-only `pending_deletion`, establishes the
+same cancellation/30-day hold contract as Projects, and may return to archived before the hold expires.
 
 ## History and read models
 
@@ -70,3 +73,8 @@ from each existing website configuration, then installs stable-identity and defe
 triggers. The backfill takes row/index writes proportional to existing web properties and should be deployed
 before that table becomes large; ordinary catalog locks apply during table/FK/index creation. Rollback removes
 all environment history while leaving the compatibility website configuration intact.
+
+Migration `20260904146000` adds nullable deletion/cancellation/workflow columns, the pending-deletion lifecycle
+shape, an exact-target workflow foreign key and a guarded-delete trigger. Administration deletes verification,
+crawl policy, environment and typed configuration children before the property aggregate; details and policy
+review points are in [`RESOURCE_DELETION.md`](./RESOURCE_DELETION.md).

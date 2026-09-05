@@ -41,6 +41,15 @@ module Projects
       Project.active.where(organization_id: organization_id).count
     end
 
+    def cancellation_requested?(organization_id:, project_id:, work_started_at:)
+      project = Project.find_by(id: project_id, organization_id: organization_id)
+      project.nil? || project.cancellation_requested_for?(work_started_at)
+    end
+
+    def delete_for_lifecycle!(clock: -> { Time.current }, **attributes)
+      DeleteForLifecycle.new(clock: clock).call(**attributes)
+    end
+
     def normalize_slug(value)
       ProjectSlug.call(value)
     end

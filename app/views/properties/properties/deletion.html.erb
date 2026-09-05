@@ -1,0 +1,31 @@
+<% content_for :title, "Confirm property deletion" %>
+
+<div class="mx-auto max-w-3xl">
+  <%= render "shared/breadcrumbs", items: [
+    { label: "Properties", path: organization_project_properties_path(Current.organization.slug, @project.slug) },
+    { label: @property.display_name, path: organization_project_property_path(Current.organization.slug, @project.slug, @property.id) },
+    { label: "Confirm deletion", path: nil }
+  ] %>
+
+  <section class="so-card mt-6 p-6 sm:p-8" aria-labelledby="property-deletion-title">
+    <p class="so-eyebrow">Destructive action</p>
+    <h1 id="property-deletion-title" class="mt-2 text-3xl font-black tracking-tight text-slate-950">Confirm property deletion</h1>
+    <div class="so-alert so-alert-warning mt-6">
+      <p><strong>Archive or export anything you need first.</strong> New schedules and scans stop immediately and active work receives a cooperative cancellation signal.</p>
+      <p class="mt-2">A retention hold lasts until approximately <%= l(@deletion_hold_until, format: :long) %>. The property remains read-only during that period. Final cleanup is asynchronous and object deletion must reconcile successfully before database aggregates are removed.</p>
+      <p class="mt-2">Minimized billing/security audit references may remain according to the approved retention policy.</p>
+    </div>
+
+    <% if @confirmation_error %><div class="so-alert so-alert-danger mt-5" role="alert"><%= @confirmation_error %></div><% end %>
+    <%= form_with url: organization_project_property_path(Current.organization.slug, @project.slug, @property.id), method: :delete, class: "mt-6 space-y-5" do |form| %>
+      <div>
+        <%= form.label :confirmation, "Enter the property name #{@property.display_name} to confirm", class: "so-label" %>
+        <%= form.text_field :confirmation, required: true, autocomplete: "off", class: "so-input" %>
+      </div>
+      <div class="flex flex-wrap gap-3">
+        <%= form.submit "Request property deletion", class: "so-button so-button-danger" %>
+        <%= link_to "Keep property", organization_project_property_path(Current.organization.slug, @project.slug, @property.id), class: "so-button so-button-secondary" %>
+      </div>
+    <% end %>
+  </section>
+</div>

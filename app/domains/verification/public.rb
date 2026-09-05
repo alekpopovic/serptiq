@@ -41,5 +41,9 @@ module Verification
     def recheck_dns_challenge(adapter:, clock: -> { Time.current }, **attributes)
       RecheckDnsChallenge.new(adapter: adapter, clock: clock).call(**attributes)
     end
+
+    def delete_for_lifecycle!(clock: -> { Time.current }, **attributes)
+      DeleteForLifecycle.new(clock: clock).call(**attributes)
+    end
   end
 end

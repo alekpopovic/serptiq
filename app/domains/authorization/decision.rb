@@ -4,7 +4,7 @@ module Authorization
   class Decision
     OWNER_ONLY_PERMISSIONS = %w[organization.transfer organization.delete].freeze
     ARCHIVED_PROJECT_PERMISSIONS = %w[projects.read projects.archive projects.delete].freeze
-    ARCHIVED_PROPERTY_PERMISSIONS = %w[properties.read properties.manage].freeze
+    ARCHIVED_PROPERTY_PERMISSIONS = %w[properties.read properties.manage projects.delete].freeze
 
     def self.call(request = nil, validate_resource: true, **attributes)
       request ||= AccessRequest.new(**attributes)

@@ -475,6 +475,19 @@ $$;
 
 
 --
+-- Name: prevent_audit_target_tombstone_mutation(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.prevent_audit_target_tombstone_mutation() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  RAISE EXCEPTION 'audit target tombstones are append-only';
+END;
+$$;
+
+
+--
 -- Name: prevent_domain_verification_attempt_mutation(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -482,6 +495,11 @@ CREATE FUNCTION public.prevent_domain_verification_attempt_mutation() RETURNS tr
     LANGUAGE plpgsql
     AS $$
 BEGIN
+  IF TG_OP = 'DELETE' AND resource_deletion_stage_authorized(
+    OLD.organization_id, OLD.project_id, OLD.property_id, 'aggregate_records'
+  ) THEN
+    RETURN OLD;
+  END IF;
   RAISE EXCEPTION 'domain verification attempts are append-only';
 END;
 $$;
@@ -496,6 +514,24 @@ CREATE FUNCTION public.prevent_plan_deletion() RETURNS trigger
     AS $$
 BEGIN
   RAISE EXCEPTION 'stable commercial plans cannot be deleted' USING ERRCODE = '23514';
+END;
+$$;
+
+
+--
+-- Name: protect_crawl_policy_set_deletion(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.protect_crawl_policy_set_deletion() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF NOT resource_deletion_stage_authorized(
+    OLD.organization_id, OLD.project_id, OLD.property_id, 'scans_and_findings'
+  ) THEN
+    RAISE EXCEPTION 'crawl policy deletion requires an active lifecycle workflow';
+  END IF;
+  RETURN OLD;
 END;
 $$;
 
@@ -526,6 +562,42 @@ BEGIN
     RAISE EXCEPTION 'domain verification binding cannot be changed';
   END IF;
   RETURN NEW;
+END;
+$$;
+
+
+--
+-- Name: protect_domain_verification_deletion(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.protect_domain_verification_deletion() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF NOT resource_deletion_stage_authorized(
+    OLD.organization_id, OLD.project_id, OLD.property_id, 'aggregate_records'
+  ) THEN
+    RAISE EXCEPTION 'domain verification deletion requires an active lifecycle workflow';
+  END IF;
+  RETURN OLD;
+END;
+$$;
+
+
+--
+-- Name: protect_project_lifecycle_deletion(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.protect_project_lifecycle_deletion() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF NOT resource_deletion_stage_authorized(
+    OLD.organization_id, OLD.id, NULL, 'aggregate_records'
+  ) THEN
+    RAISE EXCEPTION 'project deletion requires an active lifecycle workflow';
+  END IF;
+  RETURN OLD;
 END;
 $$;
 
@@ -573,6 +645,24 @@ $$;
 
 
 --
+-- Name: protect_property_lifecycle_deletion(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.protect_property_lifecycle_deletion() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF NOT resource_deletion_stage_authorized(
+    OLD.organization_id, OLD.project_id, OLD.id, 'aggregate_records'
+  ) THEN
+    RAISE EXCEPTION 'property deletion requires an active lifecycle workflow';
+  END IF;
+  RETURN OLD;
+END;
+$$;
+
+
+--
 -- Name: protect_property_stable_identity(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -602,9 +692,46 @@ CREATE FUNCTION public.reject_crawl_policy_immutable_change() RETURNS trigger
     LANGUAGE plpgsql
     AS $$
 BEGIN
+  IF TG_OP = 'DELETE' AND resource_deletion_stage_authorized(
+    OLD.organization_id, OLD.project_id, OLD.property_id, 'scans_and_findings'
+  ) THEN
+    RETURN OLD;
+  END IF;
   RAISE EXCEPTION '% rows are immutable', TG_TABLE_NAME;
 END;
 $$;
+
+
+--
+-- Name: resource_deletion_stage_authorized(uuid, uuid, uuid, text); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.resource_deletion_stage_authorized(target_organization_id uuid, target_project_id uuid, target_property_id uuid, required_stage text) RETURNS boolean
+    LANGUAGE plpgsql STABLE
+    AS $_$
+DECLARE
+  workflow_setting text;
+BEGIN
+  workflow_setting := current_setting('searchops.deletion_workflow_id', TRUE);
+  IF workflow_setting IS NULL OR workflow_setting !~
+    '^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$' THEN
+    RETURN FALSE;
+  END IF;
+
+  RETURN EXISTS (
+    SELECT 1 FROM resource_deletion_workflows workflows
+    WHERE workflows.id = workflow_setting::uuid
+      AND workflows.organization_id = target_organization_id
+      AND workflows.project_id = target_project_id
+      AND (workflows.target_type = 'Project'
+        OR (workflows.target_type = 'Property' AND workflows.property_id = target_property_id))
+      AND workflows.state = 'running'
+      AND workflows.current_stage = required_stage
+      AND workflows.hold_until <= CURRENT_TIMESTAMP
+      AND workflows.lease_expires_at > CURRENT_TIMESTAMP
+  );
+END;
+$_$;
 
 
 --
@@ -693,6 +820,24 @@ CREATE TABLE public.audit_events (
     CONSTRAINT audit_events_metadata_bounded CHECK (((jsonb_typeof(metadata) = 'object'::text) AND (pg_column_size(metadata) <= 8192))),
     CONSTRAINT audit_events_result_allowlist CHECK (((result)::text = ANY (ARRAY[('succeeded'::character varying)::text, ('denied'::character varying)::text, ('failed'::character varying)::text, ('ignored'::character varying)::text]))),
     CONSTRAINT audit_events_target_type_format CHECK (((target_type)::text ~ '^[A-Z][A-Za-z0-9]{0,47}$'::text))
+);
+
+
+--
+-- Name: audit_target_tombstones; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.audit_target_tombstones (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    deletion_workflow_id uuid NOT NULL,
+    target_type character varying(48) NOT NULL,
+    target_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_id uuid,
+    deleted_at timestamp(6) with time zone NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT audit_tombstones_target_type CHECK (((target_type)::text = ANY ((ARRAY['Project'::character varying, 'Property'::character varying, 'PropertyEnvironment'::character varying, 'DomainVerification'::character varying, 'CrawlPolicy'::character varying])::text[])))
 );
 
 
@@ -1070,11 +1215,11 @@ CREATE TABLE public.crawl_policy_versions (
     created_by_membership_id uuid NOT NULL,
     change_kind character varying(24) NOT NULL,
     created_at timestamp(6) with time zone NOT NULL,
-    CONSTRAINT crawl_policy_versions_allowlists CHECK ((((query_handling)::text = ANY ((ARRAY['ignore'::character varying, 'tracking_only'::character varying, 'all'::character varying])::text[])) AND ((robots_behavior)::text = 'respect'::text) AND ((change_kind)::text = ANY ((ARRAY['configured'::character varying, 'reset'::character varying, 'onboarding'::character varying])::text[])))),
-    CONSTRAINT crawl_policy_versions_bounded_lists CHECK ((((cardinality(start_urls) >= 1) AND (cardinality(start_urls) <= 20)) AND (cardinality(sitemap_urls) <= 20) AND (cardinality(include_patterns) <= 50) AND (cardinality(exclude_patterns) <= 50) AND (octet_length(array_to_string(start_urls, ''::text)) <= 40960) AND (octet_length(array_to_string(sitemap_urls, ''::text)) <= 40960) AND (octet_length(array_to_string(include_patterns, ''::text)) <= 12800) AND (octet_length(array_to_string(exclude_patterns, ''::text)) <= 12800))),
-    CONSTRAINT crawl_policy_versions_crawl_bounds CHECK ((((max_urls >= 1) AND (max_urls <= 1000000)) AND ((max_depth >= 0) AND (max_depth <= 20)) AND ((request_rate_per_second >= 0.10) AND (request_rate_per_second <= 10.00)) AND ((max_concurrency >= 1) AND (max_concurrency <= 1000)))),
+    CONSTRAINT crawl_policy_versions_allowlists CHECK ((((query_handling)::text = ANY (ARRAY[('ignore'::character varying)::text, ('tracking_only'::character varying)::text, ('all'::character varying)::text])) AND ((robots_behavior)::text = 'respect'::text) AND ((change_kind)::text = ANY (ARRAY[('configured'::character varying)::text, ('reset'::character varying)::text, ('onboarding'::character varying)::text])))),
+    CONSTRAINT crawl_policy_versions_bounded_lists CHECK (((cardinality(start_urls) >= 1) AND (cardinality(start_urls) <= 20) AND (cardinality(sitemap_urls) <= 20) AND (cardinality(include_patterns) <= 50) AND (cardinality(exclude_patterns) <= 50) AND (octet_length(array_to_string(start_urls, ''::text)) <= 40960) AND (octet_length(array_to_string(sitemap_urls, ''::text)) <= 40960) AND (octet_length(array_to_string(include_patterns, ''::text)) <= 12800) AND (octet_length(array_to_string(exclude_patterns, ''::text)) <= 12800))),
+    CONSTRAINT crawl_policy_versions_crawl_bounds CHECK (((max_urls >= 1) AND (max_urls <= 1000000) AND ((max_depth >= 0) AND (max_depth <= 20)) AND ((request_rate_per_second >= 0.10) AND (request_rate_per_second <= 10.00)) AND ((max_concurrency >= 1) AND (max_concurrency <= 1000)))),
     CONSTRAINT crawl_policy_versions_positive_version CHECK ((version > 0)),
-    CONSTRAINT crawl_policy_versions_rendering_shape CHECK ((((rendering_sample_percent >= 0) AND (rendering_sample_percent <= 100)) AND (max_rendered_pages >= 0) AND (((rendering_sample_percent = 0) AND (max_rendered_pages = 0)) OR ((rendering_sample_percent > 0) AND (max_rendered_pages > 0))))),
+    CONSTRAINT crawl_policy_versions_rendering_shape CHECK (((rendering_sample_percent >= 0) AND (rendering_sample_percent <= 100) AND (max_rendered_pages >= 0) AND (((rendering_sample_percent = 0) AND (max_rendered_pages = 0)) OR ((rendering_sample_percent > 0) AND (max_rendered_pages > 0))))),
     CONSTRAINT crawl_policy_versions_retention CHECK (((artifact_retention_days >= 0) AND (artifact_retention_days <= 36500))),
     CONSTRAINT crawl_policy_versions_user_agent_suffix CHECK (((user_agent_suffix IS NULL) OR ((user_agent_suffix)::text ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$'::text)))
 );
@@ -1711,10 +1856,12 @@ CREATE TABLE public.projects (
     lock_version integer DEFAULT 0 NOT NULL,
     created_at timestamp(6) with time zone NOT NULL,
     updated_at timestamp(6) with time zone NOT NULL,
+    work_cancellation_cutoff_at timestamp(6) with time zone,
+    deletion_workflow_id uuid,
     CONSTRAINT projects_authorization_scope_type CHECK (((authorization_scope_type)::text = 'Project'::text)),
     CONSTRAINT projects_description_bounded CHECK ((char_length(description) <= 2000)),
     CONSTRAINT projects_external_release_key_format CHECK (((external_release_key)::text ~ '^prj_[0-9a-f]{32}$'::text)),
-    CONSTRAINT projects_lifecycle_consistency CHECK (((((status)::text = 'active'::text) AND (archived_at IS NULL) AND (deletion_requested_at IS NULL)) OR (((status)::text = 'archived'::text) AND (archived_at IS NOT NULL) AND (deletion_requested_at IS NULL)) OR (((status)::text = 'pending_deletion'::text) AND (archived_at IS NOT NULL) AND (deletion_requested_at IS NOT NULL) AND (deletion_requested_at >= archived_at)))),
+    CONSTRAINT projects_lifecycle_consistency CHECK (((((status)::text = 'active'::text) AND (archived_at IS NULL) AND (deletion_requested_at IS NULL) AND (deletion_workflow_id IS NULL)) OR (((status)::text = 'archived'::text) AND (archived_at IS NOT NULL) AND (deletion_requested_at IS NULL) AND (deletion_workflow_id IS NULL)) OR (((status)::text = 'pending_deletion'::text) AND (archived_at IS NOT NULL) AND (deletion_requested_at IS NOT NULL) AND (deletion_workflow_id IS NOT NULL) AND (deletion_requested_at >= archived_at)))),
     CONSTRAINT projects_locale_format CHECK (((default_locale)::text ~ '^[a-z]{2}(?:-[A-Z]{2})?$'::text)),
     CONSTRAINT projects_name_format CHECK (((char_length((name)::text) >= 2) AND (char_length((name)::text) <= 160) AND ((name)::text = btrim((name)::text)))),
     CONSTRAINT projects_slug_format CHECK (((slug)::text ~ '^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$'::text)),
@@ -1742,11 +1889,14 @@ CREATE TABLE public.properties (
     lock_version integer DEFAULT 0 NOT NULL,
     created_at timestamp(6) with time zone NOT NULL,
     updated_at timestamp(6) with time zone NOT NULL,
+    deletion_requested_at timestamp(6) with time zone,
+    work_cancellation_cutoff_at timestamp(6) with time zone,
+    deletion_workflow_id uuid,
     CONSTRAINT properties_authorization_scope_types CHECK ((((authorization_scope_type)::text = 'Property'::text) AND ((authorization_project_scope_type)::text = 'Project'::text))),
     CONSTRAINT properties_configuration_version CHECK ((configuration_version = 1)),
     CONSTRAINT properties_display_name_format CHECK (((char_length((display_name)::text) >= 2) AND (char_length((display_name)::text) <= 160) AND ((display_name)::text = btrim((display_name)::text)))),
     CONSTRAINT properties_kind_allowlist CHECK (((kind)::text = ANY (ARRAY[('website'::character varying)::text, ('web_application'::character varying)::text, ('android_app'::character varying)::text, ('ios_app'::character varying)::text]))),
-    CONSTRAINT properties_lifecycle_consistency CHECK (((((status)::text = 'active'::text) AND (archived_at IS NULL)) OR (((status)::text = 'archived'::text) AND (archived_at IS NOT NULL)))),
+    CONSTRAINT properties_lifecycle_consistency CHECK (((((status)::text = 'active'::text) AND (archived_at IS NULL) AND (deletion_requested_at IS NULL) AND (deletion_workflow_id IS NULL)) OR (((status)::text = 'archived'::text) AND (archived_at IS NOT NULL) AND (deletion_requested_at IS NULL) AND (deletion_workflow_id IS NULL)) OR (((status)::text = 'pending_deletion'::text) AND (archived_at IS NOT NULL) AND (deletion_requested_at IS NOT NULL) AND (deletion_workflow_id IS NOT NULL) AND (deletion_requested_at >= archived_at)))),
     CONSTRAINT properties_verification_status_allowlist CHECK (((verification_status)::text = ANY (ARRAY[('unverified'::character varying)::text, ('pending'::character varying)::text, ('verified'::character varying)::text, ('failed'::character varying)::text, ('expired'::character varying)::text, ('revoked'::character varying)::text]))),
     CONSTRAINT properties_verified_timestamp CHECK ((((verification_status)::text <> 'verified'::text) OR (verified_at IS NOT NULL)))
 );
@@ -1789,6 +1939,65 @@ END)))),
     CONSTRAINT property_environments_primary_shape CHECK ((("primary" = false) OR (((kind)::text = 'production'::text) AND ((status)::text = 'active'::text)))),
     CONSTRAINT property_environments_property_type CHECK ((((property_kind)::text = ANY (ARRAY[('website'::character varying)::text, ('web_application'::character varying)::text])) AND (configuration_version = 1))),
     CONSTRAINT property_environments_transport CHECK ((((scheme)::text = ANY (ARRAY[('http'::character varying)::text, ('https'::character varying)::text])) AND ((port >= 1) AND (port <= 65535))))
+);
+
+
+--
+-- Name: resource_deletion_stage_executions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.resource_deletion_stage_executions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    resource_deletion_workflow_id uuid NOT NULL,
+    organization_id uuid NOT NULL,
+    stage character varying(32) NOT NULL,
+    "position" integer NOT NULL,
+    state character varying(24) DEFAULT 'pending'::character varying NOT NULL,
+    attempt_count integer DEFAULT 0 NOT NULL,
+    started_at timestamp(6) with time zone,
+    completed_at timestamp(6) with time zone,
+    last_error_category character varying(64),
+    cursor character varying(512),
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT deletion_stages_error_category CHECK (((last_error_category IS NULL) OR ((last_error_category)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text))),
+    CONSTRAINT deletion_stages_ordered_allowlist CHECK (((((stage)::text = 'cancel_active_work'::text) AND ("position" = 0)) OR (((stage)::text = 'integrations'::text) AND ("position" = 1)) OR (((stage)::text = 'scans_and_findings'::text) AND ("position" = 2)) OR (((stage)::text = 'reports'::text) AND ("position" = 3)) OR (((stage)::text = 'object_artifacts'::text) AND ("position" = 4)) OR (((stage)::text = 'api_keys_and_webhooks'::text) AND ("position" = 5)) OR (((stage)::text = 'aggregate_records'::text) AND ("position" = 6)))),
+    CONSTRAINT deletion_stages_state_and_attempts CHECK ((((state)::text = ANY ((ARRAY['pending'::character varying, 'running'::character varying, 'retryable'::character varying, 'completed'::character varying])::text[])) AND (attempt_count >= 0)))
+);
+
+
+--
+-- Name: resource_deletion_workflows; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.resource_deletion_workflows (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    target_type character varying(24) NOT NULL,
+    target_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_id uuid,
+    requested_by_membership_id uuid NOT NULL,
+    state character varying(24) DEFAULT 'holding'::character varying NOT NULL,
+    current_stage character varying(32),
+    requested_at timestamp(6) with time zone NOT NULL,
+    hold_until timestamp(6) with time zone NOT NULL,
+    started_at timestamp(6) with time zone,
+    completed_at timestamp(6) with time zone,
+    canceled_at timestamp(6) with time zone,
+    next_attempt_at timestamp(6) with time zone,
+    last_error_category character varying(64),
+    lease_token uuid,
+    lease_expires_at timestamp(6) with time zone,
+    attempt_count integer DEFAULT 0 NOT NULL,
+    lock_version integer DEFAULT 0 NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT deletion_workflows_error_category CHECK (((last_error_category IS NULL) OR ((last_error_category)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text))),
+    CONSTRAINT deletion_workflows_stage_allowlist CHECK (((current_stage IS NULL) OR ((current_stage)::text = ANY ((ARRAY['cancel_active_work'::character varying, 'integrations'::character varying, 'scans_and_findings'::character varying, 'reports'::character varying, 'object_artifacts'::character varying, 'api_keys_and_webhooks'::character varying, 'aggregate_records'::character varying])::text[])))),
+    CONSTRAINT deletion_workflows_state_shape CHECK (((((state)::text = 'holding'::text) AND (current_stage IS NULL) AND (started_at IS NULL) AND (completed_at IS NULL) AND (canceled_at IS NULL) AND (next_attempt_at IS NULL) AND (last_error_category IS NULL) AND (lease_token IS NULL) AND (lease_expires_at IS NULL)) OR (((state)::text = 'running'::text) AND (current_stage IS NOT NULL) AND (started_at IS NOT NULL) AND (completed_at IS NULL) AND (canceled_at IS NULL) AND (next_attempt_at IS NULL) AND (last_error_category IS NULL) AND (lease_token IS NOT NULL) AND (lease_expires_at IS NOT NULL)) OR (((state)::text = 'retryable'::text) AND (current_stage IS NOT NULL) AND (started_at IS NOT NULL) AND (completed_at IS NULL) AND (canceled_at IS NULL) AND (next_attempt_at IS NOT NULL) AND (last_error_category IS NOT NULL) AND (lease_token IS NULL) AND (lease_expires_at IS NULL)) OR (((state)::text = 'completed'::text) AND ((current_stage)::text = 'aggregate_records'::text) AND (started_at IS NOT NULL) AND (completed_at IS NOT NULL) AND (canceled_at IS NULL) AND (next_attempt_at IS NULL) AND (last_error_category IS NULL) AND (lease_token IS NULL) AND (lease_expires_at IS NULL)) OR (((state)::text = 'canceled'::text) AND (current_stage IS NULL) AND (started_at IS NULL) AND (completed_at IS NULL) AND (canceled_at IS NOT NULL) AND (next_attempt_at IS NULL) AND (last_error_category IS NULL) AND (lease_token IS NULL) AND (lease_expires_at IS NULL)))),
+    CONSTRAINT deletion_workflows_target_shape CHECK ((((target_type)::text = ANY ((ARRAY['Project'::character varying, 'Property'::character varying])::text[])) AND ((((target_type)::text = 'Project'::text) AND (target_id = project_id) AND (property_id IS NULL)) OR (((target_type)::text = 'Property'::text) AND (target_id = property_id) AND (property_id IS NOT NULL))))),
+    CONSTRAINT deletion_workflows_time_and_attempts CHECK (((hold_until > requested_at) AND (attempt_count >= 0)))
 );
 
 
@@ -2307,6 +2516,14 @@ ALTER TABLE ONLY public.audit_events
 
 
 --
+-- Name: audit_target_tombstones audit_target_tombstones_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audit_target_tombstones
+    ADD CONSTRAINT audit_target_tombstones_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: authentication_rate_limit_buckets authentication_rate_limit_buckets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2611,6 +2828,22 @@ ALTER TABLE ONLY public.property_environments
 
 
 --
+-- Name: resource_deletion_stage_executions resource_deletion_stage_executions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.resource_deletion_stage_executions
+    ADD CONSTRAINT resource_deletion_stage_executions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: resource_deletion_workflows resource_deletion_workflows_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.resource_deletion_workflows
+    ADD CONSTRAINT resource_deletion_workflows_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: role_assignments role_assignments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2785,6 +3018,20 @@ CREATE INDEX index_audit_events_on_org_timeline ON public.audit_events USING btr
 --
 
 CREATE INDEX index_audit_events_on_request_id ON public.audit_events USING btree (request_id) WHERE (request_id IS NOT NULL);
+
+
+--
+-- Name: index_audit_tombstones_on_resource_hierarchy; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_audit_tombstones_on_resource_hierarchy ON public.audit_target_tombstones USING btree (organization_id, project_id, property_id);
+
+
+--
+-- Name: index_audit_tombstones_on_target; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_audit_tombstones_on_target ON public.audit_target_tombstones USING btree (organization_id, target_type, target_id);
 
 
 --
@@ -3037,6 +3284,48 @@ CREATE UNIQUE INDEX index_crawl_policy_versions_on_sequence ON public.crawl_poli
 --
 
 CREATE UNIQUE INDEX index_crawl_policy_versions_on_tenant_identity ON public.crawl_policy_versions USING btree (organization_id, project_id, property_id, environment_id, id);
+
+
+--
+-- Name: index_deletion_stages_on_workflow_position; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_deletion_stages_on_workflow_position ON public.resource_deletion_stage_executions USING btree (resource_deletion_workflow_id, "position");
+
+
+--
+-- Name: index_deletion_stages_on_workflow_stage; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_deletion_stages_on_workflow_stage ON public.resource_deletion_stage_executions USING btree (resource_deletion_workflow_id, stage);
+
+
+--
+-- Name: index_deletion_workflows_on_active_target; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_deletion_workflows_on_active_target ON public.resource_deletion_workflows USING btree (organization_id, target_type, target_id) WHERE ((state)::text = ANY ((ARRAY['holding'::character varying, 'running'::character varying, 'retryable'::character varying])::text[]));
+
+
+--
+-- Name: index_deletion_workflows_on_due_work; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_deletion_workflows_on_due_work ON public.resource_deletion_workflows USING btree (state, hold_until, next_attempt_at);
+
+
+--
+-- Name: index_deletion_workflows_on_exact_target_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_deletion_workflows_on_exact_target_identity ON public.resource_deletion_workflows USING btree (organization_id, id, target_type, target_id);
+
+
+--
+-- Name: index_deletion_workflows_on_tenant_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_deletion_workflows_on_tenant_identity ON public.resource_deletion_workflows USING btree (organization_id, id);
 
 
 --
@@ -3502,6 +3791,13 @@ CREATE UNIQUE INDEX index_project_onboarding_drafts_on_website_property_id ON pu
 
 
 --
+-- Name: index_projects_on_deletion_workflow_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_projects_on_deletion_workflow_id ON public.projects USING btree (deletion_workflow_id) WHERE (deletion_workflow_id IS NOT NULL);
+
+
+--
 -- Name: index_projects_on_external_release_key; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3527,6 +3823,13 @@ CREATE UNIQUE INDEX index_projects_on_organization_and_id ON public.projects USI
 --
 
 CREATE UNIQUE INDEX index_projects_on_organization_and_slug ON public.projects USING btree (organization_id, slug);
+
+
+--
+-- Name: index_properties_on_deletion_workflow_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_properties_on_deletion_workflow_id ON public.properties USING btree (deletion_workflow_id) WHERE (deletion_workflow_id IS NOT NULL);
 
 
 --
@@ -3992,10 +4295,24 @@ CREATE UNIQUE INDEX index_website_configs_on_normalized_origin ON public.website
 
 
 --
+-- Name: audit_target_tombstones audit_target_tombstones_immutable; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER audit_target_tombstones_immutable BEFORE DELETE OR UPDATE ON public.audit_target_tombstones FOR EACH ROW EXECUTE FUNCTION public.prevent_audit_target_tombstone_mutation();
+
+
+--
 -- Name: billing_customers billing_customers_immutable_mapping; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER billing_customers_immutable_mapping BEFORE DELETE OR UPDATE ON public.billing_customers FOR EACH ROW EXECUTE FUNCTION public.enforce_billing_customer_mapping_immutability();
+
+
+--
+-- Name: crawl_policy_sets crawl_policy_sets_require_deletion_workflow; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER crawl_policy_sets_require_deletion_workflow BEFORE DELETE ON public.crawl_policy_sets FOR EACH ROW EXECUTE FUNCTION public.protect_crawl_policy_set_deletion();
 
 
 --
@@ -4024,6 +4341,13 @@ CREATE TRIGGER domain_verification_attempts_immutable BEFORE DELETE OR UPDATE ON
 --
 
 CREATE TRIGGER domain_verifications_protect_binding BEFORE UPDATE ON public.domain_verifications FOR EACH ROW EXECUTE FUNCTION public.protect_domain_verification_binding();
+
+
+--
+-- Name: domain_verifications domain_verifications_require_deletion_workflow; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER domain_verifications_require_deletion_workflow BEFORE DELETE ON public.domain_verifications FOR EACH ROW EXECUTE FUNCTION public.protect_domain_verification_deletion();
 
 
 --
@@ -4083,10 +4407,24 @@ CREATE TRIGGER projects_protect_stable_identity BEFORE UPDATE ON public.projects
 
 
 --
+-- Name: projects projects_require_deletion_workflow; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER projects_require_deletion_workflow BEFORE DELETE ON public.projects FOR EACH ROW EXECUTE FUNCTION public.protect_project_lifecycle_deletion();
+
+
+--
 -- Name: properties properties_protect_stable_identity; Type: TRIGGER; Schema: public; Owner: -
 --
 
 CREATE TRIGGER properties_protect_stable_identity BEFORE UPDATE ON public.properties FOR EACH ROW EXECUTE FUNCTION public.protect_property_stable_identity();
+
+
+--
+-- Name: properties properties_require_deletion_workflow; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER properties_require_deletion_workflow BEFORE DELETE ON public.properties FOR EACH ROW EXECUTE FUNCTION public.protect_property_lifecycle_deletion();
 
 
 --
@@ -4173,6 +4511,14 @@ ALTER TABLE ONLY public.android_property_configs
 
 ALTER TABLE ONLY public.audit_events
     ADD CONSTRAINT fk_audit_events_same_org_actor FOREIGN KEY (organization_id, actor_membership_id) REFERENCES public.memberships(organization_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: audit_target_tombstones fk_audit_tombstones_tenant_workflow; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audit_target_tombstones
+    ADD CONSTRAINT fk_audit_tombstones_tenant_workflow FOREIGN KEY (organization_id, deletion_workflow_id) REFERENCES public.resource_deletion_workflows(organization_id, id) ON DELETE RESTRICT;
 
 
 --
@@ -4269,6 +4615,22 @@ ALTER TABLE ONLY public.crawl_policy_versions
 
 ALTER TABLE ONLY public.organization_ownerships
     ADD CONSTRAINT fk_current_ownership_active_membership FOREIGN KEY (organization_id, membership_id, membership_status) REFERENCES public.memberships(organization_id, id, status) ON DELETE RESTRICT DEFERRABLE INITIALLY DEFERRED;
+
+
+--
+-- Name: resource_deletion_stage_executions fk_deletion_stages_tenant_workflow; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.resource_deletion_stage_executions
+    ADD CONSTRAINT fk_deletion_stages_tenant_workflow FOREIGN KEY (organization_id, resource_deletion_workflow_id) REFERENCES public.resource_deletion_workflows(organization_id, id) ON DELETE CASCADE;
+
+
+--
+-- Name: resource_deletion_workflows fk_deletion_workflows_tenant_requester; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.resource_deletion_workflows
+    ADD CONSTRAINT fk_deletion_workflows_tenant_requester FOREIGN KEY (organization_id, requested_by_membership_id) REFERENCES public.memberships(organization_id, id) ON DELETE RESTRICT;
 
 
 --
@@ -4392,11 +4754,27 @@ ALTER TABLE ONLY public.project_onboarding_drafts
 
 
 --
+-- Name: projects fk_projects_exact_deletion_workflow; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.projects
+    ADD CONSTRAINT fk_projects_exact_deletion_workflow FOREIGN KEY (organization_id, deletion_workflow_id, authorization_scope_type, id) REFERENCES public.resource_deletion_workflows(organization_id, id, target_type, target_id) ON DELETE RESTRICT;
+
+
+--
 -- Name: projects fk_projects_same_org_authorization_scope; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.projects
     ADD CONSTRAINT fk_projects_same_org_authorization_scope FOREIGN KEY (organization_id, id, authorization_scope_type) REFERENCES public.authorization_scope_references(organization_id, id, scope_type) ON DELETE RESTRICT;
+
+
+--
+-- Name: properties fk_properties_exact_deletion_workflow; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.properties
+    ADD CONSTRAINT fk_properties_exact_deletion_workflow FOREIGN KEY (organization_id, deletion_workflow_id, authorization_scope_type, id) REFERENCES public.resource_deletion_workflows(organization_id, id, target_type, target_id) ON DELETE RESTRICT;
 
 
 --
@@ -4584,6 +4962,14 @@ ALTER TABLE ONLY public.memberships
 
 
 --
+-- Name: resource_deletion_workflows fk_rails_6be5fa48d5; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.resource_deletion_workflows
+    ADD CONSTRAINT fk_rails_6be5fa48d5 FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE RESTRICT;
+
+
+--
 -- Name: billing_customers fk_rails_6d4927c1b8; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4653,6 +5039,14 @@ ALTER TABLE ONLY public.projects
 
 ALTER TABLE ONLY public.plan_version_snapshot_references
     ADD CONSTRAINT fk_rails_9d09607450 FOREIGN KEY (plan_version_id) REFERENCES public.plan_versions(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: audit_target_tombstones fk_rails_9f7537650a; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.audit_target_tombstones
+    ADD CONSTRAINT fk_rails_9f7537650a FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE RESTRICT;
 
 
 --
@@ -5054,6 +5448,7 @@ ALTER TABLE ONLY public.website_property_configs
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904146000'),
 ('20260904145000'),
 ('20260904144000'),
 ('20260904143000'),

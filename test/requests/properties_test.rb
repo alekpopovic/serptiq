@@ -170,6 +170,37 @@ class PropertiesRequestTest < ActionDispatch::IntegrationTest
     assert active.active?
   end
 
+  test "property deletion requires exact confirmation and can be canceled during the hold" do
+    property = create_property_for(
+      @owner, project: @project, display_name: "Critical Website"
+    )
+
+    get deletion_organization_project_property_path(
+      @owner.organization.slug, @project.slug, property.id
+    )
+    assert_response :success
+    assert_includes response.body, "object deletion must reconcile successfully"
+
+    delete organization_project_property_path(
+      @owner.organization.slug, @project.slug, property.id
+    ), params: { confirmation: "wrong" }
+    assert_response :unprocessable_content
+    assert property.reload.active?
+
+    delete organization_project_property_path(
+      @owner.organization.slug, @project.slug, property.id
+    ), params: { confirmation: property.display_name }
+    assert_response :see_other
+    assert property.reload.pending_deletion?
+
+    patch cancel_deletion_organization_project_property_path(
+      @owner.organization.slug, @project.slug, property.id
+    )
+    assert_response :see_other
+    assert property.reload.archived?
+    assert Administration::DeletionWorkflow.find_by!(target_id: property.id).canceled?
+  end
+
   private
 
   def add_member(name)

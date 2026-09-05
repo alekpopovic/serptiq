@@ -53,32 +53,52 @@ module Auditing
         AND (targets.id IS NULL OR targets.organization_id <> audit_events.organization_id)
       UNION ALL
       SELECT audit_events.id,
-        CASE WHEN targets.id IS NULL THEN 'target_orphan' ELSE 'target_cross_tenant' END AS reason_code
+        CASE WHEN targets.id IS NULL AND tombstones.id IS NULL THEN 'target_orphan'
+          ELSE 'target_cross_tenant' END AS reason_code
       FROM audit_events
       LEFT JOIN projects targets ON targets.id = audit_events.target_id
+      LEFT JOIN audit_target_tombstones tombstones
+        ON tombstones.target_type = 'Project' AND tombstones.target_id = audit_events.target_id
+          AND tombstones.organization_id = audit_events.organization_id
       WHERE audit_events.target_type = 'Project' AND audit_events.target_id IS NOT NULL
-        AND (targets.id IS NULL OR targets.organization_id <> audit_events.organization_id)
+        AND ((targets.id IS NULL AND tombstones.id IS NULL)
+          OR (targets.id IS NOT NULL AND targets.organization_id <> audit_events.organization_id))
       UNION ALL
       SELECT audit_events.id,
-        CASE WHEN targets.id IS NULL THEN 'target_orphan' ELSE 'target_cross_tenant' END AS reason_code
+        CASE WHEN targets.id IS NULL AND tombstones.id IS NULL THEN 'target_orphan'
+          ELSE 'target_cross_tenant' END AS reason_code
       FROM audit_events
       LEFT JOIN properties targets ON targets.id = audit_events.target_id
+      LEFT JOIN audit_target_tombstones tombstones
+        ON tombstones.target_type = 'Property' AND tombstones.target_id = audit_events.target_id
+          AND tombstones.organization_id = audit_events.organization_id
       WHERE audit_events.target_type = 'Property' AND audit_events.target_id IS NOT NULL
-        AND (targets.id IS NULL OR targets.organization_id <> audit_events.organization_id)
+        AND ((targets.id IS NULL AND tombstones.id IS NULL)
+          OR (targets.id IS NOT NULL AND targets.organization_id <> audit_events.organization_id))
       UNION ALL
       SELECT audit_events.id,
-        CASE WHEN targets.id IS NULL THEN 'target_orphan' ELSE 'target_cross_tenant' END AS reason_code
+        CASE WHEN targets.id IS NULL AND tombstones.id IS NULL THEN 'target_orphan'
+          ELSE 'target_cross_tenant' END AS reason_code
       FROM audit_events
       LEFT JOIN property_environments targets ON targets.id = audit_events.target_id
+      LEFT JOIN audit_target_tombstones tombstones
+        ON tombstones.target_type = 'PropertyEnvironment' AND tombstones.target_id = audit_events.target_id
+          AND tombstones.organization_id = audit_events.organization_id
       WHERE audit_events.target_type = 'PropertyEnvironment' AND audit_events.target_id IS NOT NULL
-        AND (targets.id IS NULL OR targets.organization_id <> audit_events.organization_id)
+        AND ((targets.id IS NULL AND tombstones.id IS NULL)
+          OR (targets.id IS NOT NULL AND targets.organization_id <> audit_events.organization_id))
       UNION ALL
       SELECT audit_events.id,
-        CASE WHEN targets.id IS NULL THEN 'target_orphan' ELSE 'target_cross_tenant' END AS reason_code
+        CASE WHEN targets.id IS NULL AND tombstones.id IS NULL THEN 'target_orphan'
+          ELSE 'target_cross_tenant' END AS reason_code
       FROM audit_events
       LEFT JOIN domain_verifications targets ON targets.id = audit_events.target_id
+      LEFT JOIN audit_target_tombstones tombstones
+        ON tombstones.target_type = 'DomainVerification' AND tombstones.target_id = audit_events.target_id
+          AND tombstones.organization_id = audit_events.organization_id
       WHERE audit_events.target_type = 'DomainVerification' AND audit_events.target_id IS NOT NULL
-        AND (targets.id IS NULL OR targets.organization_id <> audit_events.organization_id)
+        AND ((targets.id IS NULL AND tombstones.id IS NULL)
+          OR (targets.id IS NOT NULL AND targets.organization_id <> audit_events.organization_id))
       UNION ALL
       SELECT audit_events.id, 'target_orphan' AS reason_code
       FROM audit_events LEFT JOIN roles targets ON targets.id = audit_events.target_id

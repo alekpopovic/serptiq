@@ -91,6 +91,7 @@ module Properties
         verification_status: property.verification_status,
         verified_at: property.verified_at,
         archived_at: property.archived_at,
+        deletion_requested_at: property.deletion_requested_at,
         configuration: configuration.value
       )
     end

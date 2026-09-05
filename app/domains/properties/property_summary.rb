@@ -3,7 +3,7 @@
 module Properties
   PropertySummary = Data.define(
     :id, :project_id, :display_name, :kind, :status, :verification_status,
-    :verified_at, :archived_at, :configuration
+    :verified_at, :archived_at, :deletion_requested_at, :configuration
   ) do
     def initialize(**attributes)
       %i[id project_id display_name kind status verification_status].each do |name|
@@ -19,6 +19,10 @@ module Properties
 
     def archived?
       status == "archived"
+    end
+
+    def pending_deletion?
+      status == "pending_deletion"
     end
 
     def verified?

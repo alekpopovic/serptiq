@@ -157,6 +157,12 @@ Rails.application.routes.draw do
   patch "dashboard/organizations/:organization_slug/projects/:project_slug/reactivate",
     to: "projects/projects#reactivate",
     as: :reactivate_organization_project
+  get "dashboard/organizations/:organization_slug/projects/:project_slug/deletion",
+    to: "projects/projects#deletion",
+    as: :deletion_organization_project
+  patch "dashboard/organizations/:organization_slug/projects/:project_slug/deletion/cancel",
+    to: "projects/projects#cancel_deletion",
+    as: :cancel_deletion_organization_project
   delete "dashboard/organizations/:organization_slug/projects/:project_slug",
     to: "projects/projects#destroy"
   get "dashboard/organizations/:organization_slug/projects/:project_slug/properties",
@@ -181,6 +187,14 @@ Rails.application.routes.draw do
   patch "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id/reactivate",
     to: "properties/properties#reactivate",
     as: :reactivate_organization_project_property
+  get "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id/deletion",
+    to: "properties/properties#deletion",
+    as: :deletion_organization_project_property
+  patch "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id/deletion/cancel",
+    to: "properties/properties#cancel_deletion",
+    as: :cancel_deletion_organization_project_property
+  delete "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id",
+    to: "properties/properties#destroy"
   get "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id/environments",
     to: "properties/environments#index",
     as: :organization_project_property_environments

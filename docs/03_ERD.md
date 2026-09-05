@@ -656,14 +656,17 @@ Deleting or abandoning a draft never cascades into provisioned aggregates.
 | authorization_scope_type | string | fixed `Project` composite-FK marker |
 | archived_at | timestamptz | required outside active state |
 | deletion_requested_at | timestamptz | required only while pending deletion |
+| work_cancellation_cutoff_at | timestamptz | cooperative cancellation boundary set on archive/delete request |
+| deletion_workflow_id | uuid | exact workflow, required only while pending deletion |
 | lock_version | integer | optimistic lifecycle locking |
 
 Unique `(organization_id, slug)` across retained history and globally unique
 `external_release_key`. A composite foreign key requires the project UUID and tenant to match a registered
-Authorization project scope. Stable tenant/slug/release identities are protected by a PostgreSQL trigger.
+Authorization project scope. A pending row has an exact composite foreign key to its same-tenant Project
+deletion workflow. Stable tenant/slug/release identities are protected by a PostgreSQL trigger.
 Archiving immediately marks the authorization scope unavailable and disables new scans; retained history
-remains visible only through qualifying organization-scope grants. Final retention/deletion orchestration is
-defined by the later lifecycle workflow.
+remains visible only through qualifying organization-scope grants. Final deletion requires the leased
+aggregate stage of the exact workflow.
 
 ### `properties`
 
@@ -674,16 +677,41 @@ defined by the later lifecycle workflow.
 | project_id | uuid | immutable same-tenant project parent |
 | display_name | citext | unique within retained project history |
 | kind | string | website, web_application, android_app, ios_app |
-| status | string | active or archived |
+| status | string | active, archived or pending_deletion |
 | verification_status | string | unverified, pending, verified, failed, expired or revoked |
 | verified_at | timestamptz | required for verified state |
 | configuration_version | integer | fixed to typed schema version 1 |
-| archived_at | timestamptz | required in archived state |
+| archived_at | timestamptz | required outside active state |
+| deletion_requested_at | timestamptz | required only while pending deletion |
+| work_cancellation_cutoff_at | timestamptz | cooperative cancellation boundary |
+| deletion_workflow_id | uuid | exact workflow, required only while pending deletion |
 | lock_version | integer | optimistic lifecycle/configuration locking |
 
 The property, project and organization are joined through composite foreign keys to both the Projects and
 Authorization hierarchies. Type, parent and configuration version are immutable; a future type or schema
 requires an explicit versioned migration. No security-critical core configuration is stored in JSON.
+
+### `resource_deletion_workflows`
+
+Durable Administration orchestration for an exact Project or Property target. It repeats organization,
+project and optional property IDs, records the requesting membership, requested/hold/start/completion/cancel
+times, state, current stage, retry time, sanitized error category, attempt count, optimistic lock and a
+five-minute worker lease. A partial unique index permits one holding/running/retryable workflow per exact
+target. Shape/state checks and exact pending-resource composite foreign keys prevent target substitution.
+
+### `resource_deletion_stage_executions`
+
+Exactly seven durable stage rows per workflow: cancellation, integrations, scans/findings, reports, object
+artifacts, API keys/webhooks and aggregate records. Unique position/stage indexes plus a check fix their order.
+Rows retain state, attempt count, timestamps, sanitized failure category and a bounded pagination cursor so
+completed stages are not replayed after retry or worker loss.
+
+### `audit_target_tombstones`
+
+Append-only minimized replacement identity for a deleted Project, Property, PropertyEnvironment,
+DomainVerification or CrawlPolicy. The row stores the same-tenant workflow UUID, resource hierarchy and
+deletion time but no customer label, origin, credential, payload or object key. A composite workflow foreign
+key and unique target identity support audit consistency after aggregate removal.
 
 ### `website_property_configs`
 
@@ -963,6 +991,9 @@ targets for orphaned and cross-tenant references.
     every environment is bound by composite foreign key to the same tenant, project and typed property.
 19. Every verification challenge and attempt belongs to exactly one tenant-bound property environment;
     challenge bindings and attempt history are immutable, and origin changes revoke current proof.
+20. Project/property and protected child deletion requires the exact same-tenant workflow UUID, expired hold,
+    unexpired worker lease and correct persisted stage; direct SQL deletion is rejected by triggers.
+21. Every deletion tombstone belongs to the same organization as its durable workflow and is append-only.
 
 ## 12. Retention classes
 
@@ -977,3 +1008,6 @@ targets for orphaned and cross-tenant references.
 | user_export | generated archives | short expiry after creation |
 
 Retention is applied by class, organization plan, legal policy, and explicit deletion workflow.
+The current Project/Property deletion hold defaults to 30 days. Legal/privacy owners must review this product
+policy, retained audit/billing classes, processor obligations, backup erasure expectations and jurisdictional
+or contractual holds before launch; this schema does not assert a universal legal retention period.

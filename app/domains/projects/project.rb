@@ -34,19 +34,24 @@ module Projects
     end
 
     def active?
-      status == "active" && archived_at.nil? && deletion_requested_at.nil?
+      status == "active" && archived_at.nil? && deletion_requested_at.nil? && deletion_workflow_id.nil?
     end
 
     def archived?
-      status == "archived" && archived_at.present? && deletion_requested_at.nil?
+      status == "archived" && archived_at.present? && deletion_requested_at.nil? && deletion_workflow_id.nil?
     end
 
     def pending_deletion?
-      status == "pending_deletion" && archived_at.present? && deletion_requested_at.present?
+      status == "pending_deletion" && archived_at.present? && deletion_requested_at.present? &&
+        deletion_workflow_id.present?
     end
 
     def scan_available?
       active?
+    end
+
+    def cancellation_requested_for?(work_started_at)
+      work_cancellation_cutoff_at.present? && work_started_at <= work_cancellation_cutoff_at
     end
 
     private

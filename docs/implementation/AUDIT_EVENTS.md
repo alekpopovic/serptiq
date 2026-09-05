@@ -40,6 +40,13 @@ report also checks retained verification targets.
 Scheduled DNS rechecks use `verification.recheck_succeeded` and `verification.recheck_failed` with a null
 human actor. They retain the same bounded metadata and never include the queried name, TXT values or token.
 
+Physical lifecycle cleanup records immutable `audit_target_tombstones` before removing a known Project,
+Property, PropertyEnvironment, DomainVerification or CrawlPolicy target. Each tombstone is bound by composite
+foreign key to the same-tenant deletion workflow and stores only stable hierarchy UUIDs and timestamps. The
+consistency report accepts only an exact same-tenant tombstone as replacement target evidence; a foreign or
+missing tombstone remains an error. `data.deletion_canceled`, resource `.deleted` and
+`data.deletion_completed` events contain bounded operation classification, not deleted customer content.
+
 Run `bin/tenancy-security` for the required Phase 03 isolation suite and both consistency reports. Operators
 can run `bin/rails auditing:consistency:check` independently; any orphan or known cross-tenant actor/retained
 tenant target causes a non-zero exit. Expired sessions are intentionally excluded because their audit IDs

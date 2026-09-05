@@ -71,6 +71,19 @@ module Properties
       )
     end
 
+    def cancellation_requested?(organization_id:, project_id:, property_id:, work_started_at:)
+      property = Property.find_by(
+        id: property_id,
+        project_id: project_id,
+        organization_id: organization_id
+      )
+      property.nil? || property.cancellation_requested_for?(work_started_at)
+    end
+
+    def delete_for_lifecycle!(clock: -> { Time.current }, **attributes)
+      DeleteForLifecycle.new(clock: clock).call(**attributes)
+    end
+
     def reference(organization_id:, project_id:, property_id:)
       property = Property.includes(
         :website_property_config, :android_property_config, :ios_property_config

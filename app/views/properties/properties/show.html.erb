@@ -24,17 +24,29 @@
     <p class="mt-4 text-xs leading-5 text-slate-500">Verification is an observed, revocable state. Creating a property does not prove ownership.</p>
   </section>
 
-  <% unless @property_summary.active? %><div class="so-alert so-alert-warning mt-7"><p>This property is read-only and cannot start new scans.</p></div><% end %>
+  <% unless @property_summary.active? %>
+    <div class="so-alert so-alert-warning mt-7">
+      <p>This property is read-only and cannot start new scans.</p>
+      <% if @property_summary.pending_deletion? && @deletion_status %>
+        <p class="mt-2">Retained history remains reviewable until approximately <%= l(@deletion_status.hold_until, format: :long) %>. Export anything you need before cleanup begins.</p>
+      <% end %>
+    </div>
+  <% end %>
 
   <div class="mt-8 flex flex-wrap gap-3">
     <% if @property.kind.in?(%w[website web_application]) %>
-      <%= link_to "Manage environments", organization_project_property_environments_path(Current.organization.slug, @project.slug, @property.id), class: "so-button so-button-secondary" %>
+      <%= link_to (@property_summary.active? ? "Manage environments" : "View environments"), organization_project_property_environments_path(Current.organization.slug, @project.slug, @property.id), class: "so-button so-button-secondary" %>
     <% end %>
     <% if @property_summary.active? && allowed_to?("properties.manage", project: @project, property: @property) %>
       <%= link_to "Edit property", edit_organization_project_property_path(Current.organization.slug, @project.slug, @property.id), class: "so-button so-button-primary" %>
       <%= button_to "Archive property", archive_organization_project_property_path(Current.organization.slug, @project.slug, @property.id), method: :patch, class: "so-button so-button-secondary", form: { data: { turbo_confirm: "Archive this property and disable new scans?" } } %>
     <% elsif @property_summary.archived? && allowed_to?("properties.manage", project: @project, property: @property) %>
       <%= button_to "Reactivate property", reactivate_organization_project_property_path(Current.organization.slug, @project.slug, @property.id), method: :patch, class: "so-button so-button-primary" %>
+    <% end %>
+    <% if @property_summary.pending_deletion? && @deletion_status&.cancelable && allowed_to?("projects.delete", project: @project, property: @property) %>
+      <%= button_to "Cancel deletion", cancel_deletion_organization_project_property_path(Current.organization.slug, @project.slug, @property.id), method: :patch, class: "so-button so-button-secondary" %>
+    <% elsif !@property_summary.pending_deletion? && allowed_to?("projects.delete", project: @project, property: @property) %>
+      <%= link_to "Request deletion", deletion_organization_project_property_path(Current.organization.slug, @project.slug, @property.id), class: "so-button so-button-danger" %>
     <% end %>
   </div>
 </div>

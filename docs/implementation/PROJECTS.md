@@ -29,11 +29,15 @@ The central operations allow:
 
 - `active → archived`, which immediately disables new scans;
 - `archived → active`, after the active-project cap is rechecked;
-- `active|archived → pending_deletion`, with recent session authentication.
+- `active|archived → pending_deletion`, with `projects.delete`, recent session authentication and an exact
+  durable deletion workflow;
+- `pending_deletion → archived`, when an authorized cancellation arrives before the workflow hold expires.
 
-Projects are never physically removed by the web request. Archived and pending-deletion rows, slugs, audit
-events and outbox events remain durable. The later retention workflow owns cancellation, grace periods,
-cross-domain cleanup and final tombstoning/deletion.
+Projects are never physically removed by the web request. Archive/request set a work-cancellation cutoff,
+make admission unavailable and allow jobs that started earlier to stop cooperatively. Pending rows remain
+read-only for a 30-day hold, then Administration performs resumable ordered cross-domain cleanup. Final
+database deletion requires the exact leased workflow stage; minimized tombstones plus audit/outbox history
+retain security identity without retaining the customer project row.
 
 Every successful create, editable-setting change and lifecycle attempt appends a tenant-bound audit event.
 Successful state changes also commit a versioned Project outbox event in the same transaction. Queue enqueue
@@ -54,3 +58,7 @@ scope foreign key and a stable-identity trigger. It rewrites no existing tenant 
 foreign-key installation take ordinary PostgreSQL DDL locks; deploy before application code starts creating
 projects. Rollback drops the trigger/function with the new table and removes project data, so it is suitable
 only before production project history exists.
+
+Migration `20260904146000` adds nullable cancellation/workflow columns and replaces the lifecycle check without
+rewriting existing projects. It adds the exact-target workflow foreign key and guarded-delete trigger described
+in [`RESOURCE_DELETION.md`](./RESOURCE_DELETION.md). Ordinary catalog locks apply.

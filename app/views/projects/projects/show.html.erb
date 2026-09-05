@@ -15,7 +15,12 @@
   </div>
 
   <% unless @project_summary.active? %>
-    <div class="so-alert so-alert-warning mt-7"><p>This project is read-only. New scans and schedules are disabled while it is <%= @project_summary.status.humanize.downcase %>.</p></div>
+    <div class="so-alert so-alert-warning mt-7">
+      <p>This project is read-only. New scans and schedules are disabled while it is <%= @project_summary.status.humanize.downcase %>.</p>
+      <% if @project_summary.pending_deletion? && @deletion_status %>
+        <p class="mt-2">Retained history remains reviewable until approximately <%= l(@deletion_status.hold_until, format: :long) %>. Export anything you need before asynchronous cleanup begins.</p>
+      <% end %>
+    </div>
   <% end %>
 
   <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
@@ -46,9 +51,11 @@
     <% elsif @project_summary.archived? && allowed_to?("projects.archive", project: @project) %>
       <%= button_to "Reactivate project", reactivate_organization_project_path(Current.organization.slug, @project_summary.slug), method: :patch, class: "so-button so-button-primary" %>
     <% end %>
-    <% unless @project_summary.pending_deletion? %>
+    <% if @project_summary.pending_deletion? && @deletion_status&.cancelable && allowed_to?("projects.delete", project: @project) %>
+      <%= button_to "Cancel deletion", cancel_deletion_organization_project_path(Current.organization.slug, @project_summary.slug), method: :patch, class: "so-button so-button-secondary" %>
+    <% elsif !@project_summary.pending_deletion? %>
       <% if allowed_to?("projects.delete", project: @project) %>
-        <%= button_to "Request deletion", organization_project_path(Current.organization.slug, @project_summary.slug), method: :delete, class: "so-button so-button-danger", form: { data: { turbo_confirm: "Request deletion for this project? Retained history becomes read-only." } } %>
+        <%= link_to "Request deletion", deletion_organization_project_path(Current.organization.slug, @project_summary.slug), class: "so-button so-button-danger" %>
       <% end %>
     <% end %>
   </div>

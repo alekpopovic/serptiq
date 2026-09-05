@@ -2,7 +2,7 @@
 
 module Projects
   class TransitionProject
-    OPERATIONS = %w[archive reactivate request_deletion].freeze
+    OPERATIONS = %w[archive reactivate request_deletion cancel_deletion].freeze
 
     def initialize(clock: -> { Time.current }, authorization: ProjectAuthorization.new,
       limit: ProjectLimit.new)
@@ -11,7 +11,8 @@ module Projects
       @limit = limit
     end
 
-    def call(actor_membership:, project_id:, operation:, current_session: nil, user_id: nil)
+    def call(actor_membership:, project_id:, operation:, deletion_workflow_id: nil,
+      current_session: nil, user_id: nil)
       action = operation.to_s
       raise ProjectTransitionInvalid unless OPERATIONS.include?(action)
 
@@ -24,7 +25,7 @@ module Projects
           permission_key: permission_for(action),
           project: project
         )
-        result = transition(project, action, at: @clock.call)
+        result = transition(project, action, deletion_workflow_id: deletion_workflow_id, at: @clock.call)
         record_transition!(result, access, action)
       end
       ProjectEvent.enqueue(outbox_event) if outbox_event
@@ -33,11 +34,12 @@ module Projects
 
     private
 
-    def transition(project, operation, at:)
+    def transition(project, operation, deletion_workflow_id:, at:)
       case operation
       when "archive" then archive(project, at)
       when "reactivate" then reactivate(project, at)
-      when "request_deletion" then request_deletion(project, at)
+      when "request_deletion" then request_deletion(project, deletion_workflow_id, at)
+      when "cancel_deletion" then cancel_deletion(project, deletion_workflow_id)
       end
     end
 
@@ -45,7 +47,11 @@ module Projects
       return ProjectChangeResult.new(project: project, changed: false) if project.archived?
       raise ProjectTransitionInvalid unless project.active?
 
-      project.update!(status: "archived", archived_at: at)
+      project.update!(
+        status: "archived",
+        archived_at: at,
+        work_cancellation_cutoff_at: at
+      )
       register_scope(project, status: "archived", archived_at: at)
       ProjectChangeResult.new(project: project, changed: true)
     end
@@ -60,15 +66,36 @@ module Projects
       ProjectChangeResult.new(project: project, changed: true)
     end
 
-    def request_deletion(project, at)
-      return ProjectChangeResult.new(project: project, changed: false) if project.pending_deletion?
+    def request_deletion(project, deletion_workflow_id, at)
+      if project.pending_deletion?
+        raise ProjectTransitionInvalid unless project.deletion_workflow_id == deletion_workflow_id
+
+        return ProjectChangeResult.new(project: project, changed: false)
+      end
       raise ProjectTransitionInvalid unless project.active? || project.archived?
+      raise ProjectTransitionInvalid unless Shared::Public.application_uuid?(deletion_workflow_id)
 
       archived_at = project.archived_at || at
       project.update!(
-        status: "pending_deletion", archived_at: archived_at, deletion_requested_at: at
+        status: "pending_deletion",
+        archived_at: archived_at,
+        deletion_requested_at: at,
+        deletion_workflow_id: deletion_workflow_id,
+        work_cancellation_cutoff_at: at
       )
       register_scope(project, status: "archived", archived_at: archived_at)
+      ProjectChangeResult.new(project: project, changed: true)
+    end
+
+    def cancel_deletion(project, deletion_workflow_id)
+      raise ProjectTransitionInvalid unless project.pending_deletion? &&
+        project.deletion_workflow_id == deletion_workflow_id
+
+      project.update!(
+        status: "archived",
+        deletion_requested_at: nil,
+        deletion_workflow_id: nil
+      )
       ProjectChangeResult.new(project: project, changed: true)
     end
 
@@ -96,12 +123,13 @@ module Projects
       {
         "archive" => "archived",
         "reactivate" => "reactivated",
-        "request_deletion" => "deletion_requested"
+        "request_deletion" => "deletion_requested",
+        "cancel_deletion" => "deletion_canceled"
       }.fetch(operation)
     end
 
     def permission_for(operation)
-      operation == "request_deletion" ? "projects.delete" : "projects.archive"
+      operation.in?(%w[request_deletion cancel_deletion]) ? "projects.delete" : "projects.archive"
     end
 
     def register_scope(project, status:, archived_at:)
@@ -129,7 +157,11 @@ module Projects
       )
       raise ProjectAccessDenied unless membership&.active? && membership.user_id == user_id.to_s
 
-      Identity::Public.verify_recent_session!(session: current_session, user_id: membership.user_id)
+      Identity::Public.verify_recent_session!(
+        session: current_session,
+        user_id: membership.user_id,
+        clock: @clock
+      )
     end
   end
 end

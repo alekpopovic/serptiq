@@ -357,6 +357,13 @@ Solid Queue recurring tasks may trigger:
 
 Recurring definitions are version-controlled. Tasks are idempotent and use database/advisory locks where only one execution is allowed.
 
+Resource-deletion reconciliation runs hourly at minute 37 on `maintenance`. It selects at most 200 workflows
+whose hold/retry time is due or whose five-minute lease expired, then enqueues exact organization/workflow IDs.
+Alert on overdue holds, repeated sanitized failure categories, expired running leases and object-prefix
+reconciliation failures. Completed stages are durable; do not restart a cascade manually or bypass the
+database workflow guard. The current 30-day hold and retained billing/security/tombstone policy require
+privacy/legal review, including provider processors and backup/PITR erasure expectations.
+
 Identity session cleanup runs daily at 03:17 on the maintenance queue. Each run
 is bounded to twenty batches of 500 rows and retains expired/revoked sessions
 for 90 days before deletion. Monitor retained row count, cleanup duration and

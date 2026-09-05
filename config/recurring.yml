@@ -39,6 +39,11 @@ default: &default
     queue: maintenance
     priority: 50
     schedule: every hour at minute 17
+  reconcile_resource_deletions:
+    command: "Administration::DeletionSweepJob.perform_later"
+    queue: maintenance
+    priority: 50
+    schedule: every hour at minute 37
 
 development:
   <<: *default
