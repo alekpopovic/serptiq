@@ -31,6 +31,7 @@ module Crawling
         max_rendered_pages: configured_integer!(resolved.fetch(:max_rendered_pages), allow_zero: true),
         custom_user_agent: enabled_boolean?(resolved.fetch(:custom_user_agent)),
         custom_patterns: enabled_boolean?(resolved.fetch(:custom_patterns)),
+        robots_override: enabled_boolean?(resolved.fetch(:custom_patterns)),
         artifact_retention_days: configured_integer!(
           resolved.fetch(:artifact_retention_days), allow_zero: true
         ),

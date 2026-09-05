@@ -19,6 +19,10 @@ class PublicPagesController < ApplicationController
 
   def home; end
 
+  def crawler
+    @crawler_user_agent = Crawling::Public.crawler_user_agent
+  end
+
   def pricing
     @offers = Plans::Public.current_offers
     @entitlement_definitions = Entitlements::Public.catalog_entries

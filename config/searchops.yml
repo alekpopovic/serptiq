@@ -58,6 +58,11 @@ shared:
   crawler_frontier_lease_duration: 2m
   crawler_frontier_max_attempts: 3
   crawler_frontier_retry_base_delay: 30s
+  crawler_robots_dns_timeout: 3s
+  crawler_robots_open_timeout: 2s
+  crawler_robots_read_timeout: 5s
+  crawler_robots_max_response_bytes: 512000
+  crawler_robots_max_redirects: 5
   browser_timeout: 45s
   browser_memory_mb: 1024
   browser_max_requests: 200

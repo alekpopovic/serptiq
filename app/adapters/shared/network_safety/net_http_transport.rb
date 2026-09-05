@@ -6,7 +6,9 @@ require "openssl"
 module Shared
   module NetworkSafety
     class NetHttpTransport
-      def get(target:, ip_address:, open_timeout:, read_timeout:, max_response_bytes:)
+      DEFAULT_USER_AGENT = "SearchOps-Verification/1.0"
+
+      def get(target:, ip_address:, open_timeout:, read_timeout:, max_response_bytes:, user_agent: nil)
         http = Net::HTTP.new(target.host, target.port, nil)
         http.ipaddr = ip_address
         http.use_ssl = target.scheme == "https"
@@ -18,7 +20,7 @@ module Shared
 
         request = Net::HTTP::Get.new(target.request_uri)
         request["Accept"] = "text/plain, text/html;q=0.9"
-        request["User-Agent"] = "SearchOps-Verification/1.0"
+        request["User-Agent"] = normalize_user_agent(user_agent)
         response = nil
         body = +"".b
         http.request(request) do |raw_response|
@@ -48,6 +50,17 @@ module Shared
         raise
       rescue IOError, SocketError, SystemCallError, OpenSSL::SSL::SSLError
         raise Error.new(reason_code: "transport_failure"), cause: nil
+      end
+
+      private
+
+      def normalize_user_agent(value)
+        candidate = value.presence || DEFAULT_USER_AGENT
+        valid = candidate.is_a?(String) && candidate.bytesize.between?(1, 256) &&
+          !candidate.match?(/[\u0000-\u001f\u007f]/)
+        raise Error.new(reason_code: "malformed_response") unless valid
+
+        candidate
       end
     end
   end

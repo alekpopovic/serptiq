@@ -11,7 +11,7 @@ module Crawling
     ].freeze
     QUERY_HANDLING = %w[ignore tracking_only all].freeze
 
-    def call(attributes:, origin:, limits:)
+    def call(attributes:, origin:, limits:, verified_owner: false)
       values = attributes.to_h.symbolize_keys
       errors = {}
       start_urls = normalize_urls(values[:start_urls], :start_urls, origin, errors)
@@ -38,7 +38,7 @@ module Crawling
         values[:max_concurrency], :max_concurrency, 1, limits.max_concurrency, errors
       )
       robots = values[:robots_behavior].to_s
-      errors[:robots_behavior] = "SearchOps requires robots.txt compliance." unless robots == "respect"
+      validate_robots_behavior(robots, limits, verified_owner, errors)
       sample = bounded_integer(values[:rendering_sample_percent], :rendering_sample_percent, 0, 100, errors)
       rendered = bounded_integer(
         values[:max_rendered_pages], :max_rendered_pages, 0, limits.max_rendered_pages, errors
@@ -141,6 +141,20 @@ module Crawling
       end
       if query == "ignore" && (allowlist.any? || denylist.any?)
         errors[:query_handling] = "Query parameter lists cannot be used when all query parameters are ignored."
+      end
+    end
+
+    def validate_robots_behavior(value, limits, verified_owner, errors)
+      return if value == "respect"
+      unless value == "verified_owner_override"
+        errors[:robots_behavior] = "Choose a supported robots policy."
+        return
+      end
+      unless limits.robots_override
+        errors[:robots_behavior] = "A robots override is unavailable for the effective plan."
+      end
+      unless verified_owner
+        errors[:robots_behavior] = "Verify current ownership before explicitly overriding robots rules."
       end
     end
 

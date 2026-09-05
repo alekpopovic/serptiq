@@ -842,6 +842,16 @@ URL. The aggregate remains the customer-facing business outcome; individual URL 
 
 Seeds or explicit URLs with target kind, normalized URL, source, priority, and status.
 
+### `crawl_robots_snapshots`
+
+One immutable row per scan/origin digest caches bounded robots policy provenance: exact tenant/project/property/
+environment/scan identity, canonical origin and `/robots.txt` source, final redirect URL, retrieval status and
+time, HTTP status, response SHA-256, parser version, redirect/error evidence, normalized groups, untrusted
+sitemap candidates and warning codes. A unique `(scan_id, origin_digest)` index makes retrieval retries
+idempotent, while a composite foreign key prevents cross-tenant or cross-resource scan substitution. Raw robots
+response bodies are not stored in PostgreSQL. Checks cap JSON/array payloads and an immutable trigger permits
+deletion only inside the authorized `scans_and_findings` lifecycle stage.
+
 ### `crawl_urls`
 
 High-volume frontier rows.

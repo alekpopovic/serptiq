@@ -18,12 +18,23 @@ module Shared
         validate_limits!
       end
 
-      def fetch_exact(origin:, url:, allowed_content_types:, approved_redirect_origins: [])
+      def fetch_exact(origin:, url:, allowed_content_types:, approved_redirect_origins: [], user_agent: nil)
         policy = ExactRedirectPolicy.new(
           origin: origin,
           url: url,
           approved_redirect_origins: approved_redirect_origins
         )
+        fetch_with_policy(policy, allowed_content_types, user_agent)
+      end
+
+      def fetch_public_redirects(origin:, url:, allowed_content_types:, user_agent: nil)
+        policy = PublicRedirectPolicy.new(origin: origin, url: url)
+        fetch_with_policy(policy, allowed_content_types, user_agent)
+      end
+
+      private
+
+      def fetch_with_policy(policy, allowed_content_types, user_agent)
         target = policy.initial_target
         redirects = 0
 
@@ -35,7 +46,8 @@ module Shared
             ip_address: approved.first,
             open_timeout: @open_timeout,
             read_timeout: @read_timeout,
-            max_response_bytes: @max_response_bytes
+            max_response_bytes: @max_response_bytes,
+            user_agent: user_agent
           )
           reject_oversized!(response, redirects)
           if REDIRECT_STATUSES.include?(response.status)
@@ -79,8 +91,6 @@ module Shared
       rescue ArgumentError, KeyError, TypeError
         raise Error.new(reason_code: "malformed_response"), cause: nil
       end
-
-      private
 
       def reject_oversized!(response, redirects)
         return if response.body.bytesize <= @max_response_bytes

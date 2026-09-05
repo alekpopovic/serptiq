@@ -98,6 +98,41 @@ class CrawlingPolicyTest < ActiveSupport::TestCase
     assert ignored.field_errors.key?(:query_handling)
   end
 
+  test "robots override requires both verified ownership and the custom-rules entitlement" do
+    unverified = assert_raises(Crawling::Invalid) do
+      configure(robots_behavior: "verified_owner_override")
+    end
+    assert_includes unverified.field_errors[:robots_behavior].join, "Verify current ownership"
+
+    @property.update_columns(verification_status: "verified", verified_at: Time.current)
+    overridden = configure(robots_behavior: "verified_owner_override")
+
+    assert_equal "verified_owner_override", overridden.robots_behavior
+    assert policy.robots_override_available?
+
+    limited = create_organization_for(slug: "robots-override-limited")
+    enable_project_limit(limited)
+    enable_property_limits(limited)
+    enable_crawl_policy(limited, values: { "crawl.custom_rules" => [ "boolean", false ] })
+    project = create_project_for(limited, slug: "robots-override-limited-project")
+    property = create_property_for(limited, project: project)
+    property.update_columns(verification_status: "verified", verified_at: Time.current)
+
+    denied = assert_raises(Crawling::Invalid) do
+      Crawling::Public.configure_policy(
+        actor_membership: limited.membership,
+        project_id: project.id,
+        property_id: property.id,
+        environment_id: property.environments.sole.id,
+        attributes: valid_crawl_policy_attributes(
+          origin: property.environments.sole.origin,
+          robots_behavior: "verified_owner_override"
+        )
+      )
+    end
+    assert_includes denied.field_errors[:robots_behavior].join, "effective plan"
+  end
+
   test "gates rendering custom patterns and user-agent suffix by effective plan" do
     limited = create_organization_for(slug: "crawl-policy-limited")
     enable_project_limit(limited)

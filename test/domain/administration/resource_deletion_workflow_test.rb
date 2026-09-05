@@ -64,6 +64,26 @@ class AdministrationResourceDeletionWorkflowTest < ActiveSupport::TestCase
       maximum_attempts: 3,
       next_attempt_at: Time.current
     )
+    @robots_snapshot = Crawling::RobotsSnapshot.create!(
+      organization_id: @scan.organization_id,
+      project_id: @scan.project_id,
+      property_id: @scan.property_id,
+      environment_id: @scan.environment_id,
+      scan_id: @scan.id,
+      origin: @environment.origin,
+      origin_digest: Digest::SHA256.hexdigest(@environment.origin),
+      source_url: "#{@environment.origin}/robots.txt",
+      final_url: "#{@environment.origin}/robots.txt",
+      retrieval_status: "fetched",
+      http_status: 200,
+      retrieved_at: Time.current,
+      artifact_sha256: Digest::SHA256.hexdigest(""),
+      parser_version: 1,
+      groups: [],
+      sitemap_urls: [],
+      warnings: [],
+      created_at: Time.current
+    )
   end
 
   test "project hold stops admission, signals prior work and deletes in durable stage order" do
@@ -105,6 +125,7 @@ class AdministrationResourceDeletionWorkflowTest < ActiveSupport::TestCase
     refute Properties::Environment.exists?(@environment.id)
     assert_empty Crawling::PolicySet.where(project_id: @project.id)
     refute Crawling::CrawlUrl.exists?(@crawl_url.id)
+    refute Crawling::RobotsSnapshot.exists?(@robots_snapshot.id)
     refute Crawling::Scan.exists?(@scan.id)
     assert_equal [ [ "organizations/#{@owner.organization.id}/projects/#{@project.id}/", nil ] ],
       store.delete_calls

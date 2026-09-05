@@ -1,0 +1,6 @@
+User-agent: SearchOpsBot
+Disallow: /foo/bar/%62%61%7A
+Allow: /foo/bar/baz/public
+Disallow: /unicode/%E3%83%84
+Disallow: /literal/%2A
+Allow: /query?view=public$

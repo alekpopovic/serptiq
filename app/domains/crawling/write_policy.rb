@@ -24,7 +24,8 @@ module Crawling
         @defaults.call(origin: context.environment.origin, limits: limits)
       else
         @normalizer.call(
-          attributes: attributes || {}, origin: context.environment.origin, limits: limits
+          attributes: attributes || {}, origin: context.environment.origin, limits: limits,
+          verified_owner: context.property.verified?
         )
       end
       write(context, configuration, change_kind.to_s, now)

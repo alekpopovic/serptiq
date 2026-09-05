@@ -267,6 +267,13 @@ Fragments are removed; dot segments and percent encoding are canonicalized; quer
 only and never rewrites semantic fetch values. Exact host/port/path/depth scope is evaluated before frontier
 admission. An HTML canonical recommendation is untrusted content and never expands that scope.
 
+Robots files and their sitemap directives are also untrusted. SearchOps fetches the top-level file through the
+same pinned public-network boundary, follows at most five public redirects with full revalidation, rejects HTTPS
+downgrades, streams at most 500 KiB and persists only a digest plus bounded parsed policy. Sitemap values are
+syntactic candidates, never destination approval or an instruction to fetch. An explicit verified-owner robots
+override changes only crawl-policy evaluation and cannot bypass scope, DNS/address, redirect or quota controls.
+Robots exclusion is not treated or described as access authorization.
+
 ### T-08 Denial of service and resource exhaustion
 
 Attack examples:

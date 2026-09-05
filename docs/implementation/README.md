@@ -107,6 +107,8 @@ Do not pre-populate these reports with fictional implementation or test results.
   owner-token completion/retry, stale recovery, incremental progress and scale/partition operations.
 - [`URL_NORMALIZATION_AND_SCOPE.md`](./URL_NORMALIZATION_AND_SCOPE.md) defines versioned fetch/identity URL
   normalization, query identity filtering, explicit scope reason codes and the HTML-canonical trust boundary.
+- [`ROBOTS_POLICY.md`](./ROBOTS_POLICY.md) defines the SearchOps crawler identity, RFC 9309 parsing and status
+  decisions, immutable per-scan provenance, verified-owner override and untrusted sitemap boundary.
 - [`RESOURCE_DELETION.md`](./RESOURCE_DELETION.md) defines exact-target deletion requests, the 30-day hold,
   cooperative cancellation, durable ordered cleanup, object reconciliation and retained tombstones.
 - [`BILLING_PROVIDER_CONTRACT.md`](./BILLING_PROVIDER_CONTRACT.md) defines normalized billing values,

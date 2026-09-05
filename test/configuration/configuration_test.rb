@@ -17,6 +17,11 @@ class SearchopsConfigurationTest < ActiveSupport::TestCase
     assert_equal 120, configuration.fetch(:crawler_frontier_lease_duration)
     assert_equal 3, configuration.fetch(:crawler_frontier_max_attempts)
     assert_equal 1, configuration.fetch(:crawler_frontier_retry_base_delay)
+    assert_equal 3.0, configuration.fetch(:crawler_robots_dns_timeout)
+    assert_equal 2.0, configuration.fetch(:crawler_robots_open_timeout)
+    assert_equal 5.0, configuration.fetch(:crawler_robots_read_timeout)
+    assert_equal 512_000, configuration.fetch(:crawler_robots_max_response_bytes)
+    assert_equal 5, configuration.fetch(:crawler_robots_max_redirects)
     assert_equal 5.0, configuration.fetch(:crawler_connect_timeout)
     assert_equal false, configuration.fetch(:oauth_google_enabled)
     assert_equal 2.0, configuration.fetch(:oauth_http_open_timeout)
@@ -74,6 +79,8 @@ class SearchopsConfigurationTest < ActiveSupport::TestCase
   test "rejects invalid integer bounds boolean duration enum and origin" do
     invalid_values = {
       "SEARCHOPS_CRAWLER_MAX_REDIRECTS" => "21",
+      "SEARCHOPS_CRAWLER_ROBOTS_MAX_RESPONSE_BYTES" => "511999",
+      "SEARCHOPS_CRAWLER_ROBOTS_MAX_REDIRECTS" => "6",
       "SEARCHOPS_OAUTH_HTTP_OPEN_TIMEOUT" => "0ms",
       "SEARCHOPS_OAUTH_HTTP_MAX_RESPONSE_BYTES" => "100",
       "SEARCHOPS_OAUTH_HTTP_SAFE_RETRIES" => "4",

@@ -28,7 +28,7 @@ A policy stores:
 - query identity handling (`ignore`, `tracking_only` or `all`) plus optional exact parameter allow/deny lists;
 - a fixed SearchOps crawler identity with an optional product-token suffix;
 - request rate and per-scan concurrency;
-- the required `respect` robots behavior;
+- `respect` robots behavior by default, or the explicitly gated `verified_owner_override`;
 - JavaScript sample percentage and rendered-page cap; and
 - raw artifact retention days.
 
@@ -41,6 +41,12 @@ by their current effective entitlements. Custom-required or missing numeric
 entitlements fail closed. Settings can reduce these values but cannot expand
 them. Scan admission must revalidate the selected version against the current
 limits so a later plan or global-cap reduction is not bypassed.
+
+The robots override is available only when the exact property is currently verified and the effective
+`crawl.custom_rules` entitlement is enabled. Policy writes, snapshot creation and scan admission all recheck
+those conditions. The immutable scan settings preserve the selected behavior, but it never relaxes URL scope,
+DNS/address, redirect, quota or lifecycle checks. Retrieval and reproducible decisions are defined in
+[`ROBOTS_POLICY.md`](./ROBOTS_POLICY.md).
 
 The reset action appends a plan-safe version: the exact environment root URL,
 tracking-parameter normalization, robots compliance, one concurrent request,
@@ -86,7 +92,7 @@ the usage ledger before dispatch.
 ## MVP exclusions
 
 The MVP does not support authenticated/private crawl, customer credentials,
-private network targets, robots bypass, raw regular expressions, a fully
+private network targets, an ungated robots bypass, raw regular expressions, a fully
 replaceable user agent or impersonation of privileged third-party crawlers.
 Browser rendering remains isolated-worker work owned by later prompts; this
 policy only describes its bounded sample.

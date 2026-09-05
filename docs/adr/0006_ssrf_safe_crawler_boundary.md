@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-09-04
 - Owners: Security, Crawling
-- Last reviewed: 2026-09-05 (Prompt 065)
+- Last reviewed: 2026-09-05 (Prompt 066)
 
 ## Context
 
@@ -27,6 +27,13 @@ same/canonical-host variant, with exact path preservation, no query/fragment and
 Prompt 065 adds the Crawling-owned versioned syntactic identity above this boundary. It preserves a normalized
 fetch URL separately from the query-filtered identity URL and returns explicit host/path/depth scope decisions.
 Neither deduplication nor an HTML canonical observation authorizes DNS answers, redirects or connections.
+
+Prompt 066 adds the bounded public-redirect mode needed by RFC 9309 robots retrieval. Crawling fixes the initial
+target to the exact origin's `/robots.txt`; Shared requires that initial origin and parses, re-resolves,
+public-address checks and connects every HTTP(S) redirect through the pinned transport. Cross-authority
+redirects are allowed only through those checks, the chain is capped at five and HTTPS downgrade is rejected.
+Shared owns those connection decisions; Crawling owns the crawler identity, robots status policy, parser and
+immutable provenance.
 
 ## Consequences
 

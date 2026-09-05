@@ -1,0 +1,121 @@
+{
+  "prompt_id": "066",
+  "title": "Implement RFC 9309 robots parsing and policy",
+  "status": "completed",
+  "started_at": "2026-09-05T05:23:30Z",
+  "finished_at": "2026-09-05T05:23:58Z",
+  "summary": "Implemented RFC 9309 robots retrieval, bounded parsing and deterministic allow/deny/unknown evaluation with SearchOpsBot identity, SSRF-safe public redirects, immutable per-scan provenance, 24-hour freshness, untrusted sitemap candidates, explicit verified-owner plan-gated override, lifecycle deletion and customer-facing guidance.",
+  "tests": [
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test test/domain/crawling/robots_parser_test.rb test/domain/crawling/robots_retrieval_test.rb test/domain/crawling/robots_policy_test.rb test/database/crawl_robots_constraints_test.rb test/domain/crawling/policy_test.rb test/domain/administration/resource_deletion_workflow_test.rb test/requests/crawler_information_test.rb test/security/safe_http_client_test.rb test/configuration/configuration_test.rb",
+      "outcome": "passed",
+      "notes": "51 runs, 515 assertions, 0 failures, 0 errors, 0 skips before final additive UTF-8/public API assertions"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test test/domain/crawling/robots_parser_test.rb test/domain/crawling/robots_policy_test.rb test/requests/crawler_information_test.rb test/security/safe_http_client_test.rb",
+      "outcome": "passed",
+      "notes": "23 runs, 127 assertions, 0 failures, 0 errors, 0 skips on final code"
+    },
+    {
+      "command": "docker compose --profile test run --rm test",
+      "outcome": "passed",
+      "notes": "896 runs, 7427 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "SEARCHOPS_PROCESS_ROLE=worker_default bin/quality",
+      "outcome": "passed",
+      "notes": "14 checks passed; RuboCop, ERB, architecture, authorization, Brakeman and dependency audits clean"
+    },
+    {
+      "command": "docker compose --profile test run --rm --entrypoint /rails/bin/rails test db:drop db:create db:schema:load",
+      "outcome": "passed",
+      "notes": "all four isolated test databases recreated and schema loaded"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails db:rollback:primary STEP=1 and db:migrate:primary",
+      "outcome": "passed",
+      "notes": "rollback 0.0145s; reapply 0.0242s"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test test/domain/identity/account_transition_test.rb",
+      "outcome": "passed",
+      "notes": "2 runs, 7 assertions after one unrelated transient full-suite timing error"
+    }
+  ],
+  "files_changed": [
+    ".env.example",
+    "app/adapters/shared/network_safety/net_http_transport.rb",
+    "app/adapters/shared/network_safety/safe_http_client.rb",
+    "app/controllers/public_pages_controller.rb",
+    "app/domains/crawling/admit_scan.rb",
+    "app/domains/crawling/cache_robots_policy.rb",
+    "app/domains/crawling/crawler_identity.rb",
+    "app/domains/crawling/delete_for_lifecycle.rb",
+    "app/domains/crawling/evaluate_robots_policy.rb",
+    "app/domains/crawling/normalize_policy.rb",
+    "app/domains/crawling/policy_limits.rb",
+    "app/domains/crawling/policy_reader.rb",
+    "app/domains/crawling/policy_view.rb",
+    "app/domains/crawling/public.rb",
+    "app/domains/crawling/read_robots_sitemaps.rb",
+    "app/domains/crawling/resolve_admission_policy.rb",
+    "app/domains/crawling/resolve_policy_limits.rb",
+    "app/domains/crawling/retrieve_robots.rb",
+    "app/domains/crawling/robots_decision.rb",
+    "app/domains/crawling/robots_document.rb",
+    "app/domains/crawling/robots_group.rb",
+    "app/domains/crawling/robots_octets.rb",
+    "app/domains/crawling/robots_parser.rb",
+    "app/domains/crawling/robots_retrieval.rb",
+    "app/domains/crawling/robots_rule.rb",
+    "app/domains/crawling/robots_sitemap_candidate.rb",
+    "app/domains/crawling/robots_snapshot.rb",
+    "app/domains/crawling/robots_warning.rb",
+    "app/domains/crawling/robots_wildcard_match.rb",
+    "app/domains/crawling/scan.rb",
+    "app/domains/crawling/snapshot_policy.rb",
+    "app/domains/crawling/write_policy.rb",
+    "app/domains/shared/network_safety/public_redirect_policy.rb",
+    "app/views/crawling/policies/edit.html.erb",
+    "app/views/public_pages/crawler.html.erb",
+    "config/authorization_inventory.yml",
+    "config/routes.rb",
+    "config/searchops.yml",
+    "config/searchops/configuration.rb",
+    "db/migrate/20260904151000_create_crawl_robots_snapshots.rb",
+    "db/structure.sql",
+    "docs/03_ERD.md",
+    "docs/07_SECURITY_AND_THREAT_MODEL.md",
+    "docs/adr/0006_ssrf_safe_crawler_boundary.md",
+    "docs/implementation/CONFIGURATION.md",
+    "docs/implementation/CRAWL_POLICIES.md",
+    "docs/implementation/MODULE_BOUNDARIES.md",
+    "docs/implementation/README.md",
+    "docs/implementation/ROBOTS_POLICY.md",
+    "test/configuration/configuration_test.rb",
+    "test/database/crawl_robots_constraints_test.rb",
+    "test/domain/administration/resource_deletion_workflow_test.rb",
+    "test/domain/crawling/policy_test.rb",
+    "test/domain/crawling/robots_parser_test.rb",
+    "test/domain/crawling/robots_policy_test.rb",
+    "test/domain/crawling/robots_retrieval_test.rb",
+    "test/fixtures/files/crawling/robots_percent_encoding.txt",
+    "test/fixtures/files/crawling/robots_rfc9309_example.txt",
+    "test/requests/crawler_information_test.rb",
+    "test/security/safe_http_client_test.rb"
+  ],
+  "migrations": [
+    "20260904151000_create_crawl_robots_snapshots.rb: new empty constrained snapshot table",
+    "immutable trigger and crawl-policy allowlist expansion; no backfill; brief FK/check lock risk"
+  ],
+  "decisions": [
+    "Use SearchOpsBot with a public contact URL; represent unreachable/oversized/malformed/stale as unknown and fail closed; permit 4xx as unavailable; follow at most five SSRF-validated public redirects without HTTPS downgrade; keep robots snapshots per scan rather than raw bodies; gate explicit override by verified ownership and crawl.custom_rules"
+  ],
+  "risks": [
+    "One initial full-suite run exposed a pre-existing one-second Identity test timing race; that test passed isolated and the subsequent complete suite passed. Cross-scan robots reuse is intentionally absent: each scan stores one immutable origin snapshot and fails closed after 24 hours."
+  ],
+  "next_steps": [
+    "Prompt 067: consume untrusted robots sitemap candidates through scoped SSRF-safe bounded XML discovery."
+  ],
+  "commit": null
+}

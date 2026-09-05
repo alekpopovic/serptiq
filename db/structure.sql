@@ -537,6 +537,24 @@ $$;
 
 
 --
+-- Name: protect_crawl_robots_snapshot(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.protect_crawl_robots_snapshot() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF TG_OP = 'DELETE' AND resource_deletion_stage_authorized(
+    OLD.organization_id, OLD.project_id, OLD.property_id, 'scans_and_findings'
+  ) THEN
+    RETURN OLD;
+  END IF;
+  RAISE EXCEPTION 'crawl robots snapshots are immutable';
+END;
+$$;
+
+
+--
 -- Name: protect_crawl_url_identity(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1325,7 +1343,7 @@ CREATE TABLE public.crawl_policy_versions (
     created_at timestamp(6) with time zone NOT NULL,
     query_parameter_allowlist text[] DEFAULT '{}'::text[] NOT NULL,
     query_parameter_denylist text[] DEFAULT '{}'::text[] NOT NULL,
-    CONSTRAINT crawl_policy_versions_allowlists CHECK ((((query_handling)::text = ANY (ARRAY[('ignore'::character varying)::text, ('tracking_only'::character varying)::text, ('all'::character varying)::text])) AND ((robots_behavior)::text = 'respect'::text) AND ((change_kind)::text = ANY (ARRAY[('configured'::character varying)::text, ('reset'::character varying)::text, ('onboarding'::character varying)::text])))),
+    CONSTRAINT crawl_policy_versions_allowlists CHECK ((((query_handling)::text = ANY (ARRAY[('ignore'::character varying)::text, ('tracking_only'::character varying)::text, ('all'::character varying)::text])) AND ((robots_behavior)::text = ANY (ARRAY[('respect'::character varying)::text, ('verified_owner_override'::character varying)::text])) AND ((change_kind)::text = ANY (ARRAY[('configured'::character varying)::text, ('reset'::character varying)::text, ('onboarding'::character varying)::text])))),
     CONSTRAINT crawl_policy_versions_bounded_lists CHECK (((cardinality(start_urls) >= 1) AND (cardinality(start_urls) <= 20) AND (cardinality(sitemap_urls) <= 20) AND (cardinality(include_patterns) <= 50) AND (cardinality(exclude_patterns) <= 50) AND (octet_length(array_to_string(start_urls, ''::text)) <= 40960) AND (octet_length(array_to_string(sitemap_urls, ''::text)) <= 40960) AND (octet_length(array_to_string(include_patterns, ''::text)) <= 12800) AND (octet_length(array_to_string(exclude_patterns, ''::text)) <= 12800))),
     CONSTRAINT crawl_policy_versions_crawl_bounds CHECK (((max_urls >= 1) AND (max_urls <= 1000000) AND ((max_depth >= 0) AND (max_depth <= 20)) AND ((request_rate_per_second >= 0.10) AND (request_rate_per_second <= 10.00)) AND ((max_concurrency >= 1) AND (max_concurrency <= 1000)))),
     CONSTRAINT crawl_policy_versions_positive_version CHECK ((version > 0)),
@@ -1333,6 +1351,40 @@ CREATE TABLE public.crawl_policy_versions (
     CONSTRAINT crawl_policy_versions_rendering_shape CHECK (((rendering_sample_percent >= 0) AND (rendering_sample_percent <= 100) AND (max_rendered_pages >= 0) AND (((rendering_sample_percent = 0) AND (max_rendered_pages = 0)) OR ((rendering_sample_percent > 0) AND (max_rendered_pages > 0))))),
     CONSTRAINT crawl_policy_versions_retention CHECK (((artifact_retention_days >= 0) AND (artifact_retention_days <= 36500))),
     CONSTRAINT crawl_policy_versions_user_agent_suffix CHECK (((user_agent_suffix IS NULL) OR ((user_agent_suffix)::text ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$'::text)))
+);
+
+
+--
+-- Name: crawl_robots_snapshots; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.crawl_robots_snapshots (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_id uuid NOT NULL,
+    environment_id uuid NOT NULL,
+    scan_id uuid NOT NULL,
+    origin text NOT NULL,
+    origin_digest character varying(64) NOT NULL,
+    source_url text NOT NULL,
+    final_url text,
+    retrieval_status character varying(24) NOT NULL,
+    http_status integer,
+    retrieved_at timestamp(6) with time zone NOT NULL,
+    artifact_sha256 character varying(64),
+    parser_version integer NOT NULL,
+    redirect_count integer DEFAULT 0 NOT NULL,
+    error_code character varying(64),
+    groups jsonb DEFAULT '[]'::jsonb NOT NULL,
+    sitemap_urls text[] DEFAULT '{}'::text[] NOT NULL,
+    warnings jsonb DEFAULT '[]'::jsonb NOT NULL,
+    malformed boolean DEFAULT false NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT crawl_robots_snapshots_http_shape CHECK (((((retrieval_status)::text <> 'fetched'::text) OR (((http_status >= 200) AND (http_status <= 299)) AND (artifact_sha256 IS NOT NULL) AND (final_url IS NOT NULL))) AND (((retrieval_status)::text <> 'unavailable'::text) OR ((http_status >= 400) AND (http_status <= 499))))),
+    CONSTRAINT crawl_robots_snapshots_identity_shape CHECK ((((octet_length(origin) >= 1) AND (octet_length(origin) <= 2048)) AND ((octet_length(source_url) >= 1) AND (octet_length(source_url) <= 2048)) AND ((final_url IS NULL) OR ((octet_length(final_url) >= 1) AND (octet_length(final_url) <= 2048))) AND ((origin_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((artifact_sha256 IS NULL) OR ((artifact_sha256)::text ~ '^[0-9a-f]{64}$'::text)))),
+    CONSTRAINT crawl_robots_snapshots_payload_shape CHECK (((jsonb_typeof(groups) = 'array'::text) AND (pg_column_size(groups) <= 1048576) AND (jsonb_typeof(warnings) = 'array'::text) AND (pg_column_size(warnings) <= 1048576) AND (cardinality(sitemap_urls) <= 100) AND (array_position(sitemap_urls, NULL::text) IS NULL) AND (octet_length(array_to_string(sitemap_urls, ''::text)) <= 204800))),
+    CONSTRAINT crawl_robots_snapshots_result_shape CHECK ((((retrieval_status)::text = ANY (ARRAY[('fetched'::character varying)::text, ('unavailable'::character varying)::text, ('unreachable'::character varying)::text, ('oversized'::character varying)::text, ('malformed'::character varying)::text])) AND (parser_version > 0) AND ((redirect_count >= 0) AND (redirect_count <= 5)) AND ((http_status IS NULL) OR ((http_status >= 100) AND (http_status <= 599))) AND ((error_code IS NULL) OR ((error_code)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text))))
 );
 
 
@@ -2949,6 +3001,14 @@ ALTER TABLE ONLY public.crawl_policy_versions
 
 
 --
+-- Name: crawl_robots_snapshots crawl_robots_snapshots_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_robots_snapshots
+    ADD CONSTRAINT crawl_robots_snapshots_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: crawl_urls crawl_urls_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3629,6 +3689,20 @@ CREATE UNIQUE INDEX index_crawl_policy_versions_on_sequence ON public.crawl_poli
 --
 
 CREATE UNIQUE INDEX index_crawl_policy_versions_on_tenant_identity ON public.crawl_policy_versions USING btree (organization_id, project_id, property_id, environment_id, id);
+
+
+--
+-- Name: index_crawl_robots_snapshots_on_scan_origin; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_robots_snapshots_on_scan_origin ON public.crawl_robots_snapshots USING btree (scan_id, origin_digest);
+
+
+--
+-- Name: index_crawl_robots_snapshots_on_tenant_scan; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_robots_snapshots_on_tenant_scan ON public.crawl_robots_snapshots USING btree (organization_id, project_id, property_id, scan_id);
 
 
 --
@@ -4808,6 +4882,13 @@ CREATE TRIGGER crawl_policy_versions_immutable BEFORE DELETE OR UPDATE ON public
 
 
 --
+-- Name: crawl_robots_snapshots crawl_robots_snapshots_immutable; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER crawl_robots_snapshots_immutable BEFORE DELETE OR UPDATE ON public.crawl_robots_snapshots FOR EACH ROW EXECUTE FUNCTION public.protect_crawl_robots_snapshot();
+
+
+--
 -- Name: crawl_urls crawl_urls_protect_identity; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -5114,6 +5195,14 @@ ALTER TABLE ONLY public.crawl_policy_versions
 
 ALTER TABLE ONLY public.crawl_policy_versions
     ADD CONSTRAINT fk_crawl_policy_versions_tenant_actor FOREIGN KEY (organization_id, created_by_membership_id) REFERENCES public.memberships(organization_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_robots_snapshots fk_crawl_robots_snapshots_exact_scan; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_robots_snapshots
+    ADD CONSTRAINT fk_crawl_robots_snapshots_exact_scan FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id) REFERENCES public.scans(organization_id, project_id, property_id, environment_id, id) ON DELETE RESTRICT;
 
 
 --
@@ -6035,6 +6124,7 @@ ALTER TABLE ONLY public.website_property_configs
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904151000'),
 ('20260904150000'),
 ('20260904149000'),
 ('20260904148000'),

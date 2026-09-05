@@ -4,6 +4,7 @@ Rails.application.routes.draw do
 
   root "public_pages#home"
   get "pricing", to: "public_pages#pricing", as: :pricing
+  get "crawler", to: "public_pages#crawler", as: :crawler_information
   get "sign-in", to: "public_pages#sign_in", as: :sign_in
   get "invitations", to: "tenancy/invitation_entries#show", as: :invitation_entry
   post "auth/google", to: "identity/google_oauth#create", as: :google_oauth_authorization

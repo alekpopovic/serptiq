@@ -190,6 +190,10 @@ token for mutation. Frontier batches maintain Scan aggregate counters; other mod
 Canonical URL identity and scope decisions are pure Crawling values. Exact scan-policy resolution reloads the
 tenant-bound environment; DNS classification and connection pinning remain exclusively Shared network-safety
 responsibilities.
+Robots retrieval, RFC parsing, immutable per-scan provenance and allow/deny/unknown decisions are
+Crawling-owned. Shared provides a domain-neutral public-redirect transport that re-resolves and validates every
+hop; it does not interpret robots content. Sitemap directives leave Crawling only as untrusted candidate values
+and do not authorize a destination or initiate an HTTP request.
 
 Administration owns the durable cross-domain deletion workflow and calls only narrow owning-module cleanup
 APIs. It does not delete another module's rows directly. Each owner validates explicit tenant/resource IDs;
@@ -210,7 +214,7 @@ folder. It has no domain dependencies. Its permitted locations are:
 | `shared/idempotency/` | Idempotency keys and execution-result contracts |
 | `shared/errors/` | Domain error base types and stable error codes |
 | `shared/events/public/` | Versioned event envelopes and outbox-facing contracts |
-| `shared/network_safety/` | Public HTTP target, address and redirect decisions shared by Verification and Crawling |
+| `shared/network_safety/` | Public HTTP target, address, exact-proof redirect and bounded public-redirect decisions shared by Verification and Crawling |
 
 Generic framework configuration remains in `config/`; repository tooling stays
 in `script/support/`; Rake entry points stay in `lib/tasks/`. Code must not be

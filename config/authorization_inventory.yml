@@ -418,12 +418,24 @@ domain_operations:
   Crawling::Public.normalize_url:
     kind: context
     reason: pure_versioned_canonical_url_identity
+  Crawling::Public.crawler_user_agent:
+    kind: context
+    reason: public_bounded_crawler_identification_string
   Crawling::Public.url_scope_policy:
     kind: context
     reason: pure_bounded_origin_host_path_depth_policy
   Crawling::Public.url_scope_for_scan:
     kind: system
     reason: exact_tenant_scan_settings_scope_resolution_for_workers
+  Crawling::Public.cache_robots_policy:
+    kind: system
+    reason: exact_tenant_per_scan_robots_retrieval_and_cache
+  Crawling::Public.evaluate_robots_policy:
+    kind: system
+    reason: exact_tenant_versioned_robots_url_decision
+  Crawling::Public.robots_sitemap_candidates:
+    kind: system
+    reason: exact_tenant_untrusted_robots_sitemap_observations
   Crawling::Public.discover_frontier:
     kind: system
     reason: exact_tenant_scan_frontier_discovery

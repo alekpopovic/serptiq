@@ -40,6 +40,7 @@ module Crawling
         .then { |relation| property_id ? relation.where(property_id: property_id) : relation }
         .delete_all
       scan_ids = scan_targets.map(&:first)
+      RobotsSnapshot.where(scan_id: scan_ids).delete_all if scan_ids.any?
       CrawlUrl.where(scan_id: scan_ids).delete_all if scan_ids.any?
       ScanEvent.where(scan_id: scan_ids).delete_all if scan_ids.any?
       scans.delete_all

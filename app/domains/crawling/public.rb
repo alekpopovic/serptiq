@@ -48,12 +48,28 @@ module Crawling
       UrlNormalizer.new.call(**attributes)
     end
 
+    def crawler_user_agent(**attributes)
+      CrawlerIdentity.http_user_agent(**attributes)
+    end
+
     def url_scope_policy(**attributes)
       UrlScopePolicy.new(**attributes)
     end
 
     def url_scope_for_scan(**attributes)
       ResolveUrlScopePolicy.new.call(**attributes)
+    end
+
+    def cache_robots_policy(**attributes)
+      CacheRobotsPolicy.new.call(**attributes)
+    end
+
+    def evaluate_robots_policy(**attributes)
+      EvaluateRobotsPolicy.new.call(**attributes)
+    end
+
+    def robots_sitemap_candidates(**attributes)
+      ReadRobotsSitemaps.new.call(**attributes)
     end
 
     def discover_frontier(clock: -> { Time.current }, **attributes)

@@ -93,6 +93,94 @@ class SafeHttpClientTest < ActiveSupport::TestCase
     assert_equal [ "example.com", "example.com" ], resolver.calls
   end
 
+  test "passes an explicit bounded crawler identity to the transport" do
+    resolver = FixtureResolver.new(addresses: { "example.com" => [ "93.184.216.34" ] }, calls: [])
+    transport = RecordingTransport.new(
+      responses: [ response(200, content_type: "text/plain", body: "robots") ],
+      calls: []
+    )
+    client = Shared::NetworkSafety::SafeHttpClient.new(resolver: resolver, transport: transport)
+
+    client.fetch_exact(
+      origin: "https://example.com",
+      url: "https://example.com/robots.txt",
+      allowed_content_types: [ "text/plain" ],
+      user_agent: "SearchOpsBot/1.0 (+https://searchops.test/crawler)"
+    )
+
+    assert_equal "SearchOpsBot/1.0 (+https://searchops.test/crawler)",
+      transport.calls.first.fetch(:user_agent)
+  end
+
+  test "follows public robots redirects across authorities and revalidates every hop" do
+    resolver = FixtureResolver.new(
+      addresses: {
+        "example.com" => [ "93.184.216.34" ],
+        "robots.example.net" => [ "93.184.216.35" ]
+      },
+      calls: []
+    )
+    transport = RecordingTransport.new(
+      responses: [
+        response(302, location: "https://robots.example.net/policy/current.txt"),
+        response(200, content_type: "text/plain", body: "User-agent: *\nAllow: /\n")
+      ],
+      calls: []
+    )
+    client = Shared::NetworkSafety::SafeHttpClient.new(resolver: resolver, transport: transport, max_redirects: 5)
+
+    result = client.fetch_public_redirects(
+      origin: "https://example.com",
+      url: "https://example.com/robots.txt",
+      allowed_content_types: [ "text/plain" ],
+      user_agent: "SearchOpsBot/1.0"
+    )
+
+    assert_equal "https://robots.example.net/policy/current.txt", result.fetch(:final_url)
+    assert_equal 1, result.fetch(:redirect_count)
+    assert_equal [ "example.com", "robots.example.net" ], resolver.calls
+    assert_equal [ "93.184.216.34", "93.184.216.35" ],
+      transport.calls.map { |call| call.fetch(:ip_address) }
+  end
+
+  test "rejects unsafe robots redirect destinations and HTTPS downgrade" do
+    resolver = FixtureResolver.new(
+      addresses: {
+        "example.com" => [ "93.184.216.34" ],
+        "metadata.example.net" => [ "169.254.169.254" ]
+      },
+      calls: []
+    )
+    transport = RecordingTransport.new(
+      responses: [ response(302, location: "https://metadata.example.net/latest") ],
+      calls: []
+    )
+    client = Shared::NetworkSafety::SafeHttpClient.new(resolver: resolver, transport: transport)
+
+    unsafe = assert_raises(Shared::NetworkSafety::Error) do
+      client.fetch_public_redirects(
+        origin: "https://example.com", url: "https://example.com/robots.txt",
+        allowed_content_types: [ "text/plain" ]
+      )
+    end
+    assert_equal "unsafe_destination", unsafe.reason_code
+
+    downgrade_transport = RecordingTransport.new(
+      responses: [ response(302, location: "http://example.com/robots.txt") ], calls: []
+    )
+    downgrade_client = Shared::NetworkSafety::SafeHttpClient.new(
+      resolver: FixtureResolver.new(addresses: { "example.com" => [ "93.184.216.34" ] }, calls: []),
+      transport: downgrade_transport
+    )
+    downgrade = assert_raises(Shared::NetworkSafety::Error) do
+      downgrade_client.fetch_public_redirects(
+        origin: "https://example.com", url: "https://example.com/robots.txt",
+        allowed_content_types: [ "text/plain" ]
+      )
+    end
+    assert_equal "redirect_rejected", downgrade.reason_code
+  end
+
   test "allows only an explicit canonical variant while preserving the exact path" do
     resolver = FixtureResolver.new(
       addresses: {

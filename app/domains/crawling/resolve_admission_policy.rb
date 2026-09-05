@@ -10,7 +10,7 @@ module Crawling
       @estimator = estimator
     end
 
-    def call(environment:, at: Time.current)
+    def call(environment:, verified_owner: false, at: Time.current)
       limits = @limit_resolver.call(organization_id: environment.organization_id, at: at)
       policy_set = PolicySet.find_by(
         organization_id: environment.organization_id,
@@ -23,7 +23,8 @@ module Crawling
       effective = @normalizer.call(
         attributes: configured.to_h,
         origin: environment.origin,
-        limits: limits
+        limits: limits,
+        verified_owner: verified_owner
       )
       AdmissionPolicy.new(
         configuration: effective,

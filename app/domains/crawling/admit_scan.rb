@@ -31,7 +31,11 @@ module Crawling
       existing = existing_scan(context, request)
       return recover_dispatch(existing) if existing
 
-      policy = @policy_resolver.call(environment: context.environment, at: now)
+      policy = @policy_resolver.call(
+        environment: context.environment,
+        verified_owner: context.property.verified?,
+        at: now
+      )
       workload = verification_workload(policy)
       verification = verified_origin!(context, workload, now)
       preflight = @preflight.call(environment: context.environment)

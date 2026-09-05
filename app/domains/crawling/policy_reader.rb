@@ -26,7 +26,8 @@ module Crawling
         version: record&.version || 0,
         limits: limits,
         estimate: @estimator.call(configuration: configuration, at: at),
-        persisted: record.present?
+        persisted: record.present?,
+        robots_override_available: limits.robots_override && context.property.verified?
       )
     end
 

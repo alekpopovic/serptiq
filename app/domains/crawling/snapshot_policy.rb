@@ -41,7 +41,8 @@ module Crawling
         effective = @normalizer.call(
           attributes: version.configuration.to_h,
           origin: context.environment.origin,
-          limits: current_limits
+          limits: current_limits,
+          verified_owner: context.property.verified?
         )
         configuration = canonical_configuration(effective.as_json)
         PolicySnapshot.create!(

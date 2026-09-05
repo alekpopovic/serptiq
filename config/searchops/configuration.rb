@@ -140,6 +140,17 @@ module Searchops
       crawler_frontier_retry_base_delay: Definition.new(
         "SEARCHOPS_CRAWLER_FRONTIER_RETRY_BASE_DELAY", :duration, "30s", 1, 3600, nil, false, nil
       ),
+      crawler_robots_dns_timeout: Definition.new("SEARCHOPS_CRAWLER_ROBOTS_DNS_TIMEOUT", :duration,
+        "3s", 0.1, 10, nil, false, nil),
+      crawler_robots_open_timeout: Definition.new("SEARCHOPS_CRAWLER_ROBOTS_OPEN_TIMEOUT", :duration,
+        "2s", 0.1, 10, nil, false, nil),
+      crawler_robots_read_timeout: Definition.new("SEARCHOPS_CRAWLER_ROBOTS_READ_TIMEOUT", :duration,
+        "5s", 0.1, 30, nil, false, nil),
+      crawler_robots_max_response_bytes: Definition.new(
+        "SEARCHOPS_CRAWLER_ROBOTS_MAX_RESPONSE_BYTES", :integer, 512_000, 512_000, 1_048_576, nil, false, nil
+      ),
+      crawler_robots_max_redirects: Definition.new("SEARCHOPS_CRAWLER_ROBOTS_MAX_REDIRECTS", :integer,
+        5, 0, 5, nil, false, nil),
       browser_timeout: Definition.new("SEARCHOPS_BROWSER_TIMEOUT", :duration, "45s", 1, 300, nil, false, nil),
       browser_memory_mb: Definition.new("SEARCHOPS_BROWSER_MEMORY_MB", :integer, 1024, 256, 8192, nil, false, nil),
       browser_max_requests: Definition.new("SEARCHOPS_BROWSER_MAX_REQUESTS", :integer, 200, 1, 5000, nil, false, nil),
