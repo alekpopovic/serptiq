@@ -27,7 +27,7 @@ class ProjectDashboardSystemTest < ApplicationSystemTestCase
     assert_text "Admission ready"
     assert_text "Production Website"
     assert_link "Production"
-    assert_text "No scan evidence exists yet"
+    assert_text "No persisted scan observation exists yet"
     assert_button "Run baseline scan", disabled: true
 
     page.current_window.resize_to(390, 844)
@@ -72,7 +72,7 @@ class ProjectDashboardSystemTest < ApplicationSystemTestCase
 
     assert_text "Exhausted"
     assert_text "current monthly crawl credit quota is exhausted"
-    assert_text "No scan evidence exists yet"
+    assert_text "No persisted scan observation exists yet"
     assert_button "Run baseline scan", disabled: true
   end
 

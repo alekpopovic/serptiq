@@ -44,6 +44,9 @@ class AdministrationResourceDeletionWorkflowTest < ActiveSupport::TestCase
       environment_id: @environment.id,
       attributes: valid_crawl_policy_attributes(origin: @environment.origin)
     )
+    @scan = create_scan_for(
+      @owner, project: @project, property: @property, environment: @environment
+    )
   end
 
   test "project hold stops admission, signals prior work and deletes in durable stage order" do
@@ -84,6 +87,7 @@ class AdministrationResourceDeletionWorkflowTest < ActiveSupport::TestCase
     refute Properties::Property.exists?(@property.id)
     refute Properties::Environment.exists?(@environment.id)
     assert_empty Crawling::PolicySet.where(project_id: @project.id)
+    refute Crawling::Scan.exists?(@scan.id)
     assert_equal [ [ "organizations/#{@owner.organization.id}/projects/#{@project.id}/", nil ] ],
       store.delete_calls
     assert Auditing::TargetTombstone.exists?(target_type: "Project", target_id: @project.id)
@@ -91,6 +95,7 @@ class AdministrationResourceDeletionWorkflowTest < ActiveSupport::TestCase
     assert Auditing::TargetTombstone.exists?(
       target_type: "PropertyEnvironment", target_id: @environment.id
     )
+    assert Auditing::TargetTombstone.exists?(target_type: "Scan", target_id: @scan.id)
     assert Auditing::AuditEvent.exists?(action: "data.deletion_completed", target_id: @project.id)
     organization_issues = Auditing::Public.consistency_issues.select do |issue|
       issue.organization_id == @owner.organization.id

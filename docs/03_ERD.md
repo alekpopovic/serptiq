@@ -824,7 +824,19 @@ when the scan aggregate is introduced; snapshot creation is already idempotent b
 
 ### `scans`
 
-Aggregate root with organization, project, property, initiator, kind, state, policy snapshot, entitlement snapshot, quota reservation, counters, timestamps, cancellation, error classification, and lock version.
+Tenant/project/property/environment-bound aggregate root with scan type, initiator, immutable bounded settings
+and entitlement snapshots plus their digests, engine/rule/config versions, optional same-target baseline and
+future release correlation, lifecycle status/timestamps, safe aggregate failure category, optimistic lock and
+batch-maintained counters. States are `requested`, `admitted`, `queued`, `running`, `cancel_requested`,
+`canceled`, `completed`, `partially_completed` and `failed`. Composite foreign keys prevent target, initiator
+and baseline substitution. Terminal scans retain no queued/running count and cannot be reopened.
+
+### `scan_events`
+
+Append-only bigint lifecycle/progress checkpoints repeat the exact scan hierarchy, monotonic per-scan sequence,
+event/from/to status, optional same-tenant actor, idempotency/payload digests, complete counter snapshot, bounded
+failure category and occurrence time. Workers write absolute idempotent batch checkpoints rather than one row per
+URL. The aggregate remains the customer-facing business outcome; individual URL failures are explicit counters.
 
 ### `scan_targets`
 

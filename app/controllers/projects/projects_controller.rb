@@ -104,6 +104,18 @@ module Projects
           authorization: integration_read
         )
       end
+      scan_read = authorization_decision!("scans.read", project: @project)
+      scan_observation = if scan_read.allow?
+        Crawling::Public.latest_scan_observation(
+          actor_membership: Current.membership,
+          project_id: @project.id
+        )
+      else
+        DashboardObservation.new(
+          kind: "scan", state: "unavailable",
+          detail: "Your current role cannot inspect scan observations."
+        )
+      end
       activity_page = Auditing::Public.project_activity(
         organization_id: Current.organization.id,
         project_id: @project.id,
@@ -114,7 +126,7 @@ module Projects
         project: @project_summary,
         property_page: property_page,
         property_readiness: property_readiness,
-        scan_read: authorization_decision!("scans.read", project: @project),
+        scan_observation: scan_observation,
         findings_read: authorization_decision!("findings.read", project: @project),
         scan_access: scan_access,
         usage: usage,

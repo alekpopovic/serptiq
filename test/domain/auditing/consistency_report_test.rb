@@ -127,4 +127,24 @@ class AuditConsistencyReportTest < ActiveSupport::TestCase
     assert_includes Auditing::Public.consistency_issues,
       Auditing::ConsistencyIssue.new(audit_event_id: event.id, reason_code: "target_cross_tenant")
   end
+
+  test "reports a scan target from another tenant" do
+    Authorization::Public.sync_catalog
+    enable_project_limit(@foreign)
+    enable_property_limits(@foreign)
+    project = create_project_for(@foreign, slug: "foreign-audit-scan-project")
+    property = create_property_for(@foreign, project: project)
+    scan = create_scan_for(@foreign, project: project, property: property)
+    event = Auditing::Public.record!(
+      organization_id: @owner.organization.id,
+      actor_membership_id: @owner.membership.id,
+      action: "scan.reviewed",
+      target_type: "Scan",
+      target_id: scan.id,
+      result: "denied"
+    )
+
+    assert_includes Auditing::Public.consistency_issues,
+      Auditing::ConsistencyIssue.new(audit_event_id: event.id, reason_code: "target_cross_tenant")
+  end
 end

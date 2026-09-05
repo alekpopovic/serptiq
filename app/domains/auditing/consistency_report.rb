@@ -100,6 +100,18 @@ module Auditing
         AND ((targets.id IS NULL AND tombstones.id IS NULL)
           OR (targets.id IS NOT NULL AND targets.organization_id <> audit_events.organization_id))
       UNION ALL
+      SELECT audit_events.id,
+        CASE WHEN targets.id IS NULL AND tombstones.id IS NULL THEN 'target_orphan'
+          ELSE 'target_cross_tenant' END AS reason_code
+      FROM audit_events
+      LEFT JOIN scans targets ON targets.id = audit_events.target_id
+      LEFT JOIN audit_target_tombstones tombstones
+        ON tombstones.target_type = 'Scan' AND tombstones.target_id = audit_events.target_id
+          AND tombstones.organization_id = audit_events.organization_id
+      WHERE audit_events.target_type = 'Scan' AND audit_events.target_id IS NOT NULL
+        AND ((targets.id IS NULL AND tombstones.id IS NULL)
+          OR (targets.id IS NOT NULL AND targets.organization_id <> audit_events.organization_id))
+      UNION ALL
       SELECT audit_events.id, 'target_orphan' AS reason_code
       FROM audit_events LEFT JOIN roles targets ON targets.id = audit_events.target_id
       WHERE audit_events.target_type = 'Role' AND audit_events.target_id IS NOT NULL AND targets.id IS NULL

@@ -120,7 +120,9 @@ class CrawlingPolicyTest < ActiveSupport::TestCase
 
   test "snapshot is idempotent and remains exact after policy changes" do
     first = configure(max_urls: 10, max_depth: 3, max_rendered_pages: 2)
-    scan_id = SecureRandom.uuid
+    scan_id = create_scan_for(
+      @owner, project: @project, property: @property, environment: @environment
+    ).id
 
     snapshot = Crawling::Public.snapshot_for_scan(**scope, scan_id: scan_id)
     retry_snapshot = Crawling::Public.snapshot_for_scan(**scope, scan_id: scan_id)
@@ -140,7 +142,10 @@ class CrawlingPolicyTest < ActiveSupport::TestCase
 
   test "cross-tenant policy and scan identifiers fail closed" do
     configure
-    snapshot = Crawling::Public.snapshot_for_scan(**scope, scan_id: SecureRandom.uuid)
+    snapshot_scan = create_scan_for(
+      @owner, project: @project, property: @property, environment: @environment
+    )
+    snapshot = Crawling::Public.snapshot_for_scan(**scope, scan_id: snapshot_scan.id)
     foreign = create_organization_for(slug: "crawl-policy-foreign")
     enable_project_limit(foreign)
     enable_property_limits(foreign)

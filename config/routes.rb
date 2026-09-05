@@ -165,6 +165,15 @@ Rails.application.routes.draw do
     as: :cancel_deletion_organization_project
   delete "dashboard/organizations/:organization_slug/projects/:project_slug",
     to: "projects/projects#destroy"
+  get "dashboard/organizations/:organization_slug/projects/:project_slug/scans",
+    to: "crawling/scans#index",
+    as: :organization_project_scans
+  get "dashboard/organizations/:organization_slug/projects/:project_slug/scans/:scan_id",
+    to: "crawling/scans#show",
+    as: :organization_project_scan
+  patch "dashboard/organizations/:organization_slug/projects/:project_slug/scans/:scan_id/cancel",
+    to: "crawling/scans#cancel",
+    as: :cancel_organization_project_scan
   get "dashboard/organizations/:organization_slug/projects/:project_slug/properties",
     to: "properties/properties#index",
     as: :organization_project_properties

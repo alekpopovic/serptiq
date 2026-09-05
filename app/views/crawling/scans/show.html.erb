@@ -1,0 +1,63 @@
+<% summary = @scan.summary %>
+<% content_for :title, "Scan #{summary.id}" %>
+
+<div class="mx-auto max-w-6xl">
+  <%= render "shared/breadcrumbs", items: [
+    { label: "Projects", path: organization_projects_path(Current.organization.slug) },
+    { label: @project.name, path: organization_project_path(Current.organization.slug, @project.slug) },
+    { label: "Scans", path: organization_project_scans_path(Current.organization.slug, @project.slug) },
+    { label: summary.id, path: nil }
+  ] %>
+
+  <header class="mt-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+    <div>
+      <p class="so-eyebrow">Scan observation</p>
+      <h1 class="mt-2 break-all text-2xl font-black tracking-tight text-slate-950"><%= summary.id %></h1>
+      <p class="mt-2 text-sm text-slate-600"><%= summary.scan_type.humanize %> scan requested <%= l(summary.requested_at, format: :long) %>.</p>
+    </div>
+    <span class="so-badge <%= summary.status.in?(%w[completed partially_completed]) ? "so-badge-success" : "so-badge-neutral" %>"><%= summary.status.humanize %></span>
+  </header>
+
+  <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4" id="scan_progress_<%= summary.id %>" aria-live="polite">
+    <section class="so-card p-5"><h2 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Discovered URLs</h2><p class="mt-2 text-2xl font-black text-slate-950"><%= number_with_delimiter(summary.counters.urls_discovered_count) %></p></section>
+    <section class="so-card p-5"><h2 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Processed URLs</h2><p class="mt-2 text-2xl font-black text-slate-950"><%= number_with_delimiter(summary.counters.urls_processed_count) %></p></section>
+    <section class="so-card p-5"><h2 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Individual failures</h2><p class="mt-2 text-2xl font-black text-slate-950"><%= number_with_delimiter(summary.counters.urls_failed_count) %></p><p class="mt-1 text-xs text-slate-500">These do not alone determine the terminal scan outcome.</p></section>
+    <section class="so-card p-5"><h2 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Finding observations</h2><p class="mt-2 text-2xl font-black text-slate-950"><%= number_with_delimiter(summary.counters.findings_count) %></p></section>
+  </div>
+
+  <% if summary.failure_category %>
+    <p class="so-alert so-alert-danger mt-6" role="status">The scan ended with failure category <strong><%= summary.failure_category.humanize %></strong>. No exception details or worker logs are exposed here.</p>
+  <% end %>
+
+  <% if summary.cancellable? && allowed_to?("scans.cancel", project: @project) %>
+    <div class="mt-6">
+      <%= button_to "Request cancellation", cancel_organization_project_scan_path(Current.organization.slug, @project.slug, summary.id), method: :patch, class: "so-button so-button-danger", form: { data: { turbo_confirm: "Request cooperative cancellation for this scan?" } } %>
+      <p class="mt-2 text-sm text-slate-600">Cancellation is cooperative. A persisted request does not claim that every worker has stopped yet.</p>
+    </div>
+  <% end %>
+
+  <div class="mt-8 grid gap-6 lg:grid-cols-2">
+    <section class="so-card p-6" aria-labelledby="scan-provenance-title">
+      <h2 id="scan-provenance-title" class="text-xl font-black text-slate-950">Immutable provenance</h2>
+      <dl class="mt-5 grid gap-4 text-sm">
+        <div><dt class="font-semibold text-slate-500">Engine version</dt><dd class="mt-1 text-slate-950"><%= @scan.engine_version %></dd></div>
+        <div><dt class="font-semibold text-slate-500">Rule set version</dt><dd class="mt-1 text-slate-950"><%= @scan.rule_set_version %></dd></div>
+        <div><dt class="font-semibold text-slate-500">Configuration schema</dt><dd class="mt-1 text-slate-950"><%= @scan.configuration_version %></dd></div>
+        <% if @scan.release_id %><div><dt class="font-semibold text-slate-500">Release</dt><dd class="mt-1 break-all font-mono text-xs text-slate-700"><%= @scan.release_id %></dd></div><% end %>
+        <% if @scan.baseline_scan_id %><div><dt class="font-semibold text-slate-500">Baseline scan</dt><dd class="mt-1 break-all font-mono text-xs text-slate-700"><%= @scan.baseline_scan_id %></dd></div><% end %>
+        <div><dt class="font-semibold text-slate-500">Settings digest</dt><dd class="mt-1 break-all font-mono text-xs text-slate-700"><%= @scan.settings_digest %></dd></div>
+        <div><dt class="font-semibold text-slate-500">Entitlement digest</dt><dd class="mt-1 break-all font-mono text-xs text-slate-700"><%= @scan.entitlement_digest %></dd></div>
+      </dl>
+    </section>
+
+    <section class="so-card p-6" aria-labelledby="scan-events-title">
+      <h2 id="scan-events-title" class="text-xl font-black text-slate-950">Lifecycle checkpoints</h2>
+      <p class="mt-2 text-sm text-slate-600">Bounded aggregate checkpoints; not raw job or queue logs.</p>
+      <ol class="mt-5 divide-y divide-slate-200">
+        <% @scan.events.each do |event| %>
+          <li class="py-3"><span class="font-semibold text-slate-900"><%= event.event_type.delete_prefix("scan.").humanize %></span><time class="mt-1 block text-xs text-slate-500" datetime="<%= event.occurred_at.iso8601 %>"><%= l(event.occurred_at, format: :long) %></time></li>
+        <% end %>
+      </ol>
+    </section>
+  </div>
+</div>

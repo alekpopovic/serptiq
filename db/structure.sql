@@ -685,6 +685,65 @@ $$;
 
 
 --
+-- Name: protect_scan_event_history(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.protect_scan_event_history() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF TG_OP = 'DELETE' AND resource_deletion_stage_authorized(
+    OLD.organization_id, OLD.project_id, OLD.property_id, 'scans_and_findings'
+  ) THEN
+    RETURN OLD;
+  END IF;
+  RAISE EXCEPTION 'scan events are append-only';
+END;
+$$;
+
+
+--
+-- Name: protect_scan_inputs(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.protect_scan_inputs() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    IF resource_deletion_stage_authorized(
+      OLD.organization_id, OLD.project_id, OLD.property_id, 'scans_and_findings'
+    ) THEN
+      RETURN OLD;
+    END IF;
+    RAISE EXCEPTION 'scan deletion requires an active lifecycle workflow';
+  END IF;
+
+  IF NEW.organization_id IS DISTINCT FROM OLD.organization_id
+    OR NEW.project_id IS DISTINCT FROM OLD.project_id
+    OR NEW.property_id IS DISTINCT FROM OLD.property_id
+    OR NEW.environment_id IS DISTINCT FROM OLD.environment_id
+    OR NEW.scan_type IS DISTINCT FROM OLD.scan_type
+    OR NEW.initiator_type IS DISTINCT FROM OLD.initiator_type
+    OR NEW.initiated_by_membership_id IS DISTINCT FROM OLD.initiated_by_membership_id
+    OR NEW.settings_snapshot IS DISTINCT FROM OLD.settings_snapshot
+    OR NEW.settings_digest IS DISTINCT FROM OLD.settings_digest
+    OR NEW.entitlement_snapshot IS DISTINCT FROM OLD.entitlement_snapshot
+    OR NEW.entitlement_digest IS DISTINCT FROM OLD.entitlement_digest
+    OR NEW.engine_version IS DISTINCT FROM OLD.engine_version
+    OR NEW.rule_set_version IS DISTINCT FROM OLD.rule_set_version
+    OR NEW.configuration_version IS DISTINCT FROM OLD.configuration_version
+    OR NEW.release_id IS DISTINCT FROM OLD.release_id
+    OR NEW.baseline_scan_id IS DISTINCT FROM OLD.baseline_scan_id
+    OR NEW.requested_at IS DISTINCT FROM OLD.requested_at THEN
+    RAISE EXCEPTION 'scan input and provenance are immutable';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: reject_crawl_policy_immutable_change(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -837,7 +896,7 @@ CREATE TABLE public.audit_target_tombstones (
     property_id uuid,
     deleted_at timestamp(6) with time zone NOT NULL,
     created_at timestamp(6) with time zone NOT NULL,
-    CONSTRAINT audit_tombstones_target_type CHECK (((target_type)::text = ANY ((ARRAY['Project'::character varying, 'Property'::character varying, 'PropertyEnvironment'::character varying, 'DomainVerification'::character varying, 'CrawlPolicy'::character varying])::text[])))
+    CONSTRAINT audit_tombstones_target_type CHECK (((target_type)::text = ANY ((ARRAY['Project'::character varying, 'Property'::character varying, 'PropertyEnvironment'::character varying, 'DomainVerification'::character varying, 'CrawlPolicy'::character varying, 'Scan'::character varying])::text[])))
 );
 
 
@@ -1962,7 +2021,7 @@ CREATE TABLE public.resource_deletion_stage_executions (
     updated_at timestamp(6) with time zone NOT NULL,
     CONSTRAINT deletion_stages_error_category CHECK (((last_error_category IS NULL) OR ((last_error_category)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text))),
     CONSTRAINT deletion_stages_ordered_allowlist CHECK (((((stage)::text = 'cancel_active_work'::text) AND ("position" = 0)) OR (((stage)::text = 'integrations'::text) AND ("position" = 1)) OR (((stage)::text = 'scans_and_findings'::text) AND ("position" = 2)) OR (((stage)::text = 'reports'::text) AND ("position" = 3)) OR (((stage)::text = 'object_artifacts'::text) AND ("position" = 4)) OR (((stage)::text = 'api_keys_and_webhooks'::text) AND ("position" = 5)) OR (((stage)::text = 'aggregate_records'::text) AND ("position" = 6)))),
-    CONSTRAINT deletion_stages_state_and_attempts CHECK ((((state)::text = ANY ((ARRAY['pending'::character varying, 'running'::character varying, 'retryable'::character varying, 'completed'::character varying])::text[])) AND (attempt_count >= 0)))
+    CONSTRAINT deletion_stages_state_and_attempts CHECK ((((state)::text = ANY (ARRAY[('pending'::character varying)::text, ('running'::character varying)::text, ('retryable'::character varying)::text, ('completed'::character varying)::text])) AND (attempt_count >= 0)))
 );
 
 
@@ -1994,9 +2053,9 @@ CREATE TABLE public.resource_deletion_workflows (
     created_at timestamp(6) with time zone NOT NULL,
     updated_at timestamp(6) with time zone NOT NULL,
     CONSTRAINT deletion_workflows_error_category CHECK (((last_error_category IS NULL) OR ((last_error_category)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text))),
-    CONSTRAINT deletion_workflows_stage_allowlist CHECK (((current_stage IS NULL) OR ((current_stage)::text = ANY ((ARRAY['cancel_active_work'::character varying, 'integrations'::character varying, 'scans_and_findings'::character varying, 'reports'::character varying, 'object_artifacts'::character varying, 'api_keys_and_webhooks'::character varying, 'aggregate_records'::character varying])::text[])))),
+    CONSTRAINT deletion_workflows_stage_allowlist CHECK (((current_stage IS NULL) OR ((current_stage)::text = ANY (ARRAY[('cancel_active_work'::character varying)::text, ('integrations'::character varying)::text, ('scans_and_findings'::character varying)::text, ('reports'::character varying)::text, ('object_artifacts'::character varying)::text, ('api_keys_and_webhooks'::character varying)::text, ('aggregate_records'::character varying)::text])))),
     CONSTRAINT deletion_workflows_state_shape CHECK (((((state)::text = 'holding'::text) AND (current_stage IS NULL) AND (started_at IS NULL) AND (completed_at IS NULL) AND (canceled_at IS NULL) AND (next_attempt_at IS NULL) AND (last_error_category IS NULL) AND (lease_token IS NULL) AND (lease_expires_at IS NULL)) OR (((state)::text = 'running'::text) AND (current_stage IS NOT NULL) AND (started_at IS NOT NULL) AND (completed_at IS NULL) AND (canceled_at IS NULL) AND (next_attempt_at IS NULL) AND (last_error_category IS NULL) AND (lease_token IS NOT NULL) AND (lease_expires_at IS NOT NULL)) OR (((state)::text = 'retryable'::text) AND (current_stage IS NOT NULL) AND (started_at IS NOT NULL) AND (completed_at IS NULL) AND (canceled_at IS NULL) AND (next_attempt_at IS NOT NULL) AND (last_error_category IS NOT NULL) AND (lease_token IS NULL) AND (lease_expires_at IS NULL)) OR (((state)::text = 'completed'::text) AND ((current_stage)::text = 'aggregate_records'::text) AND (started_at IS NOT NULL) AND (completed_at IS NOT NULL) AND (canceled_at IS NULL) AND (next_attempt_at IS NULL) AND (last_error_category IS NULL) AND (lease_token IS NULL) AND (lease_expires_at IS NULL)) OR (((state)::text = 'canceled'::text) AND (current_stage IS NULL) AND (started_at IS NULL) AND (completed_at IS NULL) AND (canceled_at IS NOT NULL) AND (next_attempt_at IS NULL) AND (last_error_category IS NULL) AND (lease_token IS NULL) AND (lease_expires_at IS NULL)))),
-    CONSTRAINT deletion_workflows_target_shape CHECK ((((target_type)::text = ANY ((ARRAY['Project'::character varying, 'Property'::character varying])::text[])) AND ((((target_type)::text = 'Project'::text) AND (target_id = project_id) AND (property_id IS NULL)) OR (((target_type)::text = 'Property'::text) AND (target_id = property_id) AND (property_id IS NOT NULL))))),
+    CONSTRAINT deletion_workflows_target_shape CHECK ((((target_type)::text = ANY (ARRAY[('Project'::character varying)::text, ('Property'::character varying)::text])) AND ((((target_type)::text = 'Project'::text) AND (target_id = project_id) AND (property_id IS NULL)) OR (((target_type)::text = 'Property'::text) AND (target_id = property_id) AND (property_id IS NOT NULL))))),
     CONSTRAINT deletion_workflows_time_and_attempts CHECK (((hold_until > requested_at) AND (attempt_count >= 0)))
 );
 
@@ -2067,6 +2126,121 @@ CREATE TABLE public.roles (
     CONSTRAINT roles_key_format CHECK (((key)::text ~ '^[a-z][a-z0-9_]{1,63}$'::text)),
     CONSTRAINT roles_name_format CHECK (((char_length((name)::text) >= 2) AND (char_length((name)::text) <= 80) AND ((name)::text = btrim((name)::text)))),
     CONSTRAINT roles_ownership_consistency CHECK ((((system = true) AND (organization_id IS NULL) AND (mutable = false) AND (archived_at IS NULL) AND ((catalog_checksum)::text ~ '^[0-9a-f]{64}$'::text) AND ((key)::text = ANY (ARRAY[('owner'::character varying)::text, ('organization_admin'::character varying)::text, ('billing_admin'::character varying)::text, ('seo_lead'::character varying)::text, ('developer'::character varying)::text, ('content_editor'::character varying)::text, ('analyst'::character varying)::text, ('viewer'::character varying)::text]))) OR ((system = false) AND (organization_id IS NOT NULL) AND (mutable = true) AND (catalog_checksum IS NULL) AND ((key)::text <> ALL (ARRAY[('owner'::character varying)::text, ('organization_admin'::character varying)::text, ('billing_admin'::character varying)::text, ('seo_lead'::character varying)::text, ('developer'::character varying)::text, ('content_editor'::character varying)::text, ('analyst'::character varying)::text, ('viewer'::character varying)::text])))))
+);
+
+
+--
+-- Name: scan_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.scan_events (
+    id bigint NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_id uuid NOT NULL,
+    environment_id uuid NOT NULL,
+    scan_id uuid NOT NULL,
+    sequence bigint NOT NULL,
+    event_type character varying(40) NOT NULL,
+    from_status character varying(32),
+    to_status character varying(32) NOT NULL,
+    actor_membership_id uuid,
+    idempotency_key_digest character varying(64) NOT NULL,
+    payload_digest character varying(64) NOT NULL,
+    targets_count integer NOT NULL,
+    urls_discovered_count bigint NOT NULL,
+    urls_queued_count bigint NOT NULL,
+    urls_running_count bigint NOT NULL,
+    urls_processed_count bigint NOT NULL,
+    urls_succeeded_count bigint NOT NULL,
+    urls_failed_count bigint NOT NULL,
+    urls_skipped_count bigint NOT NULL,
+    findings_count bigint NOT NULL,
+    failure_category character varying(64),
+    occurred_at timestamp(6) with time zone NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT scan_events_counter_consistency CHECK (((targets_count >= 0) AND (urls_discovered_count >= 0) AND (urls_queued_count >= 0) AND (urls_running_count >= 0) AND (urls_processed_count >= 0) AND (urls_succeeded_count >= 0) AND (urls_failed_count >= 0) AND (urls_skipped_count >= 0) AND (findings_count >= 0) AND (urls_processed_count = ((urls_succeeded_count + urls_failed_count) + urls_skipped_count)) AND (urls_discovered_count >= ((urls_processed_count + urls_queued_count) + urls_running_count)))),
+    CONSTRAINT scan_events_digest_shape CHECK ((((idempotency_key_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((payload_digest)::text ~ '^[0-9a-f]{64}$'::text))),
+    CONSTRAINT scan_events_failure_category CHECK (((failure_category IS NULL) OR ((failure_category)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text))),
+    CONSTRAINT scan_events_positive_sequence CHECK ((sequence > 0)),
+    CONSTRAINT scan_events_status_allowlist CHECK ((((from_status IS NULL) OR ((from_status)::text = ANY ((ARRAY['requested'::character varying, 'admitted'::character varying, 'queued'::character varying, 'running'::character varying, 'cancel_requested'::character varying, 'canceled'::character varying, 'completed'::character varying, 'partially_completed'::character varying, 'failed'::character varying])::text[]))) AND ((to_status)::text = ANY ((ARRAY['requested'::character varying, 'admitted'::character varying, 'queued'::character varying, 'running'::character varying, 'cancel_requested'::character varying, 'canceled'::character varying, 'completed'::character varying, 'partially_completed'::character varying, 'failed'::character varying])::text[])))),
+    CONSTRAINT scan_events_type_allowlist CHECK (((event_type)::text = ANY ((ARRAY['scan.requested'::character varying, 'scan.admitted'::character varying, 'scan.queued'::character varying, 'scan.started'::character varying, 'scan.cancel_requested'::character varying, 'scan.canceled'::character varying, 'scan.completed'::character varying, 'scan.partially_completed'::character varying, 'scan.failed'::character varying, 'scan.progress_recorded'::character varying])::text[])))
+);
+
+
+--
+-- Name: scan_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.scan_events_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: scan_events_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.scan_events_id_seq OWNED BY public.scan_events.id;
+
+
+--
+-- Name: scans; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.scans (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_id uuid NOT NULL,
+    environment_id uuid NOT NULL,
+    scan_type character varying(24) NOT NULL,
+    initiator_type character varying(24) NOT NULL,
+    initiated_by_membership_id uuid,
+    status character varying(32) DEFAULT 'requested'::character varying NOT NULL,
+    settings_snapshot jsonb NOT NULL,
+    settings_digest character varying(64) NOT NULL,
+    entitlement_snapshot jsonb NOT NULL,
+    entitlement_digest character varying(64) NOT NULL,
+    engine_version character varying(64) NOT NULL,
+    rule_set_version character varying(64) NOT NULL,
+    configuration_version integer DEFAULT 1 NOT NULL,
+    release_id uuid,
+    baseline_scan_id uuid,
+    targets_count integer DEFAULT 0 NOT NULL,
+    urls_discovered_count bigint DEFAULT 0 NOT NULL,
+    urls_queued_count bigint DEFAULT 0 NOT NULL,
+    urls_running_count bigint DEFAULT 0 NOT NULL,
+    urls_processed_count bigint DEFAULT 0 NOT NULL,
+    urls_succeeded_count bigint DEFAULT 0 NOT NULL,
+    urls_failed_count bigint DEFAULT 0 NOT NULL,
+    urls_skipped_count bigint DEFAULT 0 NOT NULL,
+    findings_count bigint DEFAULT 0 NOT NULL,
+    progress_sequence bigint DEFAULT 1 NOT NULL,
+    requested_at timestamp(6) with time zone NOT NULL,
+    admitted_at timestamp(6) with time zone,
+    queued_at timestamp(6) with time zone,
+    started_at timestamp(6) with time zone,
+    cancel_requested_at timestamp(6) with time zone,
+    canceled_at timestamp(6) with time zone,
+    completed_at timestamp(6) with time zone,
+    failed_at timestamp(6) with time zone,
+    failure_category character varying(64),
+    lock_version integer DEFAULT 0 NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT scans_bounded_snapshots CHECK (((jsonb_typeof(settings_snapshot) = 'object'::text) AND (octet_length((settings_snapshot)::text) <= 32768) AND (jsonb_typeof(entitlement_snapshot) = 'object'::text) AND (octet_length((entitlement_snapshot)::text) <= 32768))),
+    CONSTRAINT scans_counter_consistency CHECK (((targets_count >= 0) AND (urls_discovered_count >= 0) AND (urls_queued_count >= 0) AND (urls_running_count >= 0) AND (urls_processed_count >= 0) AND (urls_succeeded_count >= 0) AND (urls_failed_count >= 0) AND (urls_skipped_count >= 0) AND (findings_count >= 0) AND (progress_sequence > 0) AND (urls_processed_count = ((urls_succeeded_count + urls_failed_count) + urls_skipped_count)) AND (urls_discovered_count >= ((urls_processed_count + urls_queued_count) + urls_running_count)) AND (((status)::text <> ALL ((ARRAY['canceled'::character varying, 'completed'::character varying, 'partially_completed'::character varying, 'failed'::character varying])::text[])) OR ((urls_queued_count = 0) AND (urls_running_count = 0))))),
+    CONSTRAINT scans_distinct_baseline CHECK (((baseline_scan_id IS NULL) OR (baseline_scan_id <> id))),
+    CONSTRAINT scans_initiator_shape CHECK ((((initiator_type)::text = ANY ((ARRAY['membership'::character varying, 'schedule'::character varying, 'release'::character varying, 'system'::character varying])::text[])) AND ((((initiator_type)::text = 'membership'::text) AND (initiated_by_membership_id IS NOT NULL)) OR (((initiator_type)::text <> 'membership'::text) AND (initiated_by_membership_id IS NULL))))),
+    CONSTRAINT scans_lifecycle_shape CHECK (((requested_at IS NOT NULL) AND ((admitted_at IS NULL) OR (admitted_at >= requested_at)) AND ((queued_at IS NULL) OR ((admitted_at IS NOT NULL) AND (queued_at >= admitted_at))) AND ((started_at IS NULL) OR ((queued_at IS NOT NULL) AND (started_at >= queued_at))) AND ((cancel_requested_at IS NULL) OR (cancel_requested_at >= requested_at)) AND ((canceled_at IS NULL) OR ((cancel_requested_at IS NOT NULL) AND (canceled_at >= cancel_requested_at))) AND ((completed_at IS NULL) OR ((started_at IS NOT NULL) AND (completed_at >= started_at))) AND ((failed_at IS NULL) OR (failed_at >= requested_at)) AND ((((status)::text = 'requested'::text) AND (admitted_at IS NULL) AND (queued_at IS NULL) AND (started_at IS NULL) AND (cancel_requested_at IS NULL) AND (canceled_at IS NULL) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((status)::text = 'admitted'::text) AND (admitted_at IS NOT NULL) AND (queued_at IS NULL) AND (started_at IS NULL) AND (cancel_requested_at IS NULL) AND (canceled_at IS NULL) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((status)::text = 'queued'::text) AND (admitted_at IS NOT NULL) AND (queued_at IS NOT NULL) AND (started_at IS NULL) AND (cancel_requested_at IS NULL) AND (canceled_at IS NULL) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((status)::text = 'running'::text) AND (admitted_at IS NOT NULL) AND (queued_at IS NOT NULL) AND (started_at IS NOT NULL) AND (cancel_requested_at IS NULL) AND (canceled_at IS NULL) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((status)::text = 'cancel_requested'::text) AND (admitted_at IS NOT NULL) AND (queued_at IS NOT NULL) AND (cancel_requested_at IS NOT NULL) AND (canceled_at IS NULL) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((status)::text = 'canceled'::text) AND (cancel_requested_at IS NOT NULL) AND (canceled_at IS NOT NULL) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((status)::text = ANY ((ARRAY['completed'::character varying, 'partially_completed'::character varying])::text[])) AND (started_at IS NOT NULL) AND (completed_at IS NOT NULL) AND (canceled_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((status)::text = 'failed'::text) AND (failed_at IS NOT NULL) AND (completed_at IS NULL) AND (canceled_at IS NULL) AND ((failure_category)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text))))),
+    CONSTRAINT scans_snapshot_digests CHECK ((((settings_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((entitlement_digest)::text ~ '^[0-9a-f]{64}$'::text))),
+    CONSTRAINT scans_status_allowlist CHECK (((status)::text = ANY ((ARRAY['requested'::character varying, 'admitted'::character varying, 'queued'::character varying, 'running'::character varying, 'cancel_requested'::character varying, 'canceled'::character varying, 'completed'::character varying, 'partially_completed'::character varying, 'failed'::character varying])::text[]))),
+    CONSTRAINT scans_type_allowlist CHECK (((scan_type)::text = ANY ((ARRAY['full'::character varying, 'targeted'::character varying, 'verification'::character varying])::text[]))),
+    CONSTRAINT scans_version_provenance CHECK (((configuration_version > 0) AND ((engine_version)::text ~ '^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$'::text) AND ((rule_set_version)::text ~ '^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$'::text)))
 );
 
 
@@ -2478,6 +2652,13 @@ ALTER TABLE ONLY public.authentication_rate_limit_buckets ALTER COLUMN id SET DE
 
 
 --
+-- Name: scan_events id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.scan_events ALTER COLUMN id SET DEFAULT nextval('public.scan_events_id_seq'::regclass);
+
+
+--
 -- Name: usage_events id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -2865,6 +3046,22 @@ ALTER TABLE ONLY public.role_permissions
 
 ALTER TABLE ONLY public.roles
     ADD CONSTRAINT roles_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: scan_events scan_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.scan_events
+    ADD CONSTRAINT scan_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: scans scans_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.scans
+    ADD CONSTRAINT scans_pkey PRIMARY KEY (id);
 
 
 --
@@ -3304,7 +3501,7 @@ CREATE UNIQUE INDEX index_deletion_stages_on_workflow_stage ON public.resource_d
 -- Name: index_deletion_workflows_on_active_target; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX index_deletion_workflows_on_active_target ON public.resource_deletion_workflows USING btree (organization_id, target_type, target_id) WHERE ((state)::text = ANY ((ARRAY['holding'::character varying, 'running'::character varying, 'retryable'::character varying])::text[]));
+CREATE UNIQUE INDEX index_deletion_workflows_on_active_target ON public.resource_deletion_workflows USING btree (organization_id, target_type, target_id) WHERE ((state)::text = ANY (ARRAY[('holding'::character varying)::text, ('running'::character varying)::text, ('retryable'::character varying)::text]));
 
 
 --
@@ -3973,6 +4170,62 @@ CREATE UNIQUE INDEX index_roles_on_system_key ON public.roles USING btree (key) 
 
 
 --
+-- Name: index_scan_events_on_idempotency; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_scan_events_on_idempotency ON public.scan_events USING btree (scan_id, idempotency_key_digest);
+
+
+--
+-- Name: index_scan_events_on_project_timeline; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_scan_events_on_project_timeline ON public.scan_events USING btree (organization_id, project_id, scan_id, occurred_at);
+
+
+--
+-- Name: index_scan_events_on_sequence; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_scan_events_on_sequence ON public.scan_events USING btree (scan_id, sequence);
+
+
+--
+-- Name: index_scans_on_active_project_work; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_scans_on_active_project_work ON public.scans USING btree (organization_id, project_id, status, updated_at) WHERE ((status)::text = ANY ((ARRAY['requested'::character varying, 'admitted'::character varying, 'queued'::character varying, 'running'::character varying, 'cancel_requested'::character varying])::text[]));
+
+
+--
+-- Name: index_scans_on_baseline_scan_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_scans_on_baseline_scan_id ON public.scans USING btree (baseline_scan_id) WHERE (baseline_scan_id IS NOT NULL);
+
+
+--
+-- Name: index_scans_on_exact_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_scans_on_exact_identity ON public.scans USING btree (organization_id, project_id, property_id, environment_id, id);
+
+
+--
+-- Name: index_scans_on_project_timeline; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_scans_on_project_timeline ON public.scans USING btree (organization_id, project_id, requested_at DESC, id DESC);
+
+
+--
+-- Name: index_scans_on_release_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_scans_on_release_id ON public.scans USING btree (release_id) WHERE (release_id IS NOT NULL);
+
+
+--
 -- Name: index_sessions_on_active_expiry; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4456,6 +4709,20 @@ CREATE CONSTRAINT TRIGGER property_environments_require_primary AFTER INSERT OR 
 
 
 --
+-- Name: scan_events scan_events_immutable; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER scan_events_immutable BEFORE DELETE OR UPDATE ON public.scan_events FOR EACH ROW EXECUTE FUNCTION public.protect_scan_event_history();
+
+
+--
+-- Name: scans scans_protect_inputs; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER scans_protect_inputs BEFORE DELETE OR UPDATE ON public.scans FOR EACH ROW EXECUTE FUNCTION public.protect_scan_inputs();
+
+
+--
 -- Name: usage_events usage_events_immutable_and_consistent; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -4583,6 +4850,14 @@ ALTER TABLE ONLY public.billing_webhook_events
 
 ALTER TABLE ONLY public.crawl_policy_sets
     ADD CONSTRAINT fk_crawl_policy_sets_environment FOREIGN KEY (organization_id, project_id, property_id, environment_id) REFERENCES public.property_environments(organization_id, project_id, property_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_policy_snapshots fk_crawl_policy_snapshots_exact_scan; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_policy_snapshots
+    ADD CONSTRAINT fk_crawl_policy_snapshots_exact_scan FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id) REFERENCES public.scans(organization_id, project_id, property_id, environment_id, id) ON DELETE RESTRICT NOT VALID;
 
 
 --
@@ -4911,6 +5186,14 @@ ALTER TABLE ONLY public.authorization_scope_references
 
 ALTER TABLE ONLY public.organization_ownerships
     ADD CONSTRAINT fk_rails_4c966f3821 FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: scans fk_rails_4eb5a432df; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.scans
+    ADD CONSTRAINT fk_rails_4eb5a432df FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE RESTRICT;
 
 
 --
@@ -5282,6 +5565,46 @@ ALTER TABLE ONLY public.role_assignments
 
 
 --
+-- Name: scan_events fk_scan_events_exact_scan; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.scan_events
+    ADD CONSTRAINT fk_scan_events_exact_scan FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id) REFERENCES public.scans(organization_id, project_id, property_id, environment_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: scan_events fk_scan_events_tenant_actor; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.scan_events
+    ADD CONSTRAINT fk_scan_events_tenant_actor FOREIGN KEY (organization_id, actor_membership_id) REFERENCES public.memberships(organization_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: scans fk_scans_exact_baseline; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.scans
+    ADD CONSTRAINT fk_scans_exact_baseline FOREIGN KEY (organization_id, project_id, property_id, environment_id, baseline_scan_id) REFERENCES public.scans(organization_id, project_id, property_id, environment_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: scans fk_scans_exact_environment; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.scans
+    ADD CONSTRAINT fk_scans_exact_environment FOREIGN KEY (organization_id, project_id, property_id, environment_id) REFERENCES public.property_environments(organization_id, project_id, property_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: scans fk_scans_tenant_initiator; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.scans
+    ADD CONSTRAINT fk_scans_tenant_initiator FOREIGN KEY (organization_id, initiated_by_membership_id) REFERENCES public.memberships(organization_id, id) ON DELETE RESTRICT;
+
+
+--
 -- Name: subscriptions fk_subscriptions_tenant_provider_customer; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5448,6 +5771,7 @@ ALTER TABLE ONLY public.website_property_configs
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904147000'),
 ('20260904146000'),
 ('20260904145000'),
 ('20260904144000'),

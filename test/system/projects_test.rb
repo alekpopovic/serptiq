@@ -21,7 +21,7 @@ class ProjectsSystemTest < ApplicationSystemTestCase
 
     assert_current_path organization_project_path(owner.organization.slug, "customer-website")
     assert_text "Project created"
-    assert_text "No scan evidence exists yet"
+    assert_text "No persisted scan observation exists yet"
     click_link "Edit project"
     fill_in "Project name", with: "Customer Discovery"
     click_button "Save project settings"

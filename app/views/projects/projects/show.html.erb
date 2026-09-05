@@ -162,6 +162,12 @@
     <% end %>
   </section>
 
+  <% if allowed_to?("scans.read", project: @project) %>
+    <div class="mt-6 flex justify-end">
+      <%= link_to "View scans", organization_project_scans_path(Current.organization.slug, @project_summary.slug), class: "so-button so-button-secondary" %>
+    </div>
+  <% end %>
+
   <section class="so-card mt-8 p-6" aria-labelledby="recent-activity-title">
     <p class="so-eyebrow">Append-only audit records</p>
     <h2 id="recent-activity-title" class="mt-1 text-xl font-black text-slate-950">Recent project activity</h2>

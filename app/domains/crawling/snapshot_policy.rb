@@ -18,6 +18,7 @@ module Crawling
         property_id: property_id, environment_id: environment_id
       )
       validate_scan_id!(scan_id)
+      validate_scan_scope!(scan_id, context)
       existing = PolicySnapshot.find_by(scan_id: scan_id)
       return verify_existing!(existing, context) if existing
 
@@ -66,6 +67,11 @@ module Crawling
 
     def validate_scan_id!(scan_id)
       raise ArgumentError, "scan ID is invalid" unless Shared::Public.application_uuid?(scan_id.to_s)
+    end
+
+    def validate_scan_scope!(scan_id, context)
+      available = Scan.exists?(id: scan_id, **identity(context.environment))
+      raise AccessDenied.new(reason_code: "crawl_policy_scope_unavailable") unless available
     end
 
     def identity(environment)

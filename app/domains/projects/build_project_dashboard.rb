@@ -12,7 +12,7 @@ module Projects
       "entitlement_value_disabled" => "Manual scans are disabled by the effective crawl.manual entitlement."
     }.freeze
 
-    def call(project:, property_page:, property_readiness:, scan_read:, findings_read:, scan_access:,
+    def call(project:, property_page:, property_readiness:, scan_observation:, findings_read:, scan_access:,
       usage:, integration:, activity_page:, generated_at: Time.current)
       property_observation = property_observation(property_page, property_readiness)
       action = scan_action(project, property_readiness, scan_access, usage)
@@ -21,7 +21,7 @@ module Projects
         property_page: property_page,
         property_readiness: property_readiness,
         property_observation: property_observation,
-        scan_observation: scan_observation(project, scan_read),
+        scan_observation: scan_observation,
         findings_observation: findings_observation(project, findings_read),
         usage: usage,
         integration: integration,
@@ -44,20 +44,6 @@ module Projects
         label: "#{readiness.active_count} active",
         detail: "Persisted properties visible to your current project scope.",
         count: readiness.total_count
-      )
-    end
-
-    def scan_observation(project, scan_read)
-      return DashboardObservation.new(
-        kind: "scan", state: "unavailable", detail: "Archived or pending-deletion projects cannot start scans."
-      ) unless project.active?
-      return DashboardObservation.new(
-        kind: "scan", state: "unavailable", detail: "Your current role cannot inspect scan observations."
-      ) unless scan_read.allow?
-
-      DashboardObservation.new(
-        kind: "scan", state: "no_data", label: "No scan yet",
-        detail: "No scan evidence exists yet. Scan execution is introduced by the next workflow phase."
       )
     end
 

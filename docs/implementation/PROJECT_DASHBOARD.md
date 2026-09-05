@@ -22,9 +22,11 @@ cannot be replayed for a sibling project or another tenant.
 ## Observation semantics
 
 Dashboard observation values support `unavailable`, `loading`, `failed`, `stale`, `no_data`, and `ready`.
-Each state has distinct copy. Until the scan and finding aggregates arrive, an authorized active project
-shows `no_data`; archived, pending-deletion, or unauthorized observations show `unavailable`. Later prompts
-can replace the values without changing the stable Turbo targets:
+Each state has distinct copy. The scan card now reads the latest authorized persisted aggregate and maps active,
+terminal-success, canceled and failed outcomes without consulting queue internals. A project with no scan shows
+`no_data`; the finding card remains `no_data` until its owning aggregate arrives. Archived, pending-deletion, or
+unauthorized observations show `unavailable`. Later prompts can update the values without changing the stable
+Turbo targets:
 
 - `project_scan_status_<public-project-slug>`
 - `project_findings_status_<public-project-slug>`

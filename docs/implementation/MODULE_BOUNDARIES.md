@@ -173,11 +173,16 @@ authorization or persist copies of their completed aggregates. The orchestration
 of the provisioned domains depends on Onboarding. Crawl preferences saved during setup are only bounded input;
 Crawling remains the owner of durable crawl policy and quota-backed scan admission.
 
-Crawling owns per-environment policy heads, immutable policy versions and immutable scan-policy snapshots.
+Crawling owns per-environment policy heads, immutable policy versions, immutable scan-policy snapshots and the
+tenant-bound scan aggregate. Scan input/provenance is immutable; explicit locked commands own lifecycle changes,
+and append-only batch checkpoints expose progress without coupling product state to Solid Queue internals.
 It consumes only tenant-safe project/property/environment references, unified `scans.configure` access,
 effective entitlement limits, governed usage weights, the append-only audit sink and Shared HTTP target
 normalization. A stored policy is crawl intent rather than network authorization: later workers must still
 apply the Shared public-address and redirect policy to every request.
+Requested scan persistence requires `scans.run`, reads require `scans.read`, and cooperative user cancellation
+requires `scans.cancel`; admission and worker commands are documented system boundaries with explicit tenant and
+scan identifiers.
 
 Administration owns the durable cross-domain deletion workflow and calls only narrow owning-module cleanup
 APIs. It does not delete another module's rows directly. Each owner validates explicit tenant/resource IDs;

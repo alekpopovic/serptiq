@@ -26,12 +26,15 @@ class CrawlPolicyConstraintsTest < ActiveSupport::TestCase
       Crawling::PolicyVersion.where(id: @version.id).update_all(max_depth: 6)
     end
 
+    scan = create_scan_for(
+      @owner, project: @project, property: @property, environment: @environment
+    )
     snapshot = Crawling::Public.snapshot_for_scan(
       actor_membership: @owner.membership,
       project_id: @project.id,
       property_id: @property.id,
       environment_id: @environment.id,
-      scan_id: SecureRandom.uuid
+      scan_id: scan.id
     )
     assert_database_rejects do
       Crawling::PolicySnapshot.where(id: snapshot.id).delete_all

@@ -36,11 +36,13 @@ object-store failures retain the current stage and retry time; the hourly sweep 
 expired-lease workflows in batches of at most 200. Object reconciliation must succeed before aggregate rows
 can be removed.
 
-The repository currently has resource-owned crawl policies, verification evidence, onboarding drafts,
-properties and projects, and those are physically removed by their owning public APIs. Resource-scoped scan,
-finding, report, API-key and webhook tables arrive in later prompts, so their ordered stages are deliberate
-no-ops until those owners attach cleanup APIs. `EmptyObjectStore` is valid only while the application has no
-private artifact persistence; Prompt 070 must replace the factory adapter when that storage is introduced.
+The repository currently has resource-owned scans and lifecycle checkpoints, crawl policies, verification
+evidence, onboarding drafts, properties and projects. Those records are physically removed by their owning
+public APIs. The scan-and-findings stage deletes crawl-policy snapshots, append-only scan checkpoints and scans
+before policy history so exact foreign keys remain valid throughout cleanup. Finding, report, API-key and
+webhook tables arrive in later prompts, so those portions of the ordered stages remain deliberate no-ops until
+their owners attach cleanup APIs. `EmptyObjectStore` is valid only while the application has no private artifact
+persistence; Prompt 070 must replace the factory adapter when that storage is introduced.
 
 ## Database and retained evidence
 
@@ -50,7 +52,7 @@ workflow holds an unexpired lease in the required stage after its hold. Exact co
 pending resource and every tombstone to its workflow.
 
 Final cleanup keeps append-only audit/outbox evidence and immutable minimized tombstones for Project,
-Property, PropertyEnvironment, DomainVerification and CrawlPolicy identities. Tombstones contain stable UUIDs,
+Property, PropertyEnvironment, DomainVerification, CrawlPolicy and Scan identities. Tombstones contain stable UUIDs,
 the resource hierarchy, workflow UUID and deletion time—not names, origins, credentials, payloads or object
 keys. Audit consistency treats a same-tenant tombstone as the retained target identity after physical removal.
 Billing, security-audit and other regulated history remains under its owning retention class.
@@ -68,7 +70,10 @@ retention periods for audit, billing and security history; export availability a
 expectations; processor/provider deletion duties; litigation or fraud holds; and customer-facing policy text.
 Those decisions vary by jurisdiction and contract and are intentionally not encoded as universal legal advice.
 
-Migration `20260904146000` adds three empty tables, five nullable lifecycle columns, indexes, checks, exact
+Migration `20260904146000` adds three workflow tables, five nullable lifecycle columns, indexes, checks, exact
 foreign keys and trigger functions. It does not rewrite existing rows. Adding/replacing lifecycle checks and
 foreign keys takes ordinary PostgreSQL catalog locks; deploy within the measured DDL lock budget. Rollback was
 exercised on PostgreSQL, but removes all workflow/tombstone history and is safe only before production use.
+Migration `20260904147000` adds scan deletion guards and extends the tombstone allowlist. Its exact policy-
+snapshot foreign key is installed `NOT VALID`: new writes are enforced immediately, while operations must
+validate existing rows after checking for pre-existing orphan snapshots.

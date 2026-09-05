@@ -118,6 +118,12 @@ controllers:
       edit: &configure_crawl_policy { kind: permission, permission: scans.configure, scope: property }
       update: *configure_crawl_policy
       reset: *configure_crawl_policy
+  Crawling::ScansController:
+    source: app/controllers/crawling/scans_controller.rb
+    actions:
+      index: &read_project_scans { kind: permission, permission: scans.read, scope: project }
+      show: *read_project_scans
+      cancel: { kind: permission, permission: scans.cancel, scope: project }
   Tenancy::InvitationAcceptancesController:
     source: app/controllers/tenancy/invitation_acceptances_controller.rb
     actions:
@@ -386,6 +392,17 @@ domain_operations:
   Crawling::Public.snapshot_for_scan:
     kind: context
     reason: authorized_exact_environment_policy_snapshot_for_scan_admission
+  Crawling::Public.create_scan: { kind: permission, permission: scans.run }
+  Crawling::Public.transition_scan:
+    kind: system
+    reason: explicit_tenant_scan_lifecycle_command_from_admission_or_workers
+  Crawling::Public.request_scan_cancellation: { kind: permission, permission: scans.cancel }
+  Crawling::Public.record_scan_progress:
+    kind: system
+    reason: explicit_tenant_batch_checkpoint_from_scan_workers
+  Crawling::Public.scan_page: { kind: permission, permission: scans.read }
+  Crawling::Public.scan_details: { kind: permission, permission: scans.read }
+  Crawling::Public.latest_scan_observation: { kind: permission, permission: scans.read }
   Crawling::Public.compile_glob:
     kind: context
     reason: pure_bounded_glob_compilation

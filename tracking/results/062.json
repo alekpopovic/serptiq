@@ -1,0 +1,25 @@
+{
+  "prompt_id": "062",
+  "title": "Implement the scan aggregate and state machine",
+  "status": "completed",
+  "started_at": "2026-09-05T01:58:43Z",
+  "finished_at": "2026-09-05T02:40:22Z",
+  "summary": "Implemented the tenant-safe scan aggregate and explicit locked state machine with immutable settings and entitlement provenance, append-only lifecycle/progress checkpoints, cooperative cancellation, safe terminal failure categories, project scan history/detail UI, real dashboard observations, policy-snapshot binding, and retention tombstones.",
+  "tests": [
+    {
+      "command": "PASS: db:rollback:primary STEP=1; db:migrate:primary; focused Rails 54 runs/437 assertions; concurrency repeated 3x at 1 run/6 assertions; full Rails 827 runs/6397 assertions; full system 43 runs/230 assertions; bin/quality 14 checks; tracker validate.",
+      "outcome": "passed",
+      "notes": "Recorded through legacy --tests option."
+    }
+  ],
+  "files_changed": [],
+  "migrations": [],
+  "decisions": [],
+  "risks": [
+    "none reported"
+  ],
+  "next_steps": [
+    "follow the dependency graph"
+  ],
+  "commit": null
+}

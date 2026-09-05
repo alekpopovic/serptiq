@@ -99,6 +99,8 @@ Do not pre-populate these reports with fictional implementation or test results.
   composed permission boundary, atomic/idempotent provisioning, plan preview and factual readiness semantics.
 - [`CRAWL_POLICIES.md`](./CRAWL_POLICIES.md) defines exact-origin crawl configuration, global/plan bounds,
   safe path globs, immutable versions and idempotent scan snapshots.
+- [`SCAN_AGGREGATE.md`](./SCAN_AGGREGATE.md) defines immutable scan provenance, the locked lifecycle,
+  idempotent batch progress, append-only checkpoints, authorized reads/cancellation and retention behavior.
 - [`RESOURCE_DELETION.md`](./RESOURCE_DELETION.md) defines exact-target deletion requests, the 30-day hold,
   cooperative cancellation, durable ordered cleanup, object reconciliation and retained tombstones.
 - [`BILLING_PROVIDER_CONTRACT.md`](./BILLING_PROVIDER_CONTRACT.md) defines normalized billing values,

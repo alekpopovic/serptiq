@@ -1,0 +1,47 @@
+<% content_for :title, "Scans · #{@project.name}" %>
+
+<div class="mx-auto max-w-6xl">
+  <%= render "shared/breadcrumbs", items: [
+    { label: "Projects", path: organization_projects_path(Current.organization.slug) },
+    { label: @project.name, path: organization_project_path(Current.organization.slug, @project.slug) },
+    { label: "Scans", path: nil }
+  ] %>
+
+  <header class="mt-6">
+    <p class="so-eyebrow">Persisted observations</p>
+    <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950">Scans</h1>
+    <p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600">Lifecycle and progress come from the scan aggregate. They do not expose queue internals or imply search-engine guarantees.</p>
+  </header>
+
+  <section class="so-card mt-8 p-6" aria-labelledby="scan-history-title">
+    <h2 id="scan-history-title" class="text-xl font-black text-slate-950">Scan history</h2>
+    <% if @scan_page.entries.empty? %>
+      <div class="so-empty-state mt-5">
+        <h3 class="font-bold text-slate-950">No scans requested</h3>
+        <p class="mt-2 text-sm text-slate-600">A scan will appear here only after a real request has been persisted.</p>
+      </div>
+    <% else %>
+      <div class="so-table-wrap mt-5" role="region" aria-label="Project scans" tabindex="0">
+        <table class="so-table">
+          <thead><tr><th scope="col">Requested</th><th scope="col">Type</th><th scope="col">State</th><th scope="col">Progress</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+          <tbody>
+            <% @scan_page.entries.each do |scan| %>
+              <tr>
+                <th scope="row"><time datetime="<%= scan.requested_at.iso8601 %>"><%= l(scan.requested_at, format: :long) %></time></th>
+                <td><%= scan.scan_type.humanize %></td>
+                <td><span class="so-badge <%= scan.status.in?(%w[completed partially_completed]) ? "so-badge-success" : "so-badge-neutral" %>"><%= scan.status.humanize %></span></td>
+                <td><%= number_with_delimiter(scan.counters.urls_processed_count) %> processed</td>
+                <td class="text-right"><%= link_to "View", organization_project_scan_path(Current.organization.slug, @project.slug, scan.id), class: "so-button so-button-secondary so-button-small" %></td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+      <nav class="so-pagination mt-5" aria-label="Scan pages">
+        <% if @scan_page.previous_page %><%= link_to "Previous", organization_project_scans_path(Current.organization.slug, @project.slug, page: @scan_page.previous_page) %><% end %>
+        <span aria-current="page"><%= @scan_page.page %></span>
+        <% if @scan_page.next_page %><%= link_to "Next", organization_project_scans_path(Current.organization.slug, @project.slug, page: @scan_page.next_page) %><% end %>
+      </nav>
+    <% end %>
+  </section>
+</div>

@@ -5,7 +5,7 @@ module Auditing
     self.table_name = "audit_target_tombstones"
 
     TARGET_TYPES = %w[
-      Project Property PropertyEnvironment DomainVerification CrawlPolicy
+      Project Property PropertyEnvironment DomainVerification CrawlPolicy Scan
     ].freeze
 
     validates :organization_id, :deletion_workflow_id, :target_id, :project_id,

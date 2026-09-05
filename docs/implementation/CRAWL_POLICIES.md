@@ -66,13 +66,12 @@ three-or-more consecutive stars are rejected. Accepted text is escaped before
 ## Scan snapshots and estimates
 
 `Crawling::Public.snapshot_for_scan` accepts an authorized exact resource and a
-UUID allocated by the scan aggregate. It locks the policy head and copies the
+UUID already allocated by the scan aggregate. It locks the policy head and copies the
 complete selected configuration into `crawl_policy_snapshots` with its source
 version and SHA-256 digest. A unique `scan_id` makes retries idempotent, while a
 cross-tenant reuse fails closed. Snapshot rows are immutable in both the model
-and PostgreSQL. Prompt 062 owns the `scans` table and will add the scan-side
-relationship; until then, only the Crawling public operation may allocate this
-foundation row.
+and PostgreSQL. Prompt 062 adds the exact scan-side composite foreign key described in
+[`SCAN_AGGREGATE.md`](./SCAN_AGGREGATE.md); a policy snapshot can no longer be created for an arbitrary UUID.
 
 The UI explains a maximum estimate using governed usage weights: one credit per
 HTTP fetch and ten per rendered page in the current catalog. It is an estimate,

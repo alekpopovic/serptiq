@@ -102,7 +102,7 @@ class ProjectsProjectDashboardTest < ActiveSupport::TestCase
       project: project_summary,
       property_page: page,
       property_readiness: readiness,
-      scan_read: decision("scans.read", project: @project),
+      scan_observation: latest_scan_observation,
       findings_read: decision("findings.read", project: @project),
       scan_access: scan_access,
       usage: usage,
@@ -191,6 +191,13 @@ class ProjectsProjectDashboardTest < ActiveSupport::TestCase
     )
   end
 
+  def latest_scan_observation
+    Crawling::Public.latest_scan_observation(
+      actor_membership: @owner.membership,
+      project_id: @project.id
+    )
+  end
+
   def load_dashboard
     Current.entitlement_cache = nil
     page = Properties::Public.property_page(
@@ -205,7 +212,7 @@ class ProjectsProjectDashboardTest < ActiveSupport::TestCase
       project: project_summary,
       property_page: page,
       property_readiness: readiness,
-      scan_read: decision("scans.read", project: @project),
+      scan_observation: latest_scan_observation,
       findings_read: decision("findings.read", project: @project),
       scan_access: scan_access,
       usage: Usage::Public.project_readiness(
