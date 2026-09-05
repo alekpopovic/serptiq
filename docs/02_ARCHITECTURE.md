@@ -381,13 +381,16 @@ expired
 ### Frontier state
 
 ```text
-pending → leased → fetched → parsed → analyzed
-                   ├── rejected
-                   ├── skipped
-                   └── failed
+pending → leased → succeeded
+   ▲         ├── retry/pending
+   │         ├── rejected
+   │         ├── failed
+   └─────────└── exhausted
 ```
 
-Rows are leased in batches with PostgreSQL row locking and lease expiry. A worker crash does not permanently own a URL.
+Rows are leased in fair organization/host/scan rounds with PostgreSQL `FOR UPDATE SKIP LOCKED`, a bounded expiry,
+a worker identity and a one-lease opaque token whose digest is persisted. A worker crash does not permanently own a
+URL. Parsing and analysis are downstream records rather than ambiguous frontier ownership states.
 
 ### URL pipeline
 
@@ -561,6 +564,7 @@ All remain PostgreSQL. Development may consolidate when documented.
 
 High-volume candidates for later partitioning:
 
+- crawl_urls;
 - crawl_fetches;
 - crawl_links;
 - page_snapshots metadata;

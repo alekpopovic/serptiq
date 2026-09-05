@@ -128,6 +128,18 @@ module Searchops
       crawler_global_concurrent_scans: Definition.new(
         "SEARCHOPS_CRAWLER_GLOBAL_CONCURRENT_SCANS", :integer, 1000, 1, 1_000_000, nil, false, nil
       ),
+      crawler_frontier_lease_batch_size: Definition.new(
+        "SEARCHOPS_CRAWLER_FRONTIER_LEASE_BATCH_SIZE", :integer, 50, 1, 500, nil, false, nil
+      ),
+      crawler_frontier_lease_duration: Definition.new(
+        "SEARCHOPS_CRAWLER_FRONTIER_LEASE_DURATION", :duration, "2m", 15, 900, nil, false, nil
+      ),
+      crawler_frontier_max_attempts: Definition.new(
+        "SEARCHOPS_CRAWLER_FRONTIER_MAX_ATTEMPTS", :integer, 3, 1, 10, nil, false, nil
+      ),
+      crawler_frontier_retry_base_delay: Definition.new(
+        "SEARCHOPS_CRAWLER_FRONTIER_RETRY_BASE_DELAY", :duration, "30s", 1, 3600, nil, false, nil
+      ),
       browser_timeout: Definition.new("SEARCHOPS_BROWSER_TIMEOUT", :duration, "45s", 1, 300, nil, false, nil),
       browser_memory_mb: Definition.new("SEARCHOPS_BROWSER_MEMORY_MB", :integer, 1024, 256, 8192, nil, false, nil),
       browser_max_requests: Definition.new("SEARCHOPS_BROWSER_MAX_REQUESTS", :integer, 200, 1, 5000, nil, false, nil),

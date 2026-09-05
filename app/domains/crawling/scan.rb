@@ -26,6 +26,8 @@ module Crawling
 
     has_many :events, class_name: "Crawling::ScanEvent", inverse_of: :scan,
       dependent: :restrict_with_exception
+    has_many :crawl_urls, class_name: "Crawling::CrawlUrl", inverse_of: :scan,
+      dependent: :restrict_with_exception
     has_one :policy_snapshot, class_name: "Crawling::PolicySnapshot", inverse_of: false,
       dependent: :restrict_with_exception
     belongs_to :baseline_scan, class_name: "Crawling::Scan", optional: true

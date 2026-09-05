@@ -221,8 +221,14 @@ class ProjectsRequestTest < ActionDispatch::IntegrationTest
     assert_select "a[href=?]", organization_project_property_environment_path(
       @owner.organization.slug, project.slug, property.id, environment.id
     ), text: "Production"
-    assert_select "button[disabled]", text: "Run baseline scan"
-    assert_includes response.body, "does not enqueue placeholder work"
+    assert_select "form[action=?][method='post']", organization_project_scans_path(
+      @owner.organization.slug, project.slug
+    ) do
+      assert_select "input[type='hidden'][name='scan_request[property_id]'][value=?]", property.id
+      assert_select "input[type='hidden'][name='scan_request[environment_id]'][value=?]", environment.id
+      assert_select "input[type='submit'][value='Run baseline scan']"
+    end
+    assert_includes response.body, "Admission performs a fresh ownership, safety, capacity and quota check"
   end
 
   test "restricted project reader receives explanations without organization usage or integration data" do

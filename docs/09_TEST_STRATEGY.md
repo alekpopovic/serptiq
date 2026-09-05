@@ -352,6 +352,8 @@ Test at representative volumes:
 - bulk retention deletion/partition detach.
 
 Performance tests record dataset, PostgreSQL version, hardware, query plan and percentile distribution. Avoid one-number benchmarks without context.
+The implemented frontier plan fixture and its reproducible environment are recorded in
+[`implementation/CRAWL_FRONTIER.md`](./implementation/CRAWL_FRONTIER.md).
 
 ## 17. CI quality gates
 

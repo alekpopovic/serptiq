@@ -54,6 +54,10 @@ shared:
   crawler_concurrency: 8
   crawler_project_concurrent_scans: 10
   crawler_global_concurrent_scans: 1000
+  crawler_frontier_lease_batch_size: 50
+  crawler_frontier_lease_duration: 2m
+  crawler_frontier_max_attempts: 3
+  crawler_frontier_retry_base_delay: 30s
   browser_timeout: 45s
   browser_memory_mb: 1024
   browser_max_requests: 200
@@ -93,6 +97,10 @@ test:
   crawler_concurrency: 1
   crawler_project_concurrent_scans: 2
   crawler_global_concurrent_scans: 10
+  crawler_frontier_lease_batch_size: 10
+  crawler_frontier_lease_duration: 2m
+  crawler_frontier_max_attempts: 3
+  crawler_frontier_retry_base_delay: 1s
   browser_concurrency: 1
   dns_verification_enabled: false
   http_verification_enabled: false

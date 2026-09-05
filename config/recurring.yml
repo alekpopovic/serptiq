@@ -34,6 +34,11 @@ default: &default
     queue: maintenance
     priority: 50
     schedule: every minute
+  recover_crawl_frontier_leases:
+    command: "Crawling::FrontierLeaseRecoveryJob.perform_later"
+    queue: maintenance
+    priority: 50
+    schedule: every minute
   reconcile_billing_subscriptions:
     command: "Billing::ReconciliationSweepJob.perform_later"
     queue: billing

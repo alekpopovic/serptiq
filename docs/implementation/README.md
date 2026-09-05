@@ -103,6 +103,8 @@ Do not pre-populate these reports with fictional implementation or test results.
   idempotent batch progress, append-only checkpoints, authorized reads/cancellation and retention behavior.
 - [`SCAN_ADMISSION.md`](./SCAN_ADMISSION.md) defines permission-first scan admission, exact verification and
   preflight requirements, weighted quota/capacity transactions and recoverable post-commit dispatch.
+- [`CRAWL_FRONTIER.md`](./CRAWL_FRONTIER.md) defines durable URL identity, fair PostgreSQL row leasing,
+  owner-token completion/retry, stale recovery, incremental progress and scale/partition operations.
 - [`RESOURCE_DELETION.md`](./RESOURCE_DELETION.md) defines exact-target deletion requests, the 30-day hold,
   cooperative cancellation, durable ordered cleanup, object reconciliation and retained tombstones.
 - [`BILLING_PROVIDER_CONTRACT.md`](./BILLING_PROVIDER_CONTRACT.md) defines normalized billing values,

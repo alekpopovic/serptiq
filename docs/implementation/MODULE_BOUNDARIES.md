@@ -183,6 +183,10 @@ admission preflights the exact origin, and workers must re-resolve and revalidat
 Admission requires `scans.run`, reads require `scans.read`, and cooperative user cancellation requires
 `scans.cancel`. User, schedule and release entry points converge on the same idempotent transaction; worker and
 recovery commands are system boundaries carrying explicit tenant and scan identifiers.
+The PostgreSQL crawl frontier is also Crawling-owned. Its public worker boundary accepts bounded normalized URL
+values, leases globally with fair tenant/host/scan rounds, and requires the exact worker plus per-lease opaque
+token for mutation. Frontier batches maintain Scan aggregate counters; other modules do not query or mutate
+`crawl_urls` directly.
 
 Administration owns the durable cross-domain deletion workflow and calls only narrow owning-module cleanup
 APIs. It does not delete another module's rows directly. Each owner validates explicit tenant/resource IDs;

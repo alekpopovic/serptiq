@@ -40,6 +40,38 @@ module Crawling
       SchedulePendingDispatches.new.call
     end
 
+    def frontier_entry(**attributes)
+      FrontierEntry.new(**attributes)
+    end
+
+    def discover_frontier(clock: -> { Time.current }, **attributes)
+      DiscoverFrontier.new(clock: clock).call(**attributes)
+    end
+
+    def lease_frontier(clock: -> { Time.current }, **attributes)
+      LeaseFrontier.new(clock: clock).call(**attributes)
+    end
+
+    def heartbeat_frontier_lease(clock: -> { Time.current }, **attributes)
+      HeartbeatFrontierLease.new(clock: clock).call(**attributes)
+    end
+
+    def finish_frontier_item(clock: -> { Time.current }, **attributes)
+      FinishFrontierItem.new(clock: clock).call(**attributes)
+    end
+
+    def fail_frontier_item(clock: -> { Time.current }, **attributes)
+      FailFrontierItem.new(clock: clock).call(**attributes)
+    end
+
+    def recover_stale_frontier_leases(clock: -> { Time.current }, **attributes)
+      RecoverStaleFrontierLeases.new(clock: clock).call(**attributes)
+    end
+
+    def frontier_progress(clock: -> { Time.current }, **attributes)
+      FrontierProgressQuery.new(clock: clock).call(**attributes)
+    end
+
     def transition_scan(clock: -> { Time.current }, **attributes)
       TransitionScan.new(clock: clock).call(**attributes)
     end

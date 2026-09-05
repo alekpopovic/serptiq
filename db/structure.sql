@@ -537,6 +537,43 @@ $$;
 
 
 --
+-- Name: protect_crawl_url_identity(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.protect_crawl_url_identity() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    IF resource_deletion_stage_authorized(
+      OLD.organization_id, OLD.project_id, OLD.property_id, 'scans_and_findings'
+    ) THEN
+      RETURN OLD;
+    END IF;
+    RAISE EXCEPTION 'crawl URL deletion requires an active lifecycle workflow';
+  END IF;
+
+  IF NEW.organization_id IS DISTINCT FROM OLD.organization_id
+    OR NEW.project_id IS DISTINCT FROM OLD.project_id
+    OR NEW.property_id IS DISTINCT FROM OLD.property_id
+    OR NEW.environment_id IS DISTINCT FROM OLD.environment_id
+    OR NEW.scan_id IS DISTINCT FROM OLD.scan_id
+    OR NEW.normalized_url_digest IS DISTINCT FROM OLD.normalized_url_digest
+    OR NEW.normalization_version IS DISTINCT FROM OLD.normalization_version
+    OR NEW.normalized_url IS DISTINCT FROM OLD.normalized_url
+    OR NEW.host_digest IS DISTINCT FROM OLD.host_digest
+    OR NEW.discovery_source IS DISTINCT FROM OLD.discovery_source
+    OR NEW.discovered_from_id IS DISTINCT FROM OLD.discovered_from_id
+    OR NEW.maximum_attempts IS DISTINCT FROM OLD.maximum_attempts
+    OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+    RAISE EXCEPTION 'crawl URL identity and discovery provenance are immutable';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: protect_domain_verification_binding(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1293,6 +1330,69 @@ CREATE TABLE public.crawl_policy_versions (
     CONSTRAINT crawl_policy_versions_retention CHECK (((artifact_retention_days >= 0) AND (artifact_retention_days <= 36500))),
     CONSTRAINT crawl_policy_versions_user_agent_suffix CHECK (((user_agent_suffix IS NULL) OR ((user_agent_suffix)::text ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$'::text)))
 );
+
+
+--
+-- Name: crawl_urls; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.crawl_urls (
+    id bigint NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_id uuid NOT NULL,
+    environment_id uuid NOT NULL,
+    scan_id uuid NOT NULL,
+    normalized_url_digest character varying(64) NOT NULL,
+    normalization_version integer NOT NULL,
+    normalized_url text NOT NULL,
+    host_digest character varying(64) NOT NULL,
+    depth integer NOT NULL,
+    priority integer DEFAULT 0 NOT NULL,
+    discovery_source character varying(24) NOT NULL,
+    discovered_from_id bigint,
+    state character varying(24) DEFAULT 'pending'::character varying NOT NULL,
+    attempts integer DEFAULT 0 NOT NULL,
+    maximum_attempts integer NOT NULL,
+    leased_by character varying(128),
+    lease_token_digest character varying(64),
+    leased_at timestamp(6) with time zone,
+    lease_expires_at timestamp(6) with time zone,
+    next_attempt_at timestamp(6) with time zone,
+    last_lease_token_digest character varying(64),
+    last_lease_outcome character varying(24),
+    last_failure_category character varying(64),
+    fetch_result_id bigint,
+    http_status_code integer,
+    completed_at timestamp(6) with time zone,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT crawl_urls_attempt_shape CHECK ((((state)::text = ANY ((ARRAY['pending'::character varying, 'leased'::character varying, 'succeeded'::character varying, 'rejected'::character varying, 'failed'::character varying, 'exhausted'::character varying])::text[])) AND ((attempts >= 0) AND (attempts <= maximum_attempts)) AND ((maximum_attempts >= 1) AND (maximum_attempts <= 10)) AND (((state)::text <> 'pending'::text) OR (attempts < maximum_attempts)))),
+    CONSTRAINT crawl_urls_discovery_shape CHECK ((((depth >= 0) AND (depth <= 100)) AND ((priority >= '-1000000'::integer) AND (priority <= 1000000)) AND ((discovery_source)::text = ANY ((ARRAY['seed'::character varying, 'sitemap'::character varying, 'link'::character varying, 'redirect'::character varying, 'canonical'::character varying])::text[])) AND ((discovered_from_id IS NULL) OR (discovered_from_id <> id)))),
+    CONSTRAINT crawl_urls_last_outcome_shape CHECK (((((last_lease_token_digest IS NULL) AND (last_lease_outcome IS NULL)) OR (((last_lease_token_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((last_lease_outcome)::text = ANY ((ARRAY['retry'::character varying, 'stale_recovered'::character varying, 'succeeded'::character varying, 'rejected'::character varying, 'failed'::character varying, 'exhausted'::character varying])::text[])))) AND ((last_failure_category IS NULL) OR ((last_failure_category)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text)))),
+    CONSTRAINT crawl_urls_lifecycle_shape CHECK (((((state)::text = 'pending'::text) AND (leased_by IS NULL) AND (lease_token_digest IS NULL) AND (leased_at IS NULL) AND (lease_expires_at IS NULL) AND (completed_at IS NULL) AND (next_attempt_at IS NOT NULL)) OR (((state)::text = 'leased'::text) AND ((leased_by)::text ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'::text) AND ((lease_token_digest)::text ~ '^[0-9a-f]{64}$'::text) AND (leased_at IS NOT NULL) AND (lease_expires_at > leased_at) AND (completed_at IS NULL) AND (next_attempt_at IS NULL)) OR (((state)::text = ANY ((ARRAY['succeeded'::character varying, 'rejected'::character varying, 'failed'::character varying, 'exhausted'::character varying])::text[])) AND (leased_by IS NULL) AND (lease_token_digest IS NULL) AND (leased_at IS NULL) AND (lease_expires_at IS NULL) AND (next_attempt_at IS NULL) AND (completed_at IS NOT NULL) AND (last_lease_token_digest IS NOT NULL) AND ((last_lease_outcome)::text = (state)::text)))),
+    CONSTRAINT crawl_urls_normalized_identity_shape CHECK (((normalization_version > 0) AND ((normalized_url_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((host_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((octet_length(normalized_url) >= 1) AND (octet_length(normalized_url) <= 8192)))),
+    CONSTRAINT crawl_urls_result_shape CHECK (((((fetch_result_id IS NULL) AND (http_status_code IS NULL)) OR ((fetch_result_id > 0) AND ((http_status_code IS NULL) OR ((http_status_code >= 100) AND (http_status_code <= 599))))) AND (((state)::text <> 'succeeded'::text) OR (fetch_result_id IS NOT NULL))))
+);
+
+
+--
+-- Name: crawl_urls_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.crawl_urls_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: crawl_urls_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.crawl_urls_id_seq OWNED BY public.crawl_urls.id;
 
 
 --
@@ -2679,6 +2779,13 @@ ALTER TABLE ONLY public.authentication_rate_limit_buckets ALTER COLUMN id SET DE
 
 
 --
+-- Name: crawl_urls id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_urls ALTER COLUMN id SET DEFAULT nextval('public.crawl_urls_id_seq'::regclass);
+
+
+--
 -- Name: scan_events id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -2833,6 +2940,14 @@ ALTER TABLE ONLY public.crawl_policy_snapshots
 
 ALTER TABLE ONLY public.crawl_policy_versions
     ADD CONSTRAINT crawl_policy_versions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: crawl_urls crawl_urls_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_urls
+    ADD CONSTRAINT crawl_urls_pkey PRIMARY KEY (id);
 
 
 --
@@ -3508,6 +3623,48 @@ CREATE UNIQUE INDEX index_crawl_policy_versions_on_sequence ON public.crawl_poli
 --
 
 CREATE UNIQUE INDEX index_crawl_policy_versions_on_tenant_identity ON public.crawl_policy_versions USING btree (organization_id, project_id, property_id, environment_id, id);
+
+
+--
+-- Name: index_crawl_urls_on_pending_eligibility; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_urls_on_pending_eligibility ON public.crawl_urls USING btree (next_attempt_at, priority DESC, depth, id) INCLUDE (organization_id, scan_id, host_digest) WHERE ((state)::text = 'pending'::text);
+
+
+--
+-- Name: index_crawl_urls_on_pending_fairness; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_urls_on_pending_fairness ON public.crawl_urls USING btree (organization_id, host_digest, next_attempt_at, priority DESC, depth, id) INCLUDE (scan_id) WHERE ((state)::text = 'pending'::text);
+
+
+--
+-- Name: index_crawl_urls_on_scan_and_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_urls_on_scan_and_id ON public.crawl_urls USING btree (scan_id, id);
+
+
+--
+-- Name: index_crawl_urls_on_scan_url_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_urls_on_scan_url_identity ON public.crawl_urls USING btree (scan_id, normalized_url_digest);
+
+
+--
+-- Name: index_crawl_urls_on_stale_leases; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_urls_on_stale_leases ON public.crawl_urls USING btree (lease_expires_at, id) INCLUDE (organization_id, scan_id) WHERE ((state)::text = 'leased'::text);
+
+
+--
+-- Name: index_crawl_urls_on_tenant_scan_state; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_urls_on_tenant_scan_state ON public.crawl_urls USING btree (organization_id, project_id, scan_id, state, id);
 
 
 --
@@ -4645,6 +4802,13 @@ CREATE TRIGGER crawl_policy_versions_immutable BEFORE DELETE OR UPDATE ON public
 
 
 --
+-- Name: crawl_urls crawl_urls_protect_identity; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER crawl_urls_protect_identity BEFORE DELETE OR UPDATE ON public.crawl_urls FOR EACH ROW EXECUTE FUNCTION public.protect_crawl_url_identity();
+
+
+--
 -- Name: domain_verification_attempts domain_verification_attempts_immutable; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -4944,6 +5108,22 @@ ALTER TABLE ONLY public.crawl_policy_versions
 
 ALTER TABLE ONLY public.crawl_policy_versions
     ADD CONSTRAINT fk_crawl_policy_versions_tenant_actor FOREIGN KEY (organization_id, created_by_membership_id) REFERENCES public.memberships(organization_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_urls fk_crawl_urls_exact_scan; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_urls
+    ADD CONSTRAINT fk_crawl_urls_exact_scan FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id) REFERENCES public.scans(organization_id, project_id, property_id, environment_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_urls fk_crawl_urls_same_scan_discovery; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_urls
+    ADD CONSTRAINT fk_crawl_urls_same_scan_discovery FOREIGN KEY (scan_id, discovered_from_id) REFERENCES public.crawl_urls(scan_id, id) ON DELETE RESTRICT;
 
 
 --
@@ -5849,6 +6029,7 @@ ALTER TABLE ONLY public.website_property_configs
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904149000'),
 ('20260904148000'),
 ('20260904147000'),
 ('20260904146000'),

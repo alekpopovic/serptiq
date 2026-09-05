@@ -224,6 +224,9 @@ jobs:
   Crawling::ScanDispatchSweepJob:
     kind: system
     name: scan_dispatch_sweep
+  Crawling::FrontierLeaseRecoveryJob:
+    kind: system
+    name: frontier_lease_recovery
   Verification::DnsRecheckJob:
     kind: system
     name: dns_verification_recheck
@@ -409,6 +412,30 @@ domain_operations:
   Crawling::Public.schedule_pending_dispatches:
     kind: system
     reason: bounded_scan_dispatch_recovery
+  Crawling::Public.frontier_entry:
+    kind: context
+    reason: pure_bounded_normalized_frontier_input
+  Crawling::Public.discover_frontier:
+    kind: system
+    reason: exact_tenant_scan_frontier_discovery
+  Crawling::Public.lease_frontier:
+    kind: system
+    reason: global_fair_skip_locked_worker_leasing
+  Crawling::Public.heartbeat_frontier_lease:
+    kind: system
+    reason: exact_owner_token_lease_extension
+  Crawling::Public.finish_frontier_item:
+    kind: system
+    reason: exact_owner_token_frontier_completion
+  Crawling::Public.fail_frontier_item:
+    kind: system
+    reason: exact_owner_token_retry_or_terminal_failure
+  Crawling::Public.recover_stale_frontier_leases:
+    kind: system
+    reason: bounded_skip_locked_stale_lease_recovery
+  Crawling::Public.frontier_progress:
+    kind: context
+    reason: exact_tenant_scan_aggregate_counter_projection
   Crawling::Public.transition_scan:
     kind: system
     reason: explicit_tenant_scan_lifecycle_command_from_admission_or_workers

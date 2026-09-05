@@ -62,6 +62,9 @@ lifecycle transition and progress checkpoint appends a monotonic `scan_events` r
 snapshot. Those rows support bounded detail reads and stable Turbo targets without reading Solid Queue tables.
 The aggregate emits audit and transactional outbox evidence for request, start, cancellation and terminal
 completion, as well as the intermediate lifecycle checkpoints.
+The crawl frontier added in Prompt 064 applies equivalent additive checkpoints in the same transaction as each
+discovery, lease, completion or recovery batch. Customer progress therefore remains an indexed Scan read and does
+not aggregate the high-volume frontier table.
 
 ## Read and retention behavior
 

@@ -47,6 +47,23 @@ class AdministrationResourceDeletionWorkflowTest < ActiveSupport::TestCase
     @scan = create_scan_for(
       @owner, project: @project, property: @property, environment: @environment
     )
+    frontier_entry = Crawling::FrontierEntry.new(
+      url: "https://delete.example.com/",
+      depth: 0,
+      discovery_source: "seed"
+    )
+    @crawl_url = Crawling::CrawlUrl.create!(
+      organization_id: @scan.organization_id,
+      project_id: @scan.project_id,
+      property_id: @scan.property_id,
+      environment_id: @scan.environment_id,
+      scan_id: @scan.id,
+      **frontier_entry.to_h,
+      state: "pending",
+      attempts: 0,
+      maximum_attempts: 3,
+      next_attempt_at: Time.current
+    )
   end
 
   test "project hold stops admission, signals prior work and deletes in durable stage order" do
@@ -87,6 +104,7 @@ class AdministrationResourceDeletionWorkflowTest < ActiveSupport::TestCase
     refute Properties::Property.exists?(@property.id)
     refute Properties::Environment.exists?(@environment.id)
     assert_empty Crawling::PolicySet.where(project_id: @project.id)
+    refute Crawling::CrawlUrl.exists?(@crawl_url.id)
     refute Crawling::Scan.exists?(@scan.id)
     assert_equal [ [ "organizations/#{@owner.organization.id}/projects/#{@project.id}/", nil ] ],
       store.delete_calls
