@@ -70,5 +70,41 @@ services:
     volumes:
       - .:/rails
 
+  render:
+    profiles: ["workers"]
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+      args:
+        RUBY_VERSION: "4.0.5"
+        CHROMIUM_PACKAGE_VERSION: "152.0.7977.75-1~deb13u1"
+    image: searchops:development-ruby-4.0.5
+    command: ["./bin/jobs"]
+    environment:
+      CABLE_DATABASE_URL: postgresql://searchops@db:5432/searchops_development_cable
+      CACHE_DATABASE_URL: postgresql://searchops@db:5432/searchops_development_cache
+      DATABASE_URL: postgresql://searchops@db:5432/searchops_development
+      QUEUE_DATABASE_URL: postgresql://searchops@db:5432/searchops_development_queue
+      RAILS_ENV: development
+      SEARCHOPS_JOB_PROCESSES: "1"
+      SEARCHOPS_JOB_THREADS: "1"
+      SEARCHOPS_PROCESS_ROLE: worker_render
+    depends_on:
+      db:
+        condition: service_healthy
+    init: true
+    cap_drop: ["ALL"]
+    # Chromium retains its own sandbox. Prompt 076 replaces this Docker syscall
+    # exception with the repository's hardened render-runtime seccomp profile.
+    security_opt: ["no-new-privileges:true", "seccomp=unconfined"]
+    pids_limit: 256
+    mem_limit: 1024m
+    shm_size: 256m
+    tmpfs:
+      - /tmp:rw,noexec,nosuid,size=256m
+    volumes:
+      - .:/rails
+    stop_grace_period: 45s
+
 volumes:
   searchops_postgres:

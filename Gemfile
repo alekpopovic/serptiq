@@ -22,6 +22,7 @@ gem "tailwindcss-rails"
 gem "jbuilder"
 gem "addressable", "~> 2.9"
 gem "aws-sdk-s3", "~> 1.0", require: false
+gem "ferrum", "0.18.0"
 
 # Use Active Model has_secure_password [https://guides.rubyonrails.org/active_model_basics.html#securepassword]
 # gem "bcrypt", "~> 3.1.7"

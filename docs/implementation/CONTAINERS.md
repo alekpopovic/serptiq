@@ -37,10 +37,28 @@ docker compose --profile test run --rm test ruby --version
 
 The test entrypoint applies all PostgreSQL schemas before executing the supplied
 command. It never calls an external provider; default tests use fakes and
-sanitized fixtures. The development image includes distribution-matched Chromium
-and ChromeDriver packages, and the shared system-test driver uses container-safe
-headless sandbox/shared-memory flags so browser tests are reproducible in this
-profile.
+sanitized fixtures. The development image includes exact-pinned Chromium and
+`chromium-sandbox` packages. Ferrum talks directly to CDP, so ChromeDriver is
+not installed. The real rendering test uses a local scripted fixture. Its
+disposable generic test container passes Chromium's test-only `--no-sandbox`
+flag because Docker's default seccomp profile blocks the user-namespace
+syscall; application code and the dedicated render runtime never pass that
+flag.
+
+The browser worker does not start by default. Run the isolated queue role with:
+
+```bash
+docker compose --profile workers up --build render
+```
+
+It has no published ports, polls only `render`, runs one job thread, and carries
+explicit PID, memory, shared-memory and temporary-filesystem bounds. The
+browser's own sandbox remains enabled. The baseline worker temporarily relaxes
+Docker's default seccomp filter so Chromium can create its user namespace while
+retaining a non-root UID, no-new-privileges and an empty capability set; Prompt
+076 replaces that exception with the hardened render-runtime syscall profile.
+The production Dockerfile similarly exposes Chromium only from the explicit
+`render` build target; its default `final` target remains browser-free.
 
 ## Stop and reset
 

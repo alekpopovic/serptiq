@@ -737,6 +737,40 @@ $$;
 
 
 --
+-- Name: protect_crawl_page_render_rows(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.protect_crawl_page_render_rows() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    IF resource_deletion_stage_authorized(
+      OLD.organization_id, OLD.project_id, OLD.property_id, 'scans_and_findings'
+    ) THEN RETURN OLD; END IF;
+    RAISE EXCEPTION 'crawl page render deletion requires an active lifecycle workflow';
+  END IF;
+  IF NEW.organization_id IS DISTINCT FROM OLD.organization_id
+    OR NEW.project_id IS DISTINCT FROM OLD.project_id
+    OR NEW.property_id IS DISTINCT FROM OLD.property_id
+    OR NEW.environment_id IS DISTINCT FROM OLD.environment_id
+    OR NEW.scan_id IS DISTINCT FROM OLD.scan_id
+    OR NEW.page_snapshot_id IS DISTINCT FROM OLD.page_snapshot_id
+    OR NEW.page_fact_id IS DISTINCT FROM OLD.page_fact_id
+    OR NEW.requested_url IS DISTINCT FROM OLD.requested_url
+    OR NEW.requested_url_digest IS DISTINCT FROM OLD.requested_url_digest
+    OR NEW.screenshot_enabled IS DISTINCT FROM OLD.screenshot_enabled
+    OR NEW.maximum_attempts IS DISTINCT FROM OLD.maximum_attempts
+    OR OLD.state IN ('completed', 'failed', 'canceled', 'skipped')
+    OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+    RAISE EXCEPTION 'crawl page render identity or terminal result is immutable';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: protect_crawl_page_snapshot_identity(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -781,6 +815,38 @@ BEGIN
     RAISE EXCEPTION 'crawl policy deletion requires an active lifecycle workflow';
   END IF;
   RETURN OLD;
+END;
+$$;
+
+
+--
+-- Name: protect_crawl_rendered_link_rows(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.protect_crawl_rendered_link_rows() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF TG_OP = 'DELETE' AND resource_deletion_stage_authorized(
+    OLD.organization_id, OLD.project_id, OLD.property_id, 'scans_and_findings'
+  ) THEN RETURN OLD; END IF;
+  RAISE EXCEPTION 'crawl rendered links are immutable outside an active lifecycle workflow';
+END;
+$$;
+
+
+--
+-- Name: protect_crawl_rendered_page_fact_rows(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.protect_crawl_rendered_page_fact_rows() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF TG_OP = 'DELETE' AND resource_deletion_stage_authorized(
+    OLD.organization_id, OLD.project_id, OLD.property_id, 'scans_and_findings'
+  ) THEN RETURN OLD; END IF;
+  RAISE EXCEPTION 'crawl rendered page facts are immutable outside an active lifecycle workflow';
 END;
 $$;
 
@@ -1925,6 +1991,76 @@ ALTER SEQUENCE public.crawl_page_facts_id_seq OWNED BY public.crawl_page_facts.i
 
 
 --
+-- Name: crawl_page_renders; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.crawl_page_renders (
+    id bigint NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_id uuid NOT NULL,
+    environment_id uuid NOT NULL,
+    scan_id uuid NOT NULL,
+    page_snapshot_id bigint NOT NULL,
+    page_fact_id bigint NOT NULL,
+    state character varying(24) DEFAULT 'pending'::character varying NOT NULL,
+    attempts integer DEFAULT 0 NOT NULL,
+    maximum_attempts integer DEFAULT 3 NOT NULL,
+    worker_id character varying(128),
+    lease_token_digest character varying(64),
+    started_at timestamp(6) with time zone,
+    lease_expires_at timestamp(6) with time zone,
+    next_attempt_at timestamp(6) with time zone,
+    finished_at timestamp(6) with time zone,
+    failure_category character varying(64),
+    screenshot_enabled boolean DEFAULT false NOT NULL,
+    requested_url text NOT NULL,
+    requested_url_digest character varying(64) NOT NULL,
+    final_url text,
+    final_url_digest character varying(64),
+    rendered_dom_artifact_id uuid,
+    screenshot_artifact_id uuid,
+    rendered_dom_sha256 character varying(64),
+    renderer_version character varying(64),
+    ferrum_version character varying(64),
+    browser_product character varying(128),
+    browser_revision character varying(128),
+    protocol_version character varying(64),
+    duration_ms integer,
+    request_count integer,
+    response_bytes bigint,
+    console_messages jsonb DEFAULT '[]'::jsonb NOT NULL,
+    page_errors jsonb DEFAULT '[]'::jsonb NOT NULL,
+    network_summary jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT crawl_page_renders_bounded_json CHECK (((jsonb_typeof(console_messages) = 'array'::text) AND (jsonb_array_length(console_messages) <= 100) AND (jsonb_typeof(page_errors) = 'array'::text) AND (jsonb_array_length(page_errors) <= 100) AND (jsonb_typeof(network_summary) = 'object'::text) AND (pg_column_size(console_messages) <= 32768) AND (pg_column_size(page_errors) <= 32768) AND (pg_column_size(network_summary) <= 65536))),
+    CONSTRAINT crawl_page_renders_identity_shape CHECK ((((state)::text = ANY ((ARRAY['pending'::character varying, 'processing'::character varying, 'completed'::character varying, 'failed'::character varying, 'canceled'::character varying, 'skipped'::character varying])::text[])) AND ((attempts >= 0) AND (attempts <= maximum_attempts)) AND ((maximum_attempts >= 1) AND (maximum_attempts <= 10)) AND ((octet_length(requested_url) >= 1) AND (octet_length(requested_url) <= 8192)) AND ((requested_url_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((failure_category IS NULL) OR ((failure_category)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text)))),
+    CONSTRAINT crawl_page_renders_lifecycle_shape CHECK (((((state)::text = 'pending'::text) AND (worker_id IS NULL) AND (lease_token_digest IS NULL) AND (started_at IS NULL) AND (lease_expires_at IS NULL) AND (next_attempt_at IS NOT NULL) AND (finished_at IS NULL)) OR (((state)::text = 'processing'::text) AND ((worker_id)::text ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'::text) AND ((lease_token_digest)::text ~ '^[0-9a-f]{64}$'::text) AND (started_at IS NOT NULL) AND (lease_expires_at > started_at) AND (next_attempt_at IS NULL) AND (finished_at IS NULL)) OR (((state)::text = ANY ((ARRAY['completed'::character varying, 'failed'::character varying, 'canceled'::character varying, 'skipped'::character varying])::text[])) AND (worker_id IS NULL) AND (lease_token_digest IS NULL) AND (started_at IS NULL) AND (lease_expires_at IS NULL) AND (next_attempt_at IS NULL) AND (finished_at IS NOT NULL)))),
+    CONSTRAINT crawl_page_renders_result_shape CHECK (((((state)::text = 'completed'::text) AND (final_url IS NOT NULL) AND ((octet_length(final_url) >= 1) AND (octet_length(final_url) <= 8192)) AND ((final_url_digest)::text ~ '^[0-9a-f]{64}$'::text) AND (rendered_dom_artifact_id IS NOT NULL) AND ((rendered_dom_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND ((renderer_version)::text ~ '^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$'::text) AND ((ferrum_version)::text ~ '^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$'::text) AND (browser_product IS NOT NULL) AND ((octet_length((browser_product)::text) >= 1) AND (octet_length((browser_product)::text) <= 128)) AND (browser_revision IS NOT NULL) AND ((octet_length((browser_revision)::text) >= 1) AND (octet_length((browser_revision)::text) <= 128)) AND ((protocol_version)::text ~ '^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$'::text) AND ((duration_ms >= 0) AND (duration_ms <= 300000)) AND ((request_count >= 1) AND (request_count <= 5000)) AND ((response_bytes >= 0) AND (response_bytes <= 524288000)) AND ((screenshot_enabled AND (screenshot_artifact_id IS NOT NULL)) OR ((NOT screenshot_enabled) AND (screenshot_artifact_id IS NULL)))) OR (((state)::text <> 'completed'::text) AND (final_url IS NULL) AND (final_url_digest IS NULL) AND (rendered_dom_artifact_id IS NULL) AND (screenshot_artifact_id IS NULL) AND (rendered_dom_sha256 IS NULL) AND (renderer_version IS NULL) AND (ferrum_version IS NULL) AND (browser_product IS NULL) AND (browser_revision IS NULL) AND (protocol_version IS NULL) AND (duration_ms IS NULL) AND (request_count IS NULL) AND (response_bytes IS NULL))))
+);
+
+
+--
+-- Name: crawl_page_renders_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.crawl_page_renders_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: crawl_page_renders_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.crawl_page_renders_id_seq OWNED BY public.crawl_page_renders.id;
+
+
+--
 -- Name: crawl_page_snapshots; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2085,6 +2221,99 @@ CREATE TABLE public.crawl_pressure_states (
     CONSTRAINT crawl_pressure_states_identity_shape CHECK ((((scope_type)::text = ANY (ARRAY[('global'::character varying)::text, ('organization'::character varying)::text, ('scan'::character varying)::text, ('host'::character varying)::text])) AND ((scope_key_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((host_key_digest IS NULL) OR ((host_key_digest)::text ~ '^[0-9a-f]{64}$'::text)))),
     CONSTRAINT crawl_pressure_states_scope_shape CHECK (((((scope_type)::text = 'global'::text) AND (organization_id IS NULL) AND (project_id IS NULL) AND (property_id IS NULL) AND (environment_id IS NULL) AND (scan_id IS NULL) AND (host_key_digest IS NULL)) OR (((scope_type)::text = 'organization'::text) AND (organization_id IS NOT NULL) AND (project_id IS NULL) AND (property_id IS NULL) AND (environment_id IS NULL) AND (scan_id IS NULL) AND (host_key_digest IS NULL)) OR (((scope_type)::text = 'scan'::text) AND (organization_id IS NOT NULL) AND (project_id IS NOT NULL) AND (property_id IS NOT NULL) AND (environment_id IS NOT NULL) AND (scan_id IS NOT NULL) AND (host_key_digest IS NULL)) OR (((scope_type)::text = 'host'::text) AND (organization_id IS NULL) AND (project_id IS NULL) AND (property_id IS NULL) AND (environment_id IS NULL) AND (scan_id IS NULL) AND (host_key_digest IS NOT NULL))))
 );
+
+
+--
+-- Name: crawl_rendered_links; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.crawl_rendered_links (
+    id bigint NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_id uuid NOT NULL,
+    environment_id uuid NOT NULL,
+    scan_id uuid NOT NULL,
+    page_render_id bigint NOT NULL,
+    destination_url text NOT NULL,
+    destination_url_digest character varying(64) NOT NULL,
+    destination_host_digest character varying(64) NOT NULL,
+    normalization_version integer NOT NULL,
+    classification character varying(16) NOT NULL,
+    scope_status character varying(16) NOT NULL,
+    scope_reason character varying(64) NOT NULL,
+    source_locator character varying(512) NOT NULL,
+    rel_tokens character varying[] DEFAULT '{}'::character varying[] NOT NULL,
+    anchor_summary text,
+    anchor_digest character varying(64) NOT NULL,
+    occurrence_count integer NOT NULL,
+    nofollow_count integer NOT NULL,
+    edge_digest character varying(64) NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT crawl_rendered_links_shape CHECK ((((octet_length(destination_url) >= 1) AND (octet_length(destination_url) <= 8192)) AND ((destination_url_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((destination_host_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((edge_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((anchor_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((normalization_version >= 1) AND (normalization_version <= 100)) AND ((classification)::text = ANY ((ARRAY['internal'::character varying, 'external'::character varying])::text[])) AND ((scope_status)::text = ANY ((ARRAY['allowed'::character varying, 'denied'::character varying])::text[])) AND ((scope_reason)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text) AND ((octet_length((source_locator)::text) >= 1) AND (octet_length((source_locator)::text) <= 512)) AND ((anchor_summary IS NULL) OR (octet_length(anchor_summary) <= 2048)) AND (cardinality(rel_tokens) <= 20) AND (pg_column_size(rel_tokens) <= 2048) AND (array_position(rel_tokens, NULL::character varying) IS NULL) AND ((occurrence_count >= 1) AND (occurrence_count <= 5000)) AND ((nofollow_count >= 0) AND (nofollow_count <= occurrence_count))))
+);
+
+
+--
+-- Name: crawl_rendered_links_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.crawl_rendered_links_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: crawl_rendered_links_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.crawl_rendered_links_id_seq OWNED BY public.crawl_rendered_links.id;
+
+
+--
+-- Name: crawl_rendered_page_facts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.crawl_rendered_page_facts (
+    id bigint NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_id uuid NOT NULL,
+    environment_id uuid NOT NULL,
+    scan_id uuid NOT NULL,
+    page_render_id bigint NOT NULL,
+    parser_version character varying(64) NOT NULL,
+    content_sha256 character varying(64) NOT NULL,
+    fact_digest character varying(64) NOT NULL,
+    parse_status character varying(24) NOT NULL,
+    facts jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT crawl_rendered_page_facts_shape CHECK ((((parser_version)::text ~ '^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$'::text) AND ((content_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND ((fact_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((parse_status)::text = ANY ((ARRAY['parsed'::character varying, 'malformed'::character varying])::text[])) AND (jsonb_typeof(facts) = 'object'::text) AND (pg_column_size(facts) <= 786432)))
+);
+
+
+--
+-- Name: crawl_rendered_page_facts_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.crawl_rendered_page_facts_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: crawl_rendered_page_facts_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.crawl_rendered_page_facts_id_seq OWNED BY public.crawl_rendered_page_facts.id;
 
 
 --
@@ -3850,10 +4079,31 @@ ALTER TABLE ONLY public.crawl_page_facts ALTER COLUMN id SET DEFAULT nextval('pu
 
 
 --
+-- Name: crawl_page_renders id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_page_renders ALTER COLUMN id SET DEFAULT nextval('public.crawl_page_renders_id_seq'::regclass);
+
+
+--
 -- Name: crawl_page_snapshots id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.crawl_page_snapshots ALTER COLUMN id SET DEFAULT nextval('public.crawl_page_snapshots_id_seq'::regclass);
+
+
+--
+-- Name: crawl_rendered_links id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_rendered_links ALTER COLUMN id SET DEFAULT nextval('public.crawl_rendered_links_id_seq'::regclass);
+
+
+--
+-- Name: crawl_rendered_page_facts id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_rendered_page_facts ALTER COLUMN id SET DEFAULT nextval('public.crawl_rendered_page_facts_id_seq'::regclass);
 
 
 --
@@ -4067,6 +4317,14 @@ ALTER TABLE ONLY public.crawl_page_facts
 
 
 --
+-- Name: crawl_page_renders crawl_page_renders_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_page_renders
+    ADD CONSTRAINT crawl_page_renders_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: crawl_page_snapshots crawl_page_snapshots_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4104,6 +4362,22 @@ ALTER TABLE ONLY public.crawl_policy_versions
 
 ALTER TABLE ONLY public.crawl_pressure_states
     ADD CONSTRAINT crawl_pressure_states_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: crawl_rendered_links crawl_rendered_links_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_rendered_links
+    ADD CONSTRAINT crawl_rendered_links_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: crawl_rendered_page_facts crawl_rendered_page_facts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_rendered_page_facts
+    ADD CONSTRAINT crawl_rendered_page_facts_pkey PRIMARY KEY (id);
 
 
 --
@@ -4959,6 +5233,13 @@ CREATE INDEX index_crawl_links_on_tenant_scan_classification ON public.crawl_lin
 
 
 --
+-- Name: index_crawl_page_facts_on_exact_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_page_facts_on_exact_identity ON public.crawl_page_facts USING btree (organization_id, project_id, property_id, environment_id, scan_id, id);
+
+
+--
 -- Name: index_crawl_page_facts_on_page_snapshot_id; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4977,6 +5258,41 @@ CREATE INDEX index_crawl_page_facts_on_scan_title ON public.crawl_page_facts USI
 --
 
 CREATE INDEX index_crawl_page_facts_on_tenant_scan_status ON public.crawl_page_facts USING btree (organization_id, scan_id, parse_status, id);
+
+
+--
+-- Name: index_crawl_page_renders_on_exact_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_page_renders_on_exact_identity ON public.crawl_page_renders USING btree (organization_id, project_id, property_id, environment_id, scan_id, id);
+
+
+--
+-- Name: index_crawl_page_renders_on_page_snapshot_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_page_renders_on_page_snapshot_id ON public.crawl_page_renders USING btree (page_snapshot_id);
+
+
+--
+-- Name: index_crawl_page_renders_on_pending; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_page_renders_on_pending ON public.crawl_page_renders USING btree (state, next_attempt_at, id) WHERE ((state)::text = 'pending'::text);
+
+
+--
+-- Name: index_crawl_page_renders_on_recovery; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_page_renders_on_recovery ON public.crawl_page_renders USING btree (state, lease_expires_at, id) WHERE ((state)::text = 'processing'::text);
+
+
+--
+-- Name: index_crawl_page_renders_on_tenant_scan_state; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_page_renders_on_tenant_scan_state ON public.crawl_page_renders USING btree (organization_id, scan_id, state, id);
 
 
 --
@@ -5089,6 +5405,34 @@ CREATE UNIQUE INDEX index_crawl_pressure_states_on_scope_key ON public.crawl_pre
 --
 
 CREATE INDEX index_crawl_pressure_states_on_tenant_scope ON public.crawl_pressure_states USING btree (organization_id, scope_type) WHERE (organization_id IS NOT NULL);
+
+
+--
+-- Name: index_crawl_rendered_facts_on_tenant_scan_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_rendered_facts_on_tenant_scan_status ON public.crawl_rendered_page_facts USING btree (organization_id, scan_id, parse_status, id);
+
+
+--
+-- Name: index_crawl_rendered_links_on_render_destination; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_rendered_links_on_render_destination ON public.crawl_rendered_links USING btree (page_render_id, destination_url_digest);
+
+
+--
+-- Name: index_crawl_rendered_links_on_tenant_scan_classification; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_rendered_links_on_tenant_scan_classification ON public.crawl_rendered_links USING btree (organization_id, scan_id, classification, id);
+
+
+--
+-- Name: index_crawl_rendered_page_facts_on_page_render_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_rendered_page_facts_on_page_render_id ON public.crawl_rendered_page_facts USING btree (page_render_id);
 
 
 --
@@ -6464,6 +6808,13 @@ CREATE TRIGGER crawl_page_facts_immutable BEFORE DELETE OR UPDATE ON public.craw
 
 
 --
+-- Name: crawl_page_renders crawl_page_renders_protect_rows; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER crawl_page_renders_protect_rows BEFORE DELETE OR UPDATE ON public.crawl_page_renders FOR EACH ROW EXECUTE FUNCTION public.protect_crawl_page_render_rows();
+
+
+--
 -- Name: crawl_page_snapshots crawl_page_snapshots_protect_identity; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -6489,6 +6840,20 @@ CREATE TRIGGER crawl_policy_snapshots_immutable BEFORE DELETE OR UPDATE ON publi
 --
 
 CREATE TRIGGER crawl_policy_versions_immutable BEFORE DELETE OR UPDATE ON public.crawl_policy_versions FOR EACH ROW EXECUTE FUNCTION public.reject_crawl_policy_immutable_change();
+
+
+--
+-- Name: crawl_rendered_links crawl_rendered_links_immutable; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER crawl_rendered_links_immutable BEFORE DELETE OR UPDATE ON public.crawl_rendered_links FOR EACH ROW EXECUTE FUNCTION public.protect_crawl_rendered_link_rows();
+
+
+--
+-- Name: crawl_rendered_page_facts crawl_rendered_page_facts_immutable; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER crawl_rendered_page_facts_immutable BEFORE DELETE OR UPDATE ON public.crawl_rendered_page_facts FOR EACH ROW EXECUTE FUNCTION public.protect_crawl_rendered_page_fact_rows();
 
 
 --
@@ -6914,6 +7279,46 @@ ALTER TABLE ONLY public.crawl_page_facts
 
 
 --
+-- Name: crawl_page_renders fk_crawl_page_renders_exact_dom_artifact; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_page_renders
+    ADD CONSTRAINT fk_crawl_page_renders_exact_dom_artifact FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id, rendered_dom_artifact_id) REFERENCES public.artifacts(organization_id, project_id, property_id, environment_id, scan_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_page_renders fk_crawl_page_renders_exact_scan; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_page_renders
+    ADD CONSTRAINT fk_crawl_page_renders_exact_scan FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id) REFERENCES public.scans(organization_id, project_id, property_id, environment_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_page_renders fk_crawl_page_renders_exact_screenshot_artifact; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_page_renders
+    ADD CONSTRAINT fk_crawl_page_renders_exact_screenshot_artifact FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id, screenshot_artifact_id) REFERENCES public.artifacts(organization_id, project_id, property_id, environment_id, scan_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_page_renders fk_crawl_page_renders_exact_snapshot; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_page_renders
+    ADD CONSTRAINT fk_crawl_page_renders_exact_snapshot FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id, page_snapshot_id) REFERENCES public.crawl_page_snapshots(organization_id, project_id, property_id, environment_id, scan_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_page_renders fk_crawl_page_renders_exact_source_fact; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_page_renders
+    ADD CONSTRAINT fk_crawl_page_renders_exact_source_fact FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id, page_fact_id) REFERENCES public.crawl_page_facts(organization_id, project_id, property_id, environment_id, scan_id, id) ON DELETE RESTRICT;
+
+
+--
 -- Name: crawl_page_snapshots fk_crawl_page_snapshots_exact_artifact; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6999,6 +7404,22 @@ ALTER TABLE ONLY public.crawl_pressure_states
 
 ALTER TABLE ONLY public.crawl_pressure_states
     ADD CONSTRAINT fk_crawl_pressure_states_exact_scan FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id) REFERENCES public.scans(organization_id, project_id, property_id, environment_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_rendered_page_facts fk_crawl_rendered_facts_exact_render; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_rendered_page_facts
+    ADD CONSTRAINT fk_crawl_rendered_facts_exact_render FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id, page_render_id) REFERENCES public.crawl_page_renders(organization_id, project_id, property_id, environment_id, scan_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_rendered_links fk_crawl_rendered_links_exact_render; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_rendered_links
+    ADD CONSTRAINT fk_crawl_rendered_links_exact_render FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id, page_render_id) REFERENCES public.crawl_page_renders(organization_id, project_id, property_id, environment_id, scan_id, id) ON DELETE RESTRICT;
 
 
 --
@@ -8096,6 +8517,7 @@ ALTER TABLE ONLY public.website_property_configs
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904158000'),
 ('20260904157000'),
 ('20260904156000'),
 ('20260904155000'),

@@ -46,12 +46,14 @@ module Crawling
     def durable_work_remains?(scan)
       CrawlUrl.where(scan_id: scan.id, state: %w[pending leased]).exists? ||
         PageSnapshot.where(scan_id: scan.id, state: %w[pending processing]).exists? ||
+        PageRender.where(scan_id: scan.id, state: %w[pending processing]).exists? ||
         StaticCrawlExecution.where(scan_id: scan.id, state: %w[pending initializing]).exists?
     end
 
     def partial?(scan)
       scan.urls_failed_count.positive? || scan.urls_skipped_count.positive? ||
         PageSnapshot.where(scan_id: scan.id, state: %w[failed skipped]).exists? ||
+        PageRender.where(scan_id: scan.id, state: %w[failed skipped]).exists? ||
         SitemapDiscovery.where(scan_id: scan.id, status: %w[failed partially_completed]).exists? ||
         StaticCrawlExecution.where(scan_id: scan.id, state: "failed").exists?
     end

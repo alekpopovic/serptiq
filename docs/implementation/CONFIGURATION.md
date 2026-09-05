@@ -59,7 +59,7 @@ secret-management workflow; do not copy literal documentation values.
 | Encryption | active key version identifier | primary key ring, deterministic key and derivation salt |
 | Crawler limits | URL and concurrency bounds; per-project/global scan caps; frontier lease batch/duration, persisted attempt cap and retry base delay; global/organization/host fetch concurrency and rates, permit lifetime, maximum scan duration, host backoff bounds and throttle poll interval; bounded HTTP DNS/connect/TLS/header/body/total deadlines, header/compressed/decoded bytes, decompression ratio, redirects and idempotent retry/backoff; dedicated robots DNS/open/read deadlines, 500 KiB-or-higher response cap and at-most-five redirects; sitemap well-known switch plus DNS/open/read, compressed/decompressed byte, document/entry, XML/index depth and redirect limits; protected crawl/render worker egress-policy attestation | none |
 | Ownership verification | DNS/HTTP enable flags; DNS answer, chain, byte and timeout limits; HTTP DNS/open/read timeouts, response cap and redirect cap | proof derivation uses the application key ring; no provider credential |
-| Browser limits | wall-time, memory, request-count and concurrency bounds | none |
+| Browser limits | wall-time and longer durable lease; memory, request-count, encoded-response-byte and concurrency bounds; optional screenshot capture | none |
 | Provider integrations | Search Console, PageSpeed and CrUX enable flags | Google API key; user/provider tokens encrypted at rest |
 | Email | delivery method, sender, SMTP host/port/user | SMTP password |
 | Slack | enable flag and client ID | client and signing secrets; installations encrypted at rest |
@@ -91,6 +91,11 @@ the complete HTTP fetch timeout and maximum host backoff to be at least its
 base. Higher customer-derived allowances never relax configured global or host
 safety caps. The full coordination contract is in
 [`CRAWL_PRESSURE_CONTROLS.md`](./CRAWL_PRESSURE_CONTROLS.md).
+
+Browser validation likewise requires `SEARCHOPS_BROWSER_LEASE_DURATION` to
+exceed `SEARCHOPS_BROWSER_TIMEOUT`. These operator-only settings never expose
+browser flags to customers. The full isolation and recovery contract is in
+[`JAVASCRIPT_RENDERING.md`](./JAVASCRIPT_RENDERING.md).
 
 ## Redaction contract
 

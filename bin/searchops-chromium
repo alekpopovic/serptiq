@@ -1,0 +1,11 @@
+#!/bin/sh
+set -eu
+
+# Chromium receives only this fixed allowlist; Rails/provider secrets never enter
+# the hostile page's browser process environment.
+exec env -i \
+  PATH=/usr/bin:/bin \
+  LANG=C.UTF-8 \
+  LC_ALL=C.UTF-8 \
+  TMPDIR=/tmp \
+  /usr/bin/chromium "$@"

@@ -4,7 +4,8 @@ module Crawling
   class RecoverStaticCrawlWork
     BATCH_SIZE = 100
 
-    def initialize(clock: -> { Time.current }, crawl_enqueuer: nil, extraction_enqueuer: nil)
+    def initialize(clock: -> { Time.current }, crawl_enqueuer: nil, extraction_enqueuer: nil,
+      render_enqueuer: nil, usage_finisher: nil)
       @clock = clock
       @crawl_enqueuer = crawl_enqueuer || lambda { |organization_id, scan_id|
         StaticCrawlOrchestratorJob.perform_later(
@@ -18,13 +19,23 @@ module Crawling
           page_snapshot_id: snapshot_id
         )
       }
+      @render_enqueuer = render_enqueuer || lambda { |organization_id, scan_id, render_id|
+        PageRenderJob.perform_later(
+          organization_id: organization_id,
+          scan_id: scan_id,
+          page_render_id: render_id
+        )
+      }
+      @usage_finisher = usage_finisher || ->(**attributes) { Public.finish_usage_operation(**attributes) }
     end
 
     def call
       recover_initializations
       recover_extractions
+      recover_renders
       enqueue_crawls
       enqueue_extractions
+      enqueue_renders
       true
     end
 
@@ -96,6 +107,75 @@ module Crawling
         .order(:next_attempt_at, :id).limit(BATCH_SIZE)
         .pluck(:organization_id, :scan_id, :id).each do |organization_id, scan_id, snapshot_id|
           @extraction_enqueuer.call(organization_id, scan_id, snapshot_id)
+        end
+    end
+
+    def recover_renders
+      candidates = PageRender.where(state: "processing", lease_expires_at: ..@clock.call)
+        .order(:lease_expires_at, :id).limit(BATCH_SIZE)
+        .pluck(:id, :organization_id, :scan_id)
+      candidates.each { |candidate| recover_render(candidate) }
+    end
+
+    def recover_render(candidate)
+      render_id, organization_id, scan_id = candidate
+      PageRender.transaction do
+        scan = Scan.lock.find_by!(organization_id: organization_id, id: scan_id)
+        render = PageRender.lock.find(render_id)
+        next unless render.processing? && render.lease_expires_at <= @clock.call
+
+        finish_render_usage(render) unless scan.terminal?
+        retryable = scan.status == "running" && render.attempts < render.maximum_attempts
+        state = if retryable
+          "pending"
+        elsif scan.status.in?(%w[cancel_requested canceled])
+          "canceled"
+        elsif scan.status == "running"
+          "failed"
+        else
+          "skipped"
+        end
+        render.update!(
+          state: state,
+          worker_id: nil,
+          lease_token_digest: nil,
+          started_at: nil,
+          lease_expires_at: nil,
+          next_attempt_at: retryable ? @clock.call : nil,
+          failure_category: "render_lease_expired",
+          finished_at: retryable ? nil : @clock.call
+        )
+      end
+    rescue ActiveRecord::RecordNotFound
+      nil
+    end
+
+    def finish_render_usage(render)
+      source_key = RenderPage.usage_source_key(render)
+      operation = ScanUsageOperation.find_by(
+        organization_id: render.organization_id,
+        scan_id: render.scan_id,
+        source_key_digest: Digest::SHA256.hexdigest(source_key),
+        state: "reserved"
+      )
+      return unless operation
+
+      @usage_finisher.call(
+        organization_id: render.organization_id,
+        scan_id: render.scan_id,
+        source_key: source_key,
+        outcome: "failed",
+        occurred_at: render.lease_expires_at,
+        at: @clock.call,
+        metadata: { "page_render_id" => render.id, "attempt" => render.attempts }
+      )
+    end
+
+    def enqueue_renders
+      PageRender.where(state: "pending", next_attempt_at: ..@clock.call)
+        .order(:next_attempt_at, :id).limit(BATCH_SIZE)
+        .pluck(:organization_id, :scan_id, :id).each do |organization_id, scan_id, render_id|
+          @render_enqueuer.call(organization_id, scan_id, render_id)
         end
     end
 

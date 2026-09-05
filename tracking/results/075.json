@@ -1,0 +1,96 @@
+{
+  "prompt_id": "075",
+  "title": "Implement dedicated Chromium/Ferrum render workers",
+  "status": "completed",
+  "started_at": "2026-09-05T12:57:33Z",
+  "finished_at": "2026-09-05T13:49:59Z",
+  "summary": "Implemented opt-in deterministic Chromium/Ferrum rendering on a dedicated render queue with tenant-exact source linkage, isolated fresh contexts, bounded navigation and evidence, private DOM/screenshot artifacts, shared rendered-DOM extraction, idempotent usage charging, lease recovery, cancellation, metrics, pinned image provenance, and synchronized operations/security documentation.",
+  "tests": [
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test test/domain/crawling/page_rendering_test.rb test/jobs/crawling/page_render_job_test.rb test/configuration/configuration_test.rb",
+      "outcome": "passed",
+      "notes": "22 runs, 429 assertions, 0 failures, 0 errors, 0 skips including real local JavaScript/Chromium render"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test",
+      "outcome": "passed",
+      "notes": "1045 runs, 9063 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "bin/quality",
+      "outcome": "passed",
+      "notes": "15 checks including RuboCop, architecture, authorization, Brakeman and advisory audits"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails db:migrate:down:primary VERSION=20260904158000 and db:migrate:up:primary VERSION=20260904158000",
+      "outcome": "passed",
+      "notes": "migration reversed and reapplied on PostgreSQL"
+    },
+    {
+      "command": "psql -v ON_ERROR_STOP=1 -f db/structure.sql against searchops_prompt075_structure",
+      "outcome": "passed",
+      "notes": "zero-load structure created render tables and migration version"
+    },
+    {
+      "command": "docker build --target render and --target final",
+      "outcome": "passed",
+      "notes": "render image labels Chromium 152.0.7977.75-1~deb13u1/Ferrum 0.18.0 and runs as 1000:1000; final image has no Chromium"
+    }
+  ],
+  "files_changed": [
+    ".env.example",
+    "Dockerfile",
+    "Dockerfile.dev",
+    "Gemfile",
+    "Gemfile.lock",
+    "app/domains/crawling/conclude_static_crawl.rb",
+    "app/domains/crawling/delete_for_lifecycle.rb",
+    "app/domains/crawling/ferrum_browser_pool.rb",
+    "app/domains/crawling/ferrum_page_renderer.rb",
+    "app/domains/crawling/halt_static_crawl.rb",
+    "app/domains/crawling/page_fact.rb",
+    "app/domains/crawling/page_render.rb",
+    "app/domains/crawling/page_snapshot.rb",
+    "app/domains/crawling/public.rb",
+    "app/domains/crawling/recover_static_crawl_work.rb",
+    "app/domains/crawling/render_error.rb",
+    "app/domains/crawling/render_metrics.rb",
+    "app/domains/crawling/render_page.rb",
+    "app/domains/crawling/render_result.rb",
+    "app/domains/crawling/rendered_link.rb",
+    "app/domains/crawling/rendered_page_fact.rb",
+    "app/domains/crawling/scan.rb",
+    "app/domains/crawling/schedule_page_render.rb",
+    "app/jobs/crawling/page_render_job.rb",
+    "app/jobs/crawling/static_page_extraction_job.rb",
+    "bin/searchops-chromium",
+    "compose.yaml",
+    "config/authorization_inventory.yml",
+    "config/searchops.yml",
+    "config/searchops/configuration.rb",
+    "db/migrate/20260904158000_create_page_rendering.rb",
+    "db/structure.sql",
+    "docs/02_ARCHITECTURE.md",
+    "docs/10_DEPLOYMENT_AND_OPERATIONS.md",
+    "docs/adr/0007_isolated_browser_workers.md",
+    "docs/adr/README.md",
+    "docs/implementation/CONFIGURATION.md",
+    "docs/implementation/CONTAINERS.md",
+    "docs/implementation/JAVASCRIPT_RENDERING.md",
+    "docs/implementation/README.md",
+    "test/configuration/configuration_test.rb",
+    "test/domain/crawling/page_rendering_test.rb",
+    "test/jobs/crawling/page_render_job_test.rb",
+    "test/support/network/javascript_http_fixture.rb"
+  ],
+  "migrations": [],
+  "decisions": [],
+  "risks": [
+    "Local Compose temporarily relaxes Docker seccomp so the enabled Chromium user-namespace sandbox can start while retaining non-root",
+    "no-new-privileges and zero capabilities; Prompt 076 must replace it with a hardened render seccomp/egress profile before production rollout."
+  ],
+  "next_steps": [
+    "Prompt 076 is next eligible but was not started per user instruction."
+  ],
+  "commit": null
+}

@@ -60,6 +60,9 @@ module Crawling
       FetchPermit.where(scan_id: scan_ids).delete_all if scan_ids.any?
       PressureState.where(scope_type: "scan", scan_id: scan_ids).delete_all if scan_ids.any?
       if scan_ids.any?
+        RenderedLink.where(scan_id: scan_ids).delete_all
+        RenderedPageFact.where(scan_id: scan_ids).delete_all
+        PageRender.where(scan_id: scan_ids).delete_all
         CrawlLink.where(scan_id: scan_ids).delete_all
         PageFact.where(scan_id: scan_ids).delete_all
         PageSnapshot.where(scan_id: scan_ids).delete_all

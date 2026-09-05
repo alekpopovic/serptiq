@@ -123,6 +123,8 @@ Do not pre-populate these reports with fictional implementation or test results.
   normalized fetch/snapshot evidence, idempotent discovery, cancellation/recovery and terminal reconciliation.
 - [`HTML_EXTRACTION_AND_LINK_GRAPH.md`](./HTML_EXTRACTION_AND_LINK_GRAPH.md) defines bounded no-script HTML5
   facts, explicit unavailable/malformed states, normalized directed edges and tenant-exact graph read models.
+- [`JAVASCRIPT_RENDERING.md`](./JAVASCRIPT_RENDERING.md) defines sampled Chromium execution, strict worker
+  isolation, bounded navigation, immutable rendered evidence, metering, crash recovery and operations.
 - [`RESOURCE_DELETION.md`](./RESOURCE_DELETION.md) defines exact-target deletion requests, the 30-day hold,
   cooperative cancellation, durable ordered cleanup, object reconciliation and retained tombstones.
 - [`BILLING_PROVIDER_CONTRACT.md`](./BILLING_PROVIDER_CONTRACT.md) defines normalized billing values,

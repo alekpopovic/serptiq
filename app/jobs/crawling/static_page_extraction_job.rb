@@ -7,12 +7,17 @@ module Crawling
       reason: "extracts bounded facts and links from one exact tenant page snapshot"
 
     def perform(organization_id:, scan_id:, page_snapshot_id:)
-      Public.extract_static_page_links(
+      snapshot = Public.extract_static_page_links(
         organization_id: organization_id,
         scan_id: scan_id,
         page_snapshot_id: page_snapshot_id,
         worker_id: "extract-#{job_id}"
       )
+      Public.schedule_page_render(
+        organization_id: organization_id,
+        scan_id: scan_id,
+        page_snapshot_id: page_snapshot_id
+      ) if snapshot.is_a?(PageSnapshot) && snapshot.completed?
       scan = Public.conclude_static_crawl(
         organization_id: organization_id,
         scan_id: scan_id

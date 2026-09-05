@@ -180,6 +180,18 @@ module Crawling
       ExtractStaticPageLinks.new(clock: clock).call(**attributes)
     end
 
+    def schedule_page_render(clock: -> { Time.current }, **attributes)
+      SchedulePageRender.new(clock: clock).call(**attributes)
+    end
+
+    def render_page(clock: -> { Time.current }, **attributes)
+      RenderPage.new(clock: clock).call(**attributes)
+    end
+
+    def render_metrics(clock: -> { Time.current }, **attributes)
+      RenderMetrics.new(clock: clock).call(**attributes)
+    end
+
     def link_graph(**attributes)
       LinkGraphQuery.new.call(**attributes)
     end

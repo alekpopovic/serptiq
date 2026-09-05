@@ -57,6 +57,11 @@ class SearchopsConfigurationTest < ActiveSupport::TestCase
     assert_equal 0.25, configuration.fetch(:crawler_retry_base_delay)
     assert_equal 5.0, configuration.fetch(:crawler_retry_max_delay)
     assert_equal false, configuration.fetch(:crawler_egress_enforced)
+    assert_equal 45.0, configuration.fetch(:browser_timeout)
+    assert_equal 360.0, configuration.fetch(:browser_lease_duration)
+    assert_equal 200, configuration.fetch(:browser_max_requests)
+    assert_equal 52_428_800, configuration.fetch(:browser_max_response_bytes)
+    assert configuration.fetch(:browser_screenshot_enabled)
     assert_equal false, configuration.fetch(:oauth_google_enabled)
     assert_equal 2.0, configuration.fetch(:oauth_http_open_timeout)
     assert_equal 5.0, configuration.fetch(:oauth_http_read_timeout)
@@ -242,6 +247,18 @@ class SearchopsConfigurationTest < ActiveSupport::TestCase
     end
     assert_includes error.message, "SEARCHOPS_CRAWLER_HOST_BACKOFF_MAX"
     assert_includes error.message, "SEARCHOPS_CRAWLER_HOST_BACKOFF_BASE"
+
+    error = assert_raises(Searchops::Configuration::Error) do
+      load_configuration(
+        environment: "test",
+        env: {
+          "SEARCHOPS_BROWSER_TIMEOUT" => "120s",
+          "SEARCHOPS_BROWSER_LEASE_DURATION" => "120s"
+        }
+      )
+    end
+    assert_includes error.message, "SEARCHOPS_BROWSER_LEASE_DURATION"
+    assert_includes error.message, "SEARCHOPS_BROWSER_TIMEOUT"
   end
 
   test "requires a numeric store and secrets for the Lemon Squeezy adapter" do

@@ -16,6 +16,8 @@ module Crawling
       dependent: :restrict_with_exception
     has_many :crawl_links, class_name: "Crawling::CrawlLink", inverse_of: :page_snapshot,
       dependent: :restrict_with_exception
+    has_one :page_render, class_name: "Crawling::PageRender", inverse_of: :page_snapshot,
+      dependent: :restrict_with_exception
 
     validates :organization_id, :project_id, :property_id, :environment_id, :scan_id,
       :crawl_url_id, :crawl_fetch_result_id, :artifact_id, presence: true

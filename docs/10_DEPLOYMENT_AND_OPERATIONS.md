@@ -464,6 +464,10 @@ never edit tenant rows or delete permit evidence directly.
 The static crawl execution and crash-recovery contract is
 `docs/implementation/STATIC_CRAWL_ORCHESTRATION.md`.
 
+The dedicated Chromium image target, queue isolation, version provenance,
+resource bounds, artifact handling and render recovery runbook are in
+`docs/implementation/JAVASCRIPT_RENDERING.md`.
+
 ## 18. Production release checklist
 
 - dependency versions and advisories reviewed;

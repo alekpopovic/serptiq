@@ -239,6 +239,9 @@ jobs:
   Crawling::StaticPageExtractionJob:
     kind: system
     name: static_page_extraction
+  Crawling::PageRenderJob:
+    kind: system
+    name: page_render
   Crawling::StaticCrawlSweepJob:
     kind: system
     name: static_crawl_recovery

@@ -466,6 +466,13 @@ Rendering is a second, metered operation. The render worker:
 - stores artifacts outside PostgreSQL;
 - destroys the browser context after each page or bounded batch.
 
+The implemented contract uses an immutable source snapshot/fact relationship,
+deterministic settings/plan sampling, one fresh incognito context per target,
+private DOM/screenshot artifacts, the shared HTML fact extractor, and an
+attempt-keyed weighted usage reservation. Chromium is absent from the default
+production image and present only in its explicitly built `render` target. See
+[`implementation/JAVASCRIPT_RENDERING.md`](./implementation/JAVASCRIPT_RENDERING.md).
+
 ## 11. Rule engine architecture
 
 Rule contract:

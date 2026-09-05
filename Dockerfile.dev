@@ -6,9 +6,13 @@ FROM docker.io/library/ruby:$RUBY_VERSION-slim@sha256:42ad5227a4b2758f32563b34b5
 
 WORKDIR /rails
 
+ARG CHROMIUM_PACKAGE_VERSION=152.0.7977.75-1~deb13u1
 RUN apt-get update -qq && \
-    apt-get install --no-install-recommends -y build-essential chromium chromium-driver curl git libpq-dev libvips libyaml-dev postgresql-client pkg-config && \
+    apt-get install --no-install-recommends -y build-essential chromium="$CHROMIUM_PACKAGE_VERSION" chromium-sandbox="$CHROMIUM_PACKAGE_VERSION" curl git libpq-dev libvips libyaml-dev postgresql-client pkg-config && \
     rm -rf /var/lib/apt/lists /var/cache/apt/archives
+
+LABEL io.searchops.chromium.package-version="$CHROMIUM_PACKAGE_VERSION" \
+      io.searchops.ferrum.version="0.18.0"
 
 ENV BINDING="0.0.0.0" \
     BUNDLE_PATH="/usr/local/bundle" \

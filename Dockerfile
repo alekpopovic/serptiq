@@ -68,8 +68,9 @@ RUN SEARCHOPS_APPLICATION_ORIGIN=https://build.searchops.example \
     ACTIVE_RECORD_ENCRYPTION_KEY_DERIVATION_SALT=ci-build-only-derivation-salt \
     ./bin/rails assets:precompile
 
-# Final stage for app image
-FROM base
+# Shared application runtime. The default final image below intentionally has
+# no browser; only the explicit `render` target installs Chromium.
+FROM base AS app_runtime
 
 ARG SEARCHOPS_BUILD_SHA=unknown
 ARG SEARCHOPS_BUILD_TIMESTAMP=unknown
@@ -92,3 +93,18 @@ ENTRYPOINT ["/rails/bin/docker-entrypoint"]
 # Start server via Thruster by default, this can be overwritten at runtime
 EXPOSE 80
 CMD ["./bin/thrust", "./bin/rails", "server"]
+
+FROM app_runtime AS render
+
+USER root
+ARG CHROMIUM_PACKAGE_VERSION=152.0.7977.75-1~deb13u1
+RUN apt-get update -qq && \
+    apt-get install --no-install-recommends -y chromium="$CHROMIUM_PACKAGE_VERSION" chromium-sandbox="$CHROMIUM_PACKAGE_VERSION" && \
+    rm -rf /var/lib/apt/lists /var/cache/apt/archives
+LABEL io.searchops.chromium.package-version="$CHROMIUM_PACKAGE_VERSION" \
+      io.searchops.ferrum.version="0.18.0" \
+      io.searchops.runtime-role="worker_render"
+USER 1000:1000
+CMD ["./bin/jobs"]
+
+FROM app_runtime AS final

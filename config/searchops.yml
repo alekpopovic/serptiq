@@ -98,8 +98,11 @@ shared:
   crawler_sitemap_max_xml_depth: 32
   crawler_sitemap_max_redirects: 5
   browser_timeout: 45s
+  browser_lease_duration: 6m
   browser_memory_mb: 1024
   browser_max_requests: 200
+  browser_max_response_bytes: 52428800
+  browser_screenshot_enabled: false
   browser_concurrency: 2
   dns_verification_enabled: true
   dns_verification_timeout: 3s
@@ -152,6 +155,7 @@ test:
   crawler_frontier_max_attempts: 3
   crawler_frontier_retry_base_delay: 1s
   browser_concurrency: 1
+  browser_screenshot_enabled: true
   dns_verification_enabled: false
   http_verification_enabled: false
   email_delivery_method: test

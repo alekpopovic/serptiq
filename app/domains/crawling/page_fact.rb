@@ -22,6 +22,8 @@ module Crawling
 
     belongs_to :scan, class_name: "Crawling::Scan"
     belongs_to :page_snapshot, class_name: "Crawling::PageSnapshot", inverse_of: :page_fact
+    has_one :source_page_render, class_name: "Crawling::PageRender", inverse_of: :page_fact,
+      dependent: :restrict_with_exception
 
     validates :organization_id, :project_id, :property_id, :environment_id, :scan_id,
       :page_snapshot_id, :parser_version, :content_sha256, :fact_digest, :parse_status,

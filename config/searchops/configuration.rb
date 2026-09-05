@@ -247,8 +247,14 @@ module Searchops
       crawler_sitemap_max_redirects: Definition.new("SEARCHOPS_CRAWLER_SITEMAP_MAX_REDIRECTS", :integer,
         5, 0, 5, nil, false, nil),
       browser_timeout: Definition.new("SEARCHOPS_BROWSER_TIMEOUT", :duration, "45s", 1, 300, nil, false, nil),
+      browser_lease_duration: Definition.new("SEARCHOPS_BROWSER_LEASE_DURATION", :duration, "6m",
+        60, 900, nil, false, nil),
       browser_memory_mb: Definition.new("SEARCHOPS_BROWSER_MEMORY_MB", :integer, 1024, 256, 8192, nil, false, nil),
       browser_max_requests: Definition.new("SEARCHOPS_BROWSER_MAX_REQUESTS", :integer, 200, 1, 5000, nil, false, nil),
+      browser_max_response_bytes: Definition.new("SEARCHOPS_BROWSER_MAX_RESPONSE_BYTES", :integer,
+        52_428_800, 1_048_576, 524_288_000, nil, false, nil),
+      browser_screenshot_enabled: Definition.new("SEARCHOPS_BROWSER_SCREENSHOT_ENABLED", :boolean,
+        false, nil, nil, nil, false, nil),
       browser_concurrency: Definition.new("SEARCHOPS_BROWSER_CONCURRENCY", :integer, 2, 1, 100, nil, false, nil),
       dns_verification_enabled: Definition.new("SEARCHOPS_DNS_VERIFICATION_ENABLED", :boolean,
         true, nil, nil, nil, false, nil),
@@ -608,6 +614,9 @@ module Searchops
       end
       if fetch(:crawler_host_backoff_max) < fetch(:crawler_host_backoff_base)
         errors << "SEARCHOPS_CRAWLER_HOST_BACKOFF_MAX must be at least SEARCHOPS_CRAWLER_HOST_BACKOFF_BASE"
+      end
+      if fetch(:browser_lease_duration) <= fetch(:browser_timeout)
+        errors << "SEARCHOPS_BROWSER_LEASE_DURATION must exceed SEARCHOPS_BROWSER_TIMEOUT"
       end
     end
 
