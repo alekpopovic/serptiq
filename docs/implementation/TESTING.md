@@ -57,10 +57,12 @@ tenant/record ID. Block-scoped `with_current_tenant` always resets context.
 Audit, usage and permission decisions use explicit observable protocols instead
 of coupling tests to future persistence classes.
 
-The malicious HTTP fixture is deliberately test-only and loopback-only. It can
-emit metadata redirects, redirect loops, malformed content and a bounded large
-body. Crawler safety tests must assert that prohibited targets receive zero
-requests; they must never weaken production address policy just to reach the
+The malicious HTTP and DNS fixtures are deliberately test-only and
+loopback-only. HTTP can emit metadata redirects, redirect loops, malformed
+content and a bounded large body. DNS scripts A/AAAA answers, excessive answer
+sets and public-to-private rebinding while retaining only test-local query
+facts. Crawler safety tests must assert that prohibited targets receive zero
+requests; they must never weaken production address policy just to reach a
 fixture.
 
 ## System-test artifacts

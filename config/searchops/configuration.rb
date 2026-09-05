@@ -121,6 +121,8 @@ module Searchops
       crawler_max_response_bytes: Definition.new("SEARCHOPS_CRAWLER_MAX_RESPONSE_BYTES", :integer, 10_485_760,
         1024, 104_857_600, nil, false, nil),
       crawler_max_redirects: Definition.new("SEARCHOPS_CRAWLER_MAX_REDIRECTS", :integer, 5, 0, 20, nil, false, nil),
+      crawler_egress_enforced: Definition.new("SEARCHOPS_CRAWLER_EGRESS_ENFORCED", :boolean,
+        false, nil, nil, nil, false, nil),
       crawler_concurrency: Definition.new("SEARCHOPS_CRAWLER_CONCURRENCY", :integer, 8, 1, 1000, nil, false, nil),
       crawler_project_concurrent_scans: Definition.new(
         "SEARCHOPS_CRAWLER_PROJECT_CONCURRENT_SCANS", :integer, 10, 1, 100_000, nil, false, nil
@@ -510,6 +512,7 @@ module Searchops
         require_secrets(errors, :slack_client_secret, :slack_signing_secret)
       end
       validate_database_capacity(errors)
+      validate_crawler_egress(errors)
     end
 
     def validate_database_capacity(errors)
@@ -524,6 +527,14 @@ module Searchops
       if fetch(:primary_database_pool) < fetch(:database_pool) && fetch(:database_role) == "web"
         errors << "SEARCHOPS_PRIMARY_DATABASE_POOL must be at least RAILS_MAX_THREADS for web processes"
       end
+    end
+
+    def validate_crawler_egress(errors)
+      protected_worker = PROTECTED_ENVIRONMENTS.include?(environment) &&
+        fetch(:process_role).in?(%w[worker_crawl worker_render])
+      return unless protected_worker && !fetch(:crawler_egress_enforced)
+
+      errors << "SEARCHOPS_CRAWLER_EGRESS_ENFORCED must attest an active infrastructure egress policy"
     end
 
     def require_settings(errors, *keys)

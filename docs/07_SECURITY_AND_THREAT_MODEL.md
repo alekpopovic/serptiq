@@ -253,6 +253,18 @@ Controls:
 - record a redacted network decision;
 - dedicated regression corpus for parser and rebinding cases.
 
+Prompt 068 implements these controls in the centralized
+`Shared::NetworkSafety::DestinationPolicy` and pinned transport. The decision
+uses the versioned IANA special-purpose matrix, approves only ports 80/443,
+rejects an entire mixed A/AAAA answer set and produces count-only provenance.
+The transport accepts only that immutable approval, preserves the DNS hostname
+for `Host`/SNI/certificate verification, disables proxy routing and implicit
+retries, and verifies the connected peer before response consumption. An
+architecture rule prohibits other customer-target clients. Protected crawl and
+render workers also require an operator attestation for the separately applied
+default-deny egress contract in `config/crawler_egress_policy.yml`; the runtime
+flag is not itself a firewall.
+
 Property environment origins use one immutable value contract before any network activity. It lowercases the
 scheme and DNS identity, converts Unicode names to a stable ASCII IDNA network form, derives a normalized
 Unicode display form, collapses HTTP 80/HTTPS 443, removes one terminal DNS dot and treats only an empty/root

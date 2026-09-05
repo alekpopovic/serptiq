@@ -21,9 +21,15 @@ module Searchops
       DIRECT_QUOTA_CALL = /\bUsage::Public\.(?:reserve|extend_reservation|finalize_reservation|release_reservation)\b/
       DIRECT_QUOTA_MODEL_MUTATION = /\bUsage::(?:QuotaReservation|ReservationOperation|UsageEvent)\.(?:create!?|insert!?|upsert!?|update(?:_all|!)?|delete(?:_all)?|destroy(?:_all|!)?)\b/
       PROVIDER_SPECIFIC_ACCESS = /\b(?:LemonSqueezy|lemon_squeezy|provider_variant_id)\b/
+      DIRECT_NETWORK_CLIENT = /(?:\bNet::HTTP\b|\bTCPSocket\b|\bSocket\.tcp\b|\bURI\.open\b|\bOpenURI\b|\bFaraday\b|\bHTTPX\b|\bHTTParty\b)/
       AUTHORIZED_QUOTA_CALLERS = %w[
         app/domains/authorization/access_boundary.rb
         app/domains/usage/public.rb
+      ].freeze
+      AUTHORIZED_NETWORK_CLIENTS = %w[
+        app/adapters/billing/lemon_squeezy/net_http_transport.rb
+        app/adapters/identity/net_http_transport.rb
+        app/adapters/shared/network_safety/net_http_transport.rb
       ].freeze
 
       def initialize(root:)
@@ -31,7 +37,7 @@ module Searchops
       end
 
       def check
-        (plan_name_violations + quota_violations + provider_access_violations)
+        (plan_name_violations + quota_violations + provider_access_violations + network_client_violations)
           .sort_by { |violation| [ violation.path, violation.line ] }
       end
 
@@ -59,6 +65,18 @@ module Searchops
         @root.join("app/domains/authorization").glob("**/*.rb").flat_map do |path|
           line_violations(path, [ PROVIDER_SPECIFIC_ACCESS ],
             "core access code must not reference provider classes or provider variant identifiers")
+        end
+      end
+
+      def network_client_violations
+        application_files.flat_map do |path|
+          next [] if AUTHORIZED_NETWORK_CLIENTS.include?(relative(path))
+
+          line_violations(
+            path,
+            [ DIRECT_NETWORK_CLIENT ],
+            "outbound HTTP clients are restricted to approved provider adapters or Shared network safety"
+          )
         end
       end
 

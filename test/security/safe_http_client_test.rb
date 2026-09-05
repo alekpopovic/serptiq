@@ -10,6 +10,12 @@ class SafeHttpClientTest < ActiveSupport::TestCase
     end
   end
   FixtureAddressPolicy = Struct.new(:fixture_host, keyword_init: true) do
+    def approve_port!(port)
+      raise Shared::NetworkSafety::Error.new(reason_code: "unsafe_destination") unless port.positive?
+
+      port
+    end
+
     def approve!(host:, port:, addresses:)
       raise Shared::NetworkSafety::Error.new(reason_code: "unsafe_destination") unless
         host == fixture_host && port.positive? && addresses == [ "127.0.0.1" ]
@@ -118,6 +124,35 @@ class SafeHttpClientTest < ActiveSupport::TestCase
       transport.calls.first.fetch(:user_agent)
   end
 
+  test "uses one validated resolution for a direct request and exposes only safe provenance" do
+    resolver = RebindingResolver.new(
+      answers: [ [ "93.184.216.34" ], [ "169.254.169.254" ] ],
+      calls: []
+    )
+    transport = RecordingTransport.new(
+      responses: [ response(200, content_type: "text/plain", body: "ok") ],
+      calls: []
+    )
+    client = Shared::NetworkSafety::SafeHttpClient.new(resolver: resolver, transport: transport)
+
+    result = client.fetch_public_redirects(
+      origin: "https://example.com",
+      url: "https://example.com/robots.txt",
+      allowed_content_types: [ "text/plain" ]
+    )
+
+    assert_equal [ "example.com" ], resolver.calls
+    assert_equal "93.184.216.34", transport.calls.sole.fetch(:destination).connection_ip
+    assert_equal [ {
+      address_count: 1,
+      ipv4_address_count: 1,
+      ipv6_address_count: 0,
+      destination_port: 443,
+      address_policy_version: Shared::NetworkSafety::AddressPolicy::POLICY_VERSION
+    } ], result.fetch(:resolution_provenance)
+    refute_match(/93\.184|example\.com/, result.fetch(:resolution_provenance).inspect)
+  end
+
   test "follows public robots redirects across authorities and revalidates every hop" do
     resolver = FixtureResolver.new(
       addresses: {
@@ -146,7 +181,8 @@ class SafeHttpClientTest < ActiveSupport::TestCase
     assert_equal 1, result.fetch(:redirect_count)
     assert_equal [ "example.com", "robots.example.net" ], resolver.calls
     assert_equal [ "93.184.216.34", "93.184.216.35" ],
-      transport.calls.map { |call| call.fetch(:ip_address) }
+      transport.calls.map { |call| call.fetch(:destination).connection_ip }
+    assert_equal 2, result.fetch(:resolution_provenance).length
   end
 
   test "rejects an out-of-scope sitemap redirect before resolving or connecting to it" do
@@ -241,6 +277,38 @@ class SafeHttpClientTest < ActiveSupport::TestCase
     assert_equal "redirect_rejected", downgrade.reason_code
   end
 
+  test "rejects malformed scheme credential fragment and disallowed-port redirects before DNS" do
+    locations = {
+      "ftp://outside.example.net/file" => "redirect_rejected",
+      "https://user:secret@outside.example.net/file" => "redirect_rejected",
+      "https://outside.example.net/file#fragment" => "redirect_rejected",
+      "https://outside.example.net:8443/file" => "unsafe_destination"
+    }
+
+    locations.each do |location, expected_reason|
+      resolver = FixtureResolver.new(
+        addresses: { "example.com" => [ "93.184.216.34" ] },
+        calls: []
+      )
+      transport = RecordingTransport.new(
+        responses: [ response(302, location: location) ], calls: []
+      )
+      client = Shared::NetworkSafety::SafeHttpClient.new(resolver: resolver, transport: transport)
+
+      error = assert_raises(Shared::NetworkSafety::Error, location) do
+        client.fetch_public_redirects(
+          origin: "https://example.com",
+          url: "https://example.com/robots.txt",
+          allowed_content_types: [ "text/plain" ]
+        )
+      end
+
+      assert_equal expected_reason, error.reason_code, location
+      assert_equal [ "example.com" ], resolver.calls, location
+      assert_equal 1, transport.calls.length, location
+    end
+  end
+
   test "allows only an explicit canonical variant while preserving the exact path" do
     resolver = FixtureResolver.new(
       addresses: {
@@ -270,7 +338,7 @@ class SafeHttpClientTest < ActiveSupport::TestCase
     assert_equal 1, result.fetch(:redirect_count)
     assert_equal [ "example.com", "www.example.com" ], resolver.calls
     assert_equal [ "93.184.216.34", "93.184.216.35" ],
-      transport.calls.map { |call| call.fetch(:ip_address) }
+      transport.calls.map { |call| call.fetch(:destination).connection_ip }
   end
 
   test "rejects path-changing redirects and every unsafe or mixed DNS answer" do

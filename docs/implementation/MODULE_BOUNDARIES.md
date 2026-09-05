@@ -218,7 +218,7 @@ folder. It has no domain dependencies. Its permitted locations are:
 | `shared/idempotency/` | Idempotency keys and execution-result contracts |
 | `shared/errors/` | Domain error base types and stable error codes |
 | `shared/events/public/` | Versioned event envelopes and outbox-facing contracts |
-| `shared/network_safety/` | Public HTTP target, address, exact-proof redirect and bounded public-redirect decisions shared by Verification and Crawling |
+| `shared/network_safety/` | Canonical HTTP target parsing, A/AAAA policy, immutable approved destinations, pinned transport, redirect decisions and safe denial provenance shared by Verification and Crawling |
 
 Generic framework configuration remains in `config/`; repository tooling stays
 in `script/support/`; Rake entry points stay in `lib/tasks/`. Code must not be

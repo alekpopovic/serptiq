@@ -12,8 +12,9 @@ module Shared
       SEVERITIES = %i[debug info warn error fatal].freeze
       OUTCOMES = %w[succeeded failed denied ignored retrying].freeze
       ALLOWED_ATTRIBUTES = %i[
-        cause_classes duration_ms error_category error_code exception_class http_status
-        operation outcome provider reason_code retry_count
+        address_count address_policy_version cause_classes destination_port duration_ms error_category
+        error_code exception_class http_status ipv4_address_count ipv6_address_count operation outcome
+        provider reason_code retry_count
       ].freeze
 
       def initialize(logger: Rails.logger, clock: -> { Time.current }, redaction: nil)
@@ -58,9 +59,12 @@ module Shared
 
         validate_non_negative_number!(:duration_ms, attributes[:duration_ms])
         validate_non_negative_integer!(:retry_count, attributes[:retry_count])
+        %i[address_count ipv4_address_count ipv6_address_count destination_port].each do |name|
+          validate_non_negative_integer!(name, attributes[name])
+        end
         validate_http_status!(attributes[:http_status])
         validate_outcome!(attributes[:outcome])
-        %i[error_category error_code operation provider reason_code].each do |name|
+        %i[address_policy_version error_category error_code operation provider reason_code].each do |name|
           validate_label!(name, attributes[name])
         end
         validate_class_name!(:exception_class, attributes[:exception_class])

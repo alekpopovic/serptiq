@@ -29,12 +29,24 @@ module Shared
     end
 
     def safe_http_client(dns_timeout:, open_timeout:, read_timeout:, max_response_bytes:, max_redirects:)
+      recorder = NetworkSafety::DestinationDecisionRecorder.new
       NetworkSafety::SafeHttpClient.new(
-        resolver: NetworkSafety::PublicResolver.new(timeout: dns_timeout),
+        destination_policy: NetworkSafety::DestinationPolicy.new(
+          resolver: NetworkSafety::PublicResolver.new(timeout: dns_timeout),
+          recorder: recorder
+        ),
+        decision_recorder: recorder,
         open_timeout: open_timeout,
         read_timeout: read_timeout,
         max_response_bytes: max_response_bytes,
         max_redirects: max_redirects
+      )
+    end
+
+    def destination_policy(dns_timeout:)
+      NetworkSafety::DestinationPolicy.new(
+        resolver: NetworkSafety::PublicResolver.new(timeout: dns_timeout),
+        recorder: NetworkSafety::DestinationDecisionRecorder.new
       )
     end
 

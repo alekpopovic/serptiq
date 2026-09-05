@@ -430,6 +430,18 @@ The destination validator rejects:
 
 Validation occurs before connection and again after every redirect. Connection code must not perform an unchecked second resolution that enables DNS rebinding; the resolved and approved address is bound to the request while preserving correct TLS hostname verification.
 
+The implemented boundary is `Shared::NetworkSafety::DestinationPolicy`. It
+queries A and AAAA, rejects a mixed public/disallowed answer set, returns an
+immutable approved set and safe count-only provenance, and gives the pinned
+set to the only customer-target HTTP transport. That transport disables proxy
+routing and automatic retries, retains the DNS hostname for `Host`, SNI and TLS
+verification, and checks the connected peer before consuming bytes. Direct
+target HTTP clients elsewhere under `app/` fail the architecture gate.
+
+Application policy is reinforced by a default-deny crawl/render worker network
+policy. Its versioned contract is `config/crawler_egress_policy.yml`; protected
+workers fail boot until deployment attests that the policy is active.
+
 ### Rendering
 
 Rendering is a second, metered operation. The render worker:

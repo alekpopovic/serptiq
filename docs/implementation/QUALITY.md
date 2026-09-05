@@ -7,7 +7,7 @@ first failure and executes the same deterministic gates in this order:
 2. ERB structure, unsafe contexts and embedded Ruby style;
 3. JavaScript module syntax through the installed Node.js runtime;
 4. every repository YAML/JSON file plus duplicate YAML keys;
-5. blueprint, architecture and ADR contracts;
+5. blueprint, architecture, direct-network-client and crawler egress-policy contracts;
 6. Tailwind compilation and importmap advisory audit;
 7. Brakeman and locked-gem vulnerability audit.
 

@@ -1,0 +1,98 @@
+{
+  "prompt_id": "068",
+  "title": "Implement the SSRF-safe destination resolver and connection policy",
+  "status": "completed",
+  "started_at": "2026-09-05T06:29:59Z",
+  "finished_at": "2026-09-05T06:57:31Z",
+  "summary": "Implemented a centralized versioned SSRF destination policy with canonical IDNA targets, strict A/AAAA special-purpose address classification, immutable approved destinations, pinned Host/SNI-preserving transport, per-hop redirect revalidation, redacted denial telemetry, malicious DNS/HTTP fixtures, direct-client architecture enforcement, and a validated protected-worker egress contract.",
+  "tests": [
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test test/security/destination_policy_test.rb test/adapters/shared/network_safety_net_http_transport_test.rb test/security/malicious_http_fixture_test.rb test/security/safe_http_client_test.rb test/architecture/access_boundary_checker_test.rb test/configuration/crawler_egress_policy_test.rb test/configuration/configuration_test.rb test/domain/shared/structured_event_test.rb",
+      "outcome": "passed",
+      "notes": "55 runs, 968 assertions, 0 failures, 0 errors, 0 skips."
+    },
+    {
+      "command": "mise exec -- bin/quality",
+      "outcome": "passed",
+      "notes": "15 checks passed, including RuboCop, architecture, crawler egress drift, Brakeman and dependency audits."
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test:all",
+      "outcome": "passed",
+      "notes": "977 runs, 8430 assertions, 0 failures, 0 errors, 0 skips."
+    },
+    {
+      "command": "git diff --check",
+      "outcome": "passed",
+      "notes": "No whitespace errors."
+    },
+    {
+      "command": "ruby tracking/scripts/validate_blueprint.rb",
+      "outcome": "passed",
+      "notes": "Blueprint valid for all 120 prompts and governed catalogs."
+    }
+  ],
+  "files_changed": [
+    ".env.example",
+    ".github/workflows/ci.yml",
+    "app/adapters/shared/network_safety/net_http_transport.rb",
+    "app/adapters/shared/network_safety/safe_http_client.rb",
+    "app/domains/shared/network_safety/address_policy.rb",
+    "app/domains/shared/network_safety/approved_destination.rb",
+    "app/domains/shared/network_safety/destination_decision_recorder.rb",
+    "app/domains/shared/network_safety/destination_policy.rb",
+    "app/domains/shared/network_safety/error.rb",
+    "app/domains/shared/network_safety/exact_redirect_policy.rb",
+    "app/domains/shared/network_safety/http_target.rb",
+    "app/domains/shared/network_safety/public_redirect_policy.rb",
+    "app/domains/shared/network_safety/public_resolver.rb",
+    "app/domains/shared/network_safety/resolution_provenance.rb",
+    "app/domains/shared/observability/event_emitter.rb",
+    "app/domains/shared/public.rb",
+    "bin/quality",
+    "config/crawler_egress_policy.yml",
+    "config/searchops.yml",
+    "config/searchops/configuration.rb",
+    "docs/02_ARCHITECTURE.md",
+    "docs/07_SECURITY_AND_THREAT_MODEL.md",
+    "docs/10_DEPLOYMENT_AND_OPERATIONS.md",
+    "docs/12_SOURCE_REFERENCES.md",
+    "docs/adr/0006_ssrf_safe_crawler_boundary.md",
+    "docs/implementation/CI.md",
+    "docs/implementation/CONFIGURATION.md",
+    "docs/implementation/HTTP_VERIFICATION.md",
+    "docs/implementation/MODULE_BOUNDARIES.md",
+    "docs/implementation/NETWORK_SAFETY.md",
+    "docs/implementation/QUALITY.md",
+    "docs/implementation/README.md",
+    "docs/implementation/TESTING.md",
+    "script/support/access_boundary_checker.rb",
+    "script/validate_crawler_egress_policy.rb",
+    "test/adapters/shared/network_safety_net_http_transport_test.rb",
+    "test/architecture/access_boundary_checker_test.rb",
+    "test/configuration/configuration_test.rb",
+    "test/configuration/crawler_egress_policy_test.rb",
+    "test/security/destination_policy_test.rb",
+    "test/security/malicious_http_fixture_test.rb",
+    "test/security/safe_http_client_test.rb",
+    "test/support/network/malicious_dns_fixture.rb",
+    "test/support/network/malicious_http_fixture.rb"
+  ],
+  "migrations": [
+    "None; application/network configuration and code only, with no database or backfill impact."
+  ],
+  "decisions": [
+    "Classify all A and AAAA answers as one strict set under a named IANA registry policy version.",
+    "Pin Net::HTTP to an approved address while preserving the canonical DNS hostname for Host, SNI and certificate verification.",
+    "Disable proxy routing and implicit retries and require a fresh destination decision for every redirect hop.",
+    "Retain only bounded address-family counts, port, policy version and allowlisted denial stages.",
+    "Treat protected-worker egress configuration as a deployment attestation backed by a default-deny infrastructure policy, never as the firewall itself."
+  ],
+  "risks": [
+    "Deployment must implement and probe config/crawler_egress_policy.yml before setting the protected-worker attestation; browser subresource interception remains work for its dedicated later prompt."
+  ],
+  "next_steps": [
+    "Prompt 069: implement the bounded HTTP fetcher and redirect handling on this approved destination boundary."
+  ],
+  "commit": null
+}

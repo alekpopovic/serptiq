@@ -48,6 +48,30 @@ class AccessBoundaryCheckerTest < ActiveSupport::TestCase
     assert_match(/provider classes/, violation.reason)
   end
 
+  test "rejects direct outbound clients outside explicit adapters" do
+    write("app/domains/crawling/fetch_page.rb", "Net::HTTP.get(target)\n")
+    write("app/controllers/previews_controller.rb", "TCPSocket.open(host, port)\n")
+
+    violations = checker.check
+
+    assert_equal 2, violations.length
+    assert violations.all? { |violation| violation.reason.include?("Shared network safety") }
+  end
+
+  test "allows only the explicit provider and pinned network safety transports" do
+    write("app/adapters/identity/net_http_transport.rb", "Net::HTTP.new(provider_host)\n")
+    write(
+      "app/adapters/billing/lemon_squeezy/net_http_transport.rb",
+      "Net::HTTP.new(provider_host)\n"
+    )
+    write(
+      "app/adapters/shared/network_safety/net_http_transport.rb",
+      "Net::HTTP.new(target.host)\n"
+    )
+
+    assert_empty checker.check
+  end
+
   private
 
   def checker

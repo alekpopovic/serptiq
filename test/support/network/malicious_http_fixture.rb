@@ -10,11 +10,12 @@ module TestSupport
       MAX_REQUEST_BYTES = 16.kilobytes
       OVERSIZED_BODY_BYTES = 64.kilobytes
 
-      attr_reader :host, :port, :requests
+      attr_reader :host, :port, :request_headers, :requests
 
       def initialize
         @host = HOST
         @requests = Queue.new
+        @request_headers = Queue.new
       end
 
       def start
@@ -57,9 +58,10 @@ module TestSupport
         return unless request_line
 
         method, target, = request_line.split(" ", 3)
-        read_headers(socket)
+        headers = read_headers(socket)
         path = URI.parse(target).path
         requests << { method: method, path: path }.freeze
+        request_headers << headers.freeze
         status, headers, body = response_for(path)
         socket.write("HTTP/1.1 #{status}\r\n")
         headers.merge("Connection" => "close", "Content-Length" => body.bytesize.to_s).each do |key, value|
@@ -75,11 +77,16 @@ module TestSupport
 
       def read_headers(socket)
         consumed = 0
+        headers = {}
         while (line = socket.gets("\r\n", MAX_REQUEST_BYTES - consumed))
           consumed += line.bytesize
           break if line == "\r\n"
           raise "request headers exceed fixture limit" if consumed >= MAX_REQUEST_BYTES
+
+          name, value = line.split(":", 2)
+          headers[name.to_s.downcase] = value.to_s.strip
         end
+        headers
       end
 
       def response_for(path)

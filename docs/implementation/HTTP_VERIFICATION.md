@@ -33,6 +33,11 @@ and reserved for the crawler. It:
 - caps DNS, open and read time, response bytes and redirects;
 - streams the body and rejects a disallowed or malformed content type.
 
+The complete parser, special-purpose address matrix, connection pinning,
+safe-provenance and infrastructure contract is documented in
+[`NETWORK_SAFETY.md`](./NETWORK_SAFETY.md). A destination approval is valid for
+only that connection attempt and is never cached across requests or redirects.
+
 Verification redirects preserve the exact requested path, contain no query or fragment, never downgrade HTTPS,
 and may target only explicitly enumerated canonical variants: the same host's HTTP-to-HTTPS origin and one
 literal `www.` add/remove variant. Arbitrary subdomains, path changes, cross-site redirects and redirects to
@@ -41,10 +46,12 @@ Production egress controls remain required as defense in depth.
 
 ## Evidence and operations
 
-Retained evidence is restricted to bounded status, byte/redirect/meta counts and booleans describing path,
-origin, content-type, destination and exact-value decisions. Network errors expose a fixed category and safe
-boolean/count evidence only; URLs, IP addresses, headers and response bodies are not copied into records or UI
-messages.
+Retained evidence is restricted to bounded status, byte/redirect/meta counts,
+address-family/resolution counts, destination port, address-policy version and
+booleans describing path, origin, content-type, destination and exact-value
+decisions. Network errors expose a fixed category and allowlisted denial stage;
+URLs, hostnames, IP addresses, raw DNS answers, headers and response bodies are
+not copied into records or UI messages.
 
 Runtime controls are `SEARCHOPS_HTTP_VERIFICATION_ENABLED`, `SEARCHOPS_VERIFICATION_HTTP_DNS_TIMEOUT`,
 `SEARCHOPS_VERIFICATION_HTTP_OPEN_TIMEOUT`, `SEARCHOPS_VERIFICATION_HTTP_READ_TIMEOUT`,

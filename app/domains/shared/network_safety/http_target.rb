@@ -44,6 +44,11 @@ module Shared
         raise ArgumentError, "URL is invalid", cause: error
       end
 
+      def host_header
+        default_port = DEFAULT_PORTS.fetch(scheme)
+        port == default_port ? host : "#{host}:#{port}"
+      end
+
       private
 
       def reject_ambiguous!(raw)
@@ -56,14 +61,15 @@ module Shared
 
       def normalize_host(value)
         raw = value.to_s.delete_suffix(".").downcase
-        raise ArgumentError, "URL host is invalid" if raw.blank? || ip_literal?(raw)
+        raise ArgumentError, "URL host is invalid" if raw.blank? || raw.include?("%") || ip_literal?(raw)
 
         ascii = Addressable::IDNA.to_ascii(raw).downcase
         labels = ascii.split(".", -1)
         valid = ascii.bytesize <= 253 && labels.length >= 2 && labels.all? do |label|
           label.bytesize.between?(1, 63) && LABEL_PATTERN.match?(label)
         end
-        valid &&= !labels.last.match?(/\A(?:\d+|0x[0-9a-f]+)\z/i)
+        valid &&= labels.any? { |label| label.match?(/[a-z]/) } &&
+          !labels.last.match?(/\A(?:\d+|0x[0-9a-f]+)\z/i)
         raise ArgumentError, "URL host is invalid" unless valid
 
         ascii

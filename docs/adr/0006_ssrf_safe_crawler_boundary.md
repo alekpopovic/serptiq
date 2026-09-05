@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-09-04
 - Owners: Security, Crawling
-- Last reviewed: 2026-09-05 (Prompt 066)
+- Last reviewed: 2026-09-05 (Prompt 068)
 
 ## Context
 
@@ -35,9 +35,25 @@ redirects are allowed only through those checks, the chain is capped at five and
 Shared owns those connection decisions; Crawling owns the crawler identity, robots status policy, parser and
 immutable provenance.
 
+Prompt 068 completes the central destination decision and transport contract.
+It canonicalizes DNS hosts, queries and strictly classifies every A/AAAA answer
+under a versioned IANA special-purpose policy, returns an immutable approved IP
+set and pins the connection without losing `Host`, TLS SNI or certificate
+hostname verification. Every redirect creates a fresh decision. Proxy routing
+and implicit transport retries are prohibited, the connected peer is checked
+before body consumption, and denial provenance excludes URLs, hostnames and IP
+addresses. Architecture checks reject direct customer-target HTTP clients.
+
+The defense-in-depth worker egress contract is machine-readable and
+default-deny. Staging/production crawl and render processes refuse to boot
+without an operator attestation that deployment applied it; the attestation is
+not a substitute for the network control.
+
 ## Consequences
 
 - The HTTP client cannot be used directly for customer targets.
 - DNS and IP parsing edge cases receive security regression tests.
+- Address-registry revisions require a named policy version and regression
+  update; infrastructure drift is a release blocker.
 - Domain verification is required before high-volume or rendering work.
 - Some legitimate private/internal-site auditing is outside MVP scope.

@@ -5,11 +5,16 @@ module Shared
     class SafeHttpClient
       REDIRECT_STATUSES = [ 301, 302, 303, 307, 308 ].freeze
 
-      def initialize(resolver: PublicResolver.new, address_policy: AddressPolicy.new,
-        transport: NetHttpTransport.new, open_timeout: 2.seconds, read_timeout: 5.seconds,
-        max_response_bytes: 256.kilobytes, max_redirects: 2)
-        @resolver = resolver
-        @address_policy = address_policy
+      def initialize(destination_policy: nil, resolver: PublicResolver.new, address_policy: AddressPolicy.new,
+        transport: NetHttpTransport.new, decision_recorder: DestinationPolicy::NullRecorder,
+        open_timeout: 2.seconds, read_timeout: 5.seconds, max_response_bytes: 256.kilobytes,
+        max_redirects: 2)
+        @destination_policy = destination_policy || DestinationPolicy.new(
+          resolver: resolver,
+          address_policy: address_policy,
+          recorder: decision_recorder
+        )
+        @decision_recorder = decision_recorder
         @transport = transport
         @open_timeout = Float(open_timeout)
         @read_timeout = Float(read_timeout)
@@ -42,13 +47,15 @@ module Shared
       def fetch_with_policy(policy, allowed_content_types, user_agent)
         target = policy.initial_target
         redirects = 0
+        resolution_attempts = 0
+        resolution_provenance = []
 
         loop do
-          addresses = @resolver.resolve(host: target.host)
-          approved = @address_policy.approve!(host: target.host, port: target.port, addresses: addresses)
+          resolution_attempts += 1
+          destination = @destination_policy.authorize_target!(target: target)
+          resolution_provenance << destination.provenance.as_json
           response = @transport.get(
-            target: target,
-            ip_address: approved.first,
+            destination: destination,
             open_timeout: @open_timeout,
             read_timeout: @read_timeout,
             max_response_bytes: @max_response_bytes,
@@ -87,15 +94,18 @@ module Shared
             content_type: media_type(response),
             content_type_allowed: content_type_allowed,
             destination_approved: policy.approved_origin?(target.origin),
-            request_match: true
+            request_match: true,
+            resolution_provenance: resolution_provenance.map(&:freeze).freeze
           }.freeze
         end
       rescue Error => error
         rejected_destination = %w[unsafe_destination dns_failure redirect_rejected].include?(error.reason_code)
         evidence = {
           destination_approved: !rejected_destination,
-          redirect_count: redirects
+          redirect_count: redirects,
+          resolution_count: resolution_attempts
         }.merge(error.evidence)
+        record_redirect_denial(error, evidence) if error.reason_code.in?(%w[redirect_rejected redirect_limit])
         raise Error.new(reason_code: error.reason_code, evidence: evidence), cause: nil
       rescue ArgumentError, KeyError, TypeError
         raise Error.new(reason_code: "malformed_response"), cause: nil
@@ -123,6 +133,21 @@ module Shared
         valid = @open_timeout.between?(0.1, 10) && @read_timeout.between?(0.1, 30) &&
           @max_response_bytes.between?(128, 50.megabytes) && @max_redirects.between?(0, 5)
         raise ArgumentError, "safe HTTP client limits are invalid" unless valid
+      end
+
+      def record_redirect_denial(error, evidence)
+        @decision_recorder.call(
+          outcome: "denied",
+          reason_code: error.reason_code,
+          evidence: evidence.merge(denial_stage: "redirect_policy")
+        )
+      rescue StandardError => recorder_error
+        Rails.error.report(
+          recorder_error,
+          handled: true,
+          severity: :warning,
+          context: { "failed_event" => "crawler.destination_rejected" }
+        )
       end
     end
   end

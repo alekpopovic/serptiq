@@ -446,7 +446,11 @@ mutations require an explicit platform manage grant, recent authentication and a
 - billing signatures verified in staging;
 - database backups/PITR and restore tested;
 - artifact bucket private and lifecycle configured;
-- egress policy blocks internal networks;
+- `ruby script/validate_crawler_egress_policy.rb` passes, the dedicated
+  crawl/render network namespace applies `config/crawler_egress_policy.yml`,
+  and isolated probes confirm only allowlisted DNS plus public ports 80/443;
+- protected crawl/render workers set
+  `SEARCHOPS_CRAWLER_EGRESS_ENFORCED=true` only after that verification;
 - browser worker isolated;
 - plans, prices, tax/legal text and support process approved;
 - privacy policy, terms, retention and deletion behavior reviewed;

@@ -55,6 +55,11 @@ Checked on **2026-09-04** unless an item states otherwise. These sources provide
 
 ## Crawling and discovery
 
+- IANA IPv4 Special-Purpose Address Space registry (checked 2026-09-05): <https://www.iana.org/assignments/iana-ipv4-special-registry/iana-ipv4-special-registry.xhtml>
+- IANA IPv6 Special-Purpose Address Space registry (checked 2026-09-05): <https://www.iana.org/assignments/iana-ipv6-special-registry/iana-ipv6-special-registry.xhtml>
+- Special-Purpose Address Registries, RFC 6890 (checked 2026-09-05): <https://www.rfc-editor.org/rfc/rfc6890>
+- URI generic syntax, RFC 3986 (checked 2026-09-05): <https://www.rfc-editor.org/rfc/rfc3986>
+- Ruby `Net::HTTP` standard-library API, including `ipaddr=` and TLS hostname behavior (checked 2026-09-05): <https://ruby-doc.org/3.4/stdlibs/net/http/Net/HTTP.html>
 - Robots Exclusion Protocol, RFC 9309: <https://www.rfc-editor.org/rfc/rfc9309>
 - Sitemaps XML protocol: <https://www.sitemaps.org/protocol.html>
 - Nokogiri untrusted XML parsing options: <https://nokogiri.org/tutorials/parsing_an_html_xml_document.html>

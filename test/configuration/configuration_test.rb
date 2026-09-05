@@ -35,6 +35,7 @@ class SearchopsConfigurationTest < ActiveSupport::TestCase
     assert_equal 32, configuration.fetch(:crawler_sitemap_max_xml_depth)
     assert_equal 5, configuration.fetch(:crawler_sitemap_max_redirects)
     assert_equal 5.0, configuration.fetch(:crawler_connect_timeout)
+    assert_equal false, configuration.fetch(:crawler_egress_enforced)
     assert_equal false, configuration.fetch(:oauth_google_enabled)
     assert_equal 2.0, configuration.fetch(:oauth_http_open_timeout)
     assert_equal 5.0, configuration.fetch(:oauth_http_read_timeout)
@@ -169,6 +170,22 @@ class SearchopsConfigurationTest < ActiveSupport::TestCase
       load_configuration(environment: "production", env: environment)
     end
     assert_includes error.message, "limited to development and test"
+  end
+
+  test "requires protected crawl and render workers to attest infrastructure egress enforcement" do
+    %w[worker_crawl worker_render].each do |role|
+      environment = complete_production_environment.merge("SEARCHOPS_PROCESS_ROLE" => role)
+      error = assert_raises(Searchops::Configuration::Error) do
+        load_configuration(environment: "production", env: environment)
+      end
+      assert_includes error.message, "SEARCHOPS_CRAWLER_EGRESS_ENFORCED"
+
+      configuration = load_configuration(
+        environment: "production",
+        env: environment.merge("SEARCHOPS_CRAWLER_EGRESS_ENFORCED" => "true")
+      )
+      assert configuration.fetch(:crawler_egress_enforced)
+    end
   end
 
   test "requires a numeric store and secrets for the Lemon Squeezy adapter" do

@@ -22,17 +22,24 @@ module Shared
 
       def redirect(current:, location:)
         raw = location.to_s
-        raise Error.new(reason_code: "redirect_rejected") if raw.blank? || raw.match?(/[?#]/)
+        if raw.blank? || raw.match?(/[?#]/)
+          raise Error.new(reason_code: "redirect_rejected", evidence: { denial_stage: "redirect_policy" })
+        end
 
         joined = Addressable::URI.join(current.url, raw).to_s
         target = HttpTarget.new(url: joined)
         allowed = @approved_origins.include?(target.origin) && target.path == initial_target.path &&
           !target.request_uri.include?("?") && !(current.scheme == "https" && target.scheme == "http")
-        raise Error.new(reason_code: "redirect_rejected") unless allowed
+        unless allowed
+          raise Error.new(reason_code: "redirect_rejected", evidence: { denial_stage: "redirect_policy" })
+        end
 
         target
       rescue Addressable::URI::InvalidURIError, ArgumentError
-        raise Error.new(reason_code: "redirect_rejected"), cause: nil
+        raise Error.new(
+          reason_code: "redirect_rejected",
+          evidence: { denial_stage: "redirect_policy" }
+        ), cause: nil
       end
 
       def approved_origin?(origin)
