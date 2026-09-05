@@ -613,6 +613,8 @@ Object storage holds:
 
 Access uses short-lived signed URLs after authorization. Object keys do not expose customer domain names or emails.
 
+The private artifact implementation stores source/scan/retention metadata in `artifacts` and unique physical object metadata in `artifact_blobs`. Deduplication is constrained by organization, project, property and encryption-key version. Raw bodies remain outside PostgreSQL. See [`implementation/PRIVATE_ARTIFACT_STORAGE.md`](./implementation/PRIVATE_ARTIFACT_STORAGE.md).
+
 ## 18. Failure handling
 
 - Provider timeouts are retried with bounded exponential backoff and jitter.

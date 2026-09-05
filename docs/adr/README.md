@@ -48,7 +48,7 @@ replacement.
 | [0002 — PostgreSQL and Solid stack](./0002_postgresql_and_solid_stack.md) | Accepted | Platform | 2026-09-04 / Prompt 007 | Four Solid-backed connections and isolated worker roles active |
 | [0003 — Native social authentication](./0003_native_social_authentication.md) | Accepted | Identity, Security | 2026-09-04 / Prompt 005 | Planned 014–023 |
 | [0004 — Separate RBAC, entitlements and quotas](./0004_separate_rbac_entitlements_and_quotas.md) | Accepted | Authorization, Entitlements, Usage | 2026-09-04 / Prompt 040 | Entitlements, ledger and quota reservations implemented 038–040; unified access pending 042 |
-| [0005 — Object storage for large artifacts](./0005_object_storage_for_large_artifacts.md) | Accepted | Platform, Crawling | 2026-09-04 / Prompt 005 | Typed settings active; adapter pending 070 |
+| [0005 — Object storage for large artifacts](./0005_object_storage_for_large_artifacts.md) | Accepted | Platform, Crawling | 2026-09-05 / Prompt 070 | Private local/S3 adapters, metadata and lifecycle active |
 | [0006 — SSRF-safe crawler boundary](./0006_ssrf_safe_crawler_boundary.md) | Accepted | Security, Crawling | 2026-09-04 / Prompt 005 | Planned 068–069 and 076 |
 | [0007 — Isolated browser workers](./0007_isolated_browser_workers.md) | Accepted | Security, Crawling | 2026-09-04 / Prompt 005 | Planned 075–076 |
 | [0008 — Provider-neutral billing](./0008_provider_neutral_billing.md) | Accepted | Billing | 2026-09-04 / Prompt 005 | Planned 043–049 |

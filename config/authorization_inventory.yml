@@ -227,6 +227,15 @@ jobs:
   Crawling::FrontierLeaseRecoveryJob:
     kind: system
     name: frontier_lease_recovery
+  Crawling::ArtifactDeletionJob:
+    kind: system
+    name: artifact_deletion
+  Crawling::ArtifactRetentionSweepJob:
+    kind: system
+    name: artifact_retention_sweep
+  Crawling::ArtifactReconciliationJob:
+    kind: system
+    name: artifact_reconciliation
   Verification::DnsRecheckJob:
     kind: system
     name: dns_verification_recheck
@@ -479,6 +488,27 @@ domain_operations:
   Crawling::Public.signed_artifact_url:
     kind: permission
     permission: scans.read
+  Crawling::Public.capture_artifact:
+    kind: system
+    reason: explicit_tenant_scan_worker_private_artifact_capture
+  Crawling::Public.expire_artifacts:
+    kind: system
+    reason: bounded_retention_queue_selection
+  Crawling::Public.delete_artifact:
+    kind: system
+    reason: idempotent_private_object_and_metadata_deletion
+  Crawling::Public.reconcile_artifacts:
+    kind: system
+    reason: bounded_private_object_inventory_reconciliation
+  Crawling::Public.artifact_storage_metrics:
+    kind: system
+    reason: tenant_scoped_storage_cost_attribution
+  Crawling::Public.set_artifact_legal_hold:
+    kind: system
+    reason: reserved_compliance_workflow_boundary
+  Crawling::Public.artifact_store:
+    kind: system
+    reason: configured_private_object_store_adapter
   Verification::Public.schedule_dns_rechecks:
     kind: system
     reason: bounded_scheduled_dns_verification_refresh

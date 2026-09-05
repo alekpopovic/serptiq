@@ -168,6 +168,18 @@ class SearchopsConfigurationTest < ActiveSupport::TestCase
     assert_equal 2, configuration.secret(:encryption_primary_keys).size
   end
 
+  test "rejects a partial object storage credential pair without exposing it" do
+    environment = complete_production_environment.merge(
+      "SEARCHOPS_OBJECT_STORAGE_ACCESS_KEY_ID" => "synthetic-access-id"
+    )
+    error = assert_raises(Searchops::Configuration::Error) do
+      load_configuration(environment: "production", env: environment)
+    end
+
+    assert_includes error.message, "must be configured together"
+    assert_not_includes error.message, "synthetic-access-id"
+  end
+
   test "allows the fake billing adapter only outside protected environments" do
     development = load_configuration(
       environment: "development",

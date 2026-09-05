@@ -1002,6 +1002,67 @@ CREATE TABLE public.ar_internal_metadata (
 
 
 --
+-- Name: artifact_blobs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.artifact_blobs (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_id uuid NOT NULL,
+    storage_service character varying(24) NOT NULL,
+    object_key character varying(512) NOT NULL,
+    byte_count bigint NOT NULL,
+    content_sha256 character varying(64) NOT NULL,
+    encryption_mode character varying(32) DEFAULT 'provider_managed'::character varying NOT NULL,
+    encryption_key_version character varying(64) NOT NULL,
+    state character varying(24) DEFAULT 'uploading'::character varying NOT NULL,
+    stored_at timestamp(6) with time zone,
+    verified_at timestamp(6) with time zone,
+    missing_at timestamp(6) with time zone,
+    deleted_at timestamp(6) with time zone,
+    lock_version integer DEFAULT 0 NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT artifact_blobs_lifecycle CHECK ((((state)::text = ANY ((ARRAY['uploading'::character varying, 'active'::character varying, 'missing'::character varying, 'deleting'::character varying, 'deleted'::character varying])::text[])) AND (((state)::text <> 'uploading'::text) OR ((stored_at IS NULL) AND (missing_at IS NULL) AND (deleted_at IS NULL))) AND (((state)::text <> 'active'::text) OR ((stored_at IS NOT NULL) AND (missing_at IS NULL) AND (deleted_at IS NULL))) AND (((state)::text <> 'missing'::text) OR ((stored_at IS NOT NULL) AND (missing_at IS NOT NULL) AND (deleted_at IS NULL))) AND (((state)::text <> 'deleted'::text) OR (deleted_at IS NOT NULL)))),
+    CONSTRAINT artifact_blobs_metadata_shape CHECK ((((storage_service)::text ~ '^[a-z][a-z0-9_]{0,23}$'::text) AND (byte_count >= 0) AND ((content_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND ((encryption_mode)::text = ANY ((ARRAY['provider_managed'::character varying, 'sse_s3'::character varying, 'local_private'::character varying])::text[])) AND ((encryption_key_version)::text ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$'::text))),
+    CONSTRAINT artifact_blobs_opaque_scoped_key CHECK ((((octet_length((object_key)::text) >= 32) AND (octet_length((object_key)::text) <= 512)) AND ((object_key)::text !~ '[[:cntrl:]]'::text) AND ((object_key)::text ~~ (((((('organizations/'::text || (organization_id)::text) || '/projects/'::text) || (project_id)::text) || '/properties/'::text) || (property_id)::text) || '/objects/%'::text))))
+);
+
+
+--
+-- Name: artifacts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.artifacts (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_id uuid NOT NULL,
+    environment_id uuid NOT NULL,
+    scan_id uuid NOT NULL,
+    artifact_blob_id uuid NOT NULL,
+    source_type character varying(48) NOT NULL,
+    source_id character varying(128) NOT NULL,
+    kind character varying(48) NOT NULL,
+    media_type character varying(128) NOT NULL,
+    download_filename character varying(160) NOT NULL,
+    retention_class character varying(48) NOT NULL,
+    retention_state character varying(24) DEFAULT 'retained'::character varying NOT NULL,
+    retention_expires_at timestamp(6) with time zone NOT NULL,
+    legal_hold boolean DEFAULT false NOT NULL,
+    legal_hold_set_at timestamp(6) with time zone,
+    deletion_requested_at timestamp(6) with time zone,
+    deleted_at timestamp(6) with time zone,
+    lock_version integer DEFAULT 0 NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT artifacts_metadata_shape CHECK ((((source_type)::text ~ '^[a-z][a-z0-9_]{0,47}$'::text) AND ((octet_length((source_id)::text) >= 1) AND (octet_length((source_id)::text) <= 128)) AND ((source_id)::text !~ '[[:cntrl:]]'::text) AND ((kind)::text ~ '^[a-z][a-z0-9_]{0,47}$'::text) AND ((media_type)::text ~ '^[a-z0-9!#$&^_.+-]+/[a-z0-9!#$&^_.+-]+$'::text) AND ((octet_length((download_filename)::text) >= 1) AND (octet_length((download_filename)::text) <= 160)) AND ((download_filename)::text !~ '[[:cntrl:]/\\]'::text) AND ((retention_class)::text ~ '^[a-z][a-z0-9_]{0,47}$'::text))),
+    CONSTRAINT artifacts_retention_lifecycle CHECK ((((retention_state)::text = ANY ((ARRAY['retained'::character varying, 'deletion_pending'::character varying, 'missing'::character varying, 'deleted'::character varying])::text[])) AND ((legal_hold AND (legal_hold_set_at IS NOT NULL)) OR ((NOT legal_hold) AND (legal_hold_set_at IS NULL))) AND (((retention_state)::text = 'retained'::text) OR (deletion_requested_at IS NOT NULL)) AND (((retention_state)::text <> 'deleted'::text) OR (deleted_at IS NOT NULL))))
+);
+
+
+--
 -- Name: audit_events; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1503,7 +1564,7 @@ CREATE TABLE public.crawl_sitemap_discoveries (
     created_at timestamp(6) with time zone NOT NULL,
     updated_at timestamp(6) with time zone NOT NULL,
     CONSTRAINT crawl_sitemap_discoveries_counters CHECK (((documents_discovered_count >= 0) AND (documents_processed_count >= 0) AND (documents_succeeded_count >= 0) AND (documents_failed_count >= 0) AND (entries_observed_count >= 0) AND (entries_in_scope_count >= 0) AND (entries_out_of_scope_count >= 0) AND (entries_invalid_count >= 0) AND (frontier_inserted_count >= 0) AND (fetch_attempt_count >= 0) AND (metered_fetch_count >= 0) AND (compressed_bytes_count >= 0) AND (decompressed_bytes_count >= 0) AND (warning_count >= 0) AND (documents_processed_count = (documents_succeeded_count + documents_failed_count)) AND (entries_observed_count = ((entries_in_scope_count + entries_out_of_scope_count) + entries_invalid_count)) AND (frontier_inserted_count <= entries_in_scope_count) AND (metered_fetch_count <= fetch_attempt_count))),
-    CONSTRAINT crawl_sitemap_discoveries_lifecycle CHECK ((((status)::text = ANY ((ARRAY['running'::character varying, 'completed'::character varying, 'partially_completed'::character varying, 'failed'::character varying])::text[])) AND ((((status)::text = 'running'::text) AND (finished_at IS NULL)) OR (((status)::text <> 'running'::text) AND (finished_at IS NOT NULL) AND (finished_at >= started_at))))),
+    CONSTRAINT crawl_sitemap_discoveries_lifecycle CHECK ((((status)::text = ANY (ARRAY[('running'::character varying)::text, ('completed'::character varying)::text, ('partially_completed'::character varying)::text, ('failed'::character varying)::text])) AND ((((status)::text = 'running'::text) AND (finished_at IS NULL)) OR (((status)::text <> 'running'::text) AND (finished_at IS NOT NULL) AND (finished_at >= started_at))))),
     CONSTRAINT crawl_sitemap_discoveries_warnings CHECK (((cardinality(warning_codes) <= 1000) AND (array_position(warning_codes, NULL::text) IS NULL) AND (octet_length(array_to_string(warning_codes, ''::text)) <= 64000)))
 );
 
@@ -1534,9 +1595,9 @@ CREATE TABLE public.crawl_sitemap_entries (
     crawl_url_id bigint,
     child_sitemap_file_id uuid,
     created_at timestamp(6) with time zone NOT NULL,
-    CONSTRAINT crawl_sitemap_entries_identity CHECK (((entry_index > 0) AND ((entry_kind)::text = ANY ((ARRAY['page'::character varying, 'sitemap'::character varying])::text[])) AND ((octet_length(location_url) >= 1) AND (octet_length(location_url) <= 8192)) AND ((location_digest)::text ~ '^[0-9a-f]{64}$'::text) AND (normalization_version > 0))),
-    CONSTRAINT crawl_sitemap_entries_lastmod CHECK ((((lastmod_text IS NULL) AND (lastmod_at IS NULL) AND (lastmod_precision IS NULL)) OR ((lastmod_text IS NOT NULL) AND ((octet_length(lastmod_text) >= 1) AND (octet_length(lastmod_text) <= 64)) AND ((lastmod_precision)::text = ANY ((ARRAY['date'::character varying, 'datetime'::character varying, 'invalid'::character varying])::text[])) AND ((((lastmod_precision)::text = 'invalid'::text) AND (lastmod_at IS NULL)) OR (((lastmod_precision)::text <> 'invalid'::text) AND (lastmod_at IS NOT NULL)))))),
-    CONSTRAINT crawl_sitemap_entries_outcome CHECK ((((scope_status)::text = ANY ((ARRAY['in_scope'::character varying, 'out_of_scope'::character varying])::text[])) AND ((scope_reason)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text) AND ((relationship_status)::text = ANY ((ARRAY['frontier_inserted'::character varying, 'frontier_duplicate'::character varying, 'frontier_limit'::character varying, 'queued'::character varying, 'duplicate'::character varying, 'circular'::character varying, 'depth_rejected'::character varying, 'document_limit'::character varying, 'out_of_scope'::character varying])::text[])) AND (((scope_status)::text <> 'out_of_scope'::text) OR ((relationship_status)::text = 'out_of_scope'::text)) AND ((crawl_url_id IS NULL) OR ((entry_kind)::text = 'page'::text)) AND ((child_sitemap_file_id IS NULL) OR ((entry_kind)::text = 'sitemap'::text)) AND (((relationship_status)::text <> 'frontier_inserted'::text) OR (crawl_url_id IS NOT NULL)) AND (((relationship_status)::text <> ALL ((ARRAY['queued'::character varying, 'duplicate'::character varying, 'circular'::character varying])::text[])) OR (child_sitemap_file_id IS NOT NULL))))
+    CONSTRAINT crawl_sitemap_entries_identity CHECK (((entry_index > 0) AND ((entry_kind)::text = ANY (ARRAY[('page'::character varying)::text, ('sitemap'::character varying)::text])) AND ((octet_length(location_url) >= 1) AND (octet_length(location_url) <= 8192)) AND ((location_digest)::text ~ '^[0-9a-f]{64}$'::text) AND (normalization_version > 0))),
+    CONSTRAINT crawl_sitemap_entries_lastmod CHECK ((((lastmod_text IS NULL) AND (lastmod_at IS NULL) AND (lastmod_precision IS NULL)) OR ((lastmod_text IS NOT NULL) AND ((octet_length(lastmod_text) >= 1) AND (octet_length(lastmod_text) <= 64)) AND ((lastmod_precision)::text = ANY (ARRAY[('date'::character varying)::text, ('datetime'::character varying)::text, ('invalid'::character varying)::text])) AND ((((lastmod_precision)::text = 'invalid'::text) AND (lastmod_at IS NULL)) OR (((lastmod_precision)::text <> 'invalid'::text) AND (lastmod_at IS NOT NULL)))))),
+    CONSTRAINT crawl_sitemap_entries_outcome CHECK ((((scope_status)::text = ANY (ARRAY[('in_scope'::character varying)::text, ('out_of_scope'::character varying)::text])) AND ((scope_reason)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text) AND ((relationship_status)::text = ANY (ARRAY[('frontier_inserted'::character varying)::text, ('frontier_duplicate'::character varying)::text, ('frontier_limit'::character varying)::text, ('queued'::character varying)::text, ('duplicate'::character varying)::text, ('circular'::character varying)::text, ('depth_rejected'::character varying)::text, ('document_limit'::character varying)::text, ('out_of_scope'::character varying)::text])) AND (((scope_status)::text <> 'out_of_scope'::text) OR ((relationship_status)::text = 'out_of_scope'::text)) AND ((crawl_url_id IS NULL) OR ((entry_kind)::text = 'page'::text)) AND ((child_sitemap_file_id IS NULL) OR ((entry_kind)::text = 'sitemap'::text)) AND (((relationship_status)::text <> 'frontier_inserted'::text) OR (crawl_url_id IS NOT NULL)) AND (((relationship_status)::text <> ALL (ARRAY[('queued'::character varying)::text, ('duplicate'::character varying)::text, ('circular'::character varying)::text])) OR (child_sitemap_file_id IS NOT NULL))))
 );
 
 
@@ -1599,9 +1660,9 @@ CREATE TABLE public.crawl_sitemap_files (
     created_at timestamp(6) with time zone NOT NULL,
     updated_at timestamp(6) with time zone NOT NULL,
     CONSTRAINT crawl_sitemap_files_counters CHECK (((entry_count >= 0) AND (entries_in_scope_count >= 0) AND (entries_out_of_scope_count >= 0) AND (entries_invalid_count >= 0) AND (entry_count = ((entries_in_scope_count + entries_out_of_scope_count) + entries_invalid_count)) AND (child_count >= 0) AND ((warning_count >= 0) AND (warning_count <= 1000)) AND (jsonb_typeof(warnings) = 'array'::text) AND (pg_column_size(warnings) <= 131072))),
-    CONSTRAINT crawl_sitemap_files_identity CHECK ((((octet_length(url) >= 1) AND (octet_length(url) <= 8192)) AND ((url_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((final_url IS NULL) OR ((octet_length(final_url) >= 1) AND (octet_length(final_url) <= 8192))) AND ((artifact_sha256 IS NULL) OR ((artifact_sha256)::text ~ '^[0-9a-f]{64}$'::text)))),
-    CONSTRAINT crawl_sitemap_files_provenance CHECK ((((source)::text = ANY ((ARRAY['configured'::character varying, 'robots'::character varying, 'well_known'::character varying, 'sitemap_index'::character varying])::text[])) AND ((index_depth >= 0) AND (index_depth <= 10)) AND ((parent_sitemap_file_id IS NULL) OR (parent_sitemap_file_id <> id)))),
-    CONSTRAINT crawl_sitemap_files_result CHECK ((((status)::text = ANY ((ARRAY['pending'::character varying, 'fetched'::character varying, 'unavailable'::character varying, 'unreachable'::character varying, 'oversized'::character varying, 'malformed'::character varying, 'rejected'::character varying])::text[])) AND ((document_kind IS NULL) OR ((document_kind)::text = ANY ((ARRAY['urlset'::character varying, 'sitemap_index'::character varying])::text[]))) AND ((http_status IS NULL) OR ((http_status >= 100) AND (http_status <= 599))) AND ((content_type IS NULL) OR ((octet_length((content_type)::text) >= 1) AND (octet_length((content_type)::text) <= 128))) AND ((redirect_count IS NULL) OR ((redirect_count >= 0) AND (redirect_count <= 5))) AND ((parser_version IS NULL) OR (parser_version > 0)) AND ((compressed_bytes IS NULL) OR (compressed_bytes >= 0)) AND ((decompressed_bytes IS NULL) OR (decompressed_bytes >= 0)) AND ((error_code IS NULL) OR ((error_code)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text)) AND (((status)::text <> 'pending'::text) OR ((retrieved_at IS NULL) AND (artifact_sha256 IS NULL) AND (http_status IS NULL) AND (final_url IS NULL) AND (document_kind IS NULL) AND (compressed_bytes IS NULL) AND (decompressed_bytes IS NULL) AND (redirect_count IS NULL) AND (parser_version IS NULL) AND (error_code IS NULL))) AND (((status)::text <> 'fetched'::text) OR (((http_status >= 200) AND (http_status <= 299)) AND (retrieved_at IS NOT NULL) AND (artifact_sha256 IS NOT NULL) AND (final_url IS NOT NULL) AND (document_kind IS NOT NULL) AND (parser_version IS NOT NULL))) AND (((status)::text <> 'rejected'::text) OR ((retrieved_at IS NULL) AND (http_status IS NULL) AND (artifact_sha256 IS NULL) AND (error_code IS NOT NULL)))))
+    CONSTRAINT crawl_sitemap_files_identity CHECK (((octet_length(url) >= 1) AND (octet_length(url) <= 8192) AND ((url_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((final_url IS NULL) OR ((octet_length(final_url) >= 1) AND (octet_length(final_url) <= 8192))) AND ((artifact_sha256 IS NULL) OR ((artifact_sha256)::text ~ '^[0-9a-f]{64}$'::text)))),
+    CONSTRAINT crawl_sitemap_files_provenance CHECK ((((source)::text = ANY (ARRAY[('configured'::character varying)::text, ('robots'::character varying)::text, ('well_known'::character varying)::text, ('sitemap_index'::character varying)::text])) AND ((index_depth >= 0) AND (index_depth <= 10)) AND ((parent_sitemap_file_id IS NULL) OR (parent_sitemap_file_id <> id)))),
+    CONSTRAINT crawl_sitemap_files_result CHECK ((((status)::text = ANY (ARRAY[('pending'::character varying)::text, ('fetched'::character varying)::text, ('unavailable'::character varying)::text, ('unreachable'::character varying)::text, ('oversized'::character varying)::text, ('malformed'::character varying)::text, ('rejected'::character varying)::text])) AND ((document_kind IS NULL) OR ((document_kind)::text = ANY (ARRAY[('urlset'::character varying)::text, ('sitemap_index'::character varying)::text]))) AND ((http_status IS NULL) OR ((http_status >= 100) AND (http_status <= 599))) AND ((content_type IS NULL) OR ((octet_length((content_type)::text) >= 1) AND (octet_length((content_type)::text) <= 128))) AND ((redirect_count IS NULL) OR ((redirect_count >= 0) AND (redirect_count <= 5))) AND ((parser_version IS NULL) OR (parser_version > 0)) AND ((compressed_bytes IS NULL) OR (compressed_bytes >= 0)) AND ((decompressed_bytes IS NULL) OR (decompressed_bytes >= 0)) AND ((error_code IS NULL) OR ((error_code)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text)) AND (((status)::text <> 'pending'::text) OR ((retrieved_at IS NULL) AND (artifact_sha256 IS NULL) AND (http_status IS NULL) AND (final_url IS NULL) AND (document_kind IS NULL) AND (compressed_bytes IS NULL) AND (decompressed_bytes IS NULL) AND (redirect_count IS NULL) AND (parser_version IS NULL) AND (error_code IS NULL))) AND (((status)::text <> 'fetched'::text) OR ((http_status >= 200) AND (http_status <= 299) AND (retrieved_at IS NOT NULL) AND (artifact_sha256 IS NOT NULL) AND (final_url IS NOT NULL) AND (document_kind IS NOT NULL) AND (parser_version IS NOT NULL))) AND (((status)::text <> 'rejected'::text) OR ((retrieved_at IS NULL) AND (http_status IS NULL) AND (artifact_sha256 IS NULL) AND (error_code IS NOT NULL)))))
 );
 
 
@@ -3105,6 +3166,22 @@ ALTER TABLE ONLY public.ar_internal_metadata
 
 
 --
+-- Name: artifact_blobs artifact_blobs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.artifact_blobs
+    ADD CONSTRAINT artifact_blobs_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: artifacts artifacts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.artifacts
+    ADD CONSTRAINT artifacts_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: audit_events audit_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3629,6 +3706,55 @@ ALTER TABLE ONLY public.website_property_configs
 --
 
 CREATE UNIQUE INDEX index_android_configs_on_normalized_package ON public.android_property_configs USING btree (organization_id, project_id, package_name);
+
+
+--
+-- Name: index_artifact_blobs_on_exact_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_artifact_blobs_on_exact_identity ON public.artifact_blobs USING btree (organization_id, project_id, property_id, id);
+
+
+--
+-- Name: index_artifact_blobs_on_reconciliation; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_artifact_blobs_on_reconciliation ON public.artifact_blobs USING btree (state, updated_at, id);
+
+
+--
+-- Name: index_artifact_blobs_on_safe_deduplication; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_artifact_blobs_on_safe_deduplication ON public.artifact_blobs USING btree (organization_id, project_id, property_id, encryption_key_version, content_sha256) WHERE ((state)::text <> 'deleted'::text);
+
+
+--
+-- Name: index_artifacts_on_blob_retention; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_artifacts_on_blob_retention ON public.artifacts USING btree (artifact_blob_id, retention_state, legal_hold);
+
+
+--
+-- Name: index_artifacts_on_retention_queue; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_artifacts_on_retention_queue ON public.artifacts USING btree (retention_state, legal_hold, retention_expires_at, id);
+
+
+--
+-- Name: index_artifacts_on_source_idempotency; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_artifacts_on_source_idempotency ON public.artifacts USING btree (organization_id, project_id, property_id, source_type, source_id, kind);
+
+
+--
+-- Name: index_artifacts_on_tenant_scan; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_artifacts_on_tenant_scan ON public.artifacts USING btree (organization_id, project_id, property_id, scan_id, id);
 
 
 --
@@ -4612,6 +4738,13 @@ CREATE UNIQUE INDEX index_properties_on_deletion_workflow_id ON public.propertie
 
 
 --
+-- Name: index_properties_on_exact_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_properties_on_exact_identity ON public.properties USING btree (organization_id, project_id, id);
+
+
+--
 -- Name: index_properties_on_project_and_display_name; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5422,6 +5555,38 @@ CREATE TRIGGER usage_windows_non_overlapping BEFORE INSERT OR DELETE OR UPDATE O
 
 ALTER TABLE ONLY public.android_property_configs
     ADD CONSTRAINT fk_android_property_configs_typed_property FOREIGN KEY (organization_id, project_id, property_id, property_kind, configuration_version) REFERENCES public.properties(organization_id, project_id, id, kind, configuration_version) ON DELETE RESTRICT;
+
+
+--
+-- Name: artifact_blobs fk_artifact_blobs_exact_project; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.artifact_blobs
+    ADD CONSTRAINT fk_artifact_blobs_exact_project FOREIGN KEY (organization_id, project_id) REFERENCES public.projects(organization_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: artifact_blobs fk_artifact_blobs_exact_property; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.artifact_blobs
+    ADD CONSTRAINT fk_artifact_blobs_exact_property FOREIGN KEY (organization_id, project_id, property_id) REFERENCES public.properties(organization_id, project_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: artifacts fk_artifacts_exact_blob; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.artifacts
+    ADD CONSTRAINT fk_artifacts_exact_blob FOREIGN KEY (organization_id, project_id, property_id, artifact_blob_id) REFERENCES public.artifact_blobs(organization_id, project_id, property_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: artifacts fk_artifacts_exact_scan; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.artifacts
+    ADD CONSTRAINT fk_artifacts_exact_scan FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id) REFERENCES public.scans(organization_id, project_id, property_id, environment_id, id) ON DELETE RESTRICT;
 
 
 --
@@ -6527,6 +6692,7 @@ ALTER TABLE ONLY public.website_property_configs
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904153000'),
 ('20260904152000'),
 ('20260904151000'),
 ('20260904150000'),

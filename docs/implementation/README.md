@@ -97,6 +97,8 @@ Do not pre-populate these reports with fictional implementation or test results.
   pinned HTTP transport, redirect revalidation, safe denial evidence and infrastructure egress enforcement.
 - [`HTTP_FETCHER.md`](./HTTP_FETCHER.md) defines bounded GET/HEAD transport, TLS and response limits,
   manual redirect provenance, streaming/hash behavior, safe retries, cancellation and crawler identity.
+- [`PRIVATE_ARTIFACT_STORAGE.md`](./PRIVATE_ARTIFACT_STORAGE.md) defines private local/S3 streaming,
+  exact-tenant metadata, opaque keys, signed retrieval, deduplication, retention and reconciliation.
 - [`SEARCH_CONSOLE_VERIFICATION.md`](./SEARCH_CONSOLE_VERIFICATION.md) defines separate provider consent,
   exact URL-prefix/domain matching, dual authorization and connection-change revalidation.
 - [`PROJECT_ONBOARDING.md`](./PROJECT_ONBOARDING.md) defines the persisted guided setup state machine,

@@ -78,7 +78,9 @@ Store large or immutable artifacts outside PostgreSQL:
 - generated reports;
 - optional network traces.
 
-Use private buckets, server-side encryption, blocked public access, lifecycle expiration and short-lived signed downloads issued only after authorization. Object keys include opaque tenant/project identifiers and content hashes, not raw customer URLs or secrets.
+Use private buckets, server-side encryption, blocked public access, lifecycle expiration and short-lived signed downloads issued only after authorization. Artifact keys use exact tenant/project/property UUID prefixes plus random UUID object identifiers; they never contain content hashes, customer URLs, query strings, filenames or secrets.
+
+The implemented artifact adapter uses local private files in development/test and S3-compatible storage in staging/production. Validate bucket-level public-access blocking, default encryption, CORS, lifecycle policy and the application role's least-privilege permissions before deploy. The application still explicitly requests `AES256` server-side encryption and never sends a public ACL. See `docs/implementation/PRIVATE_ARTIFACT_STORAGE.md` for adapter, recovery and rollout details.
 
 ## 5. Production container
 
@@ -356,6 +358,8 @@ Solid Queue recurring tasks may trigger:
 - integration health checks.
 
 Recurring definitions are version-controlled. Tasks are idempotent and use database/advisory locks where only one execution is allowed.
+
+Private artifact expiry runs hourly at minute 22 and selects at most 250 unlocked references. Missing-object reconciliation runs daily at 04:07 and checks at most 250 active blobs. Object deletion is retried through the normal transient-infrastructure job policy. Track unique retained bytes and logical reference counts per organization/project/storage service for cost attribution; alert on growing `uploading`, `missing`, or `deletion_pending` backlogs.
 
 Resource-deletion reconciliation runs hourly at minute 37 on `maintenance`. It selects at most 200 workflows
 whose hold/retry time is due or whose five-minute lease expired, then enqueues exact organization/workflow IDs.

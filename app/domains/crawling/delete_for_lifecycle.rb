@@ -7,6 +7,7 @@ module Crawling
     end
 
     def call(organization_id:, project_id:, deletion_workflow_id:, property_id: nil)
+      delete_artifact_metadata!(organization_id, project_id, property_id)
       scans = Scan.where(organization_id: organization_id, project_id: project_id)
       scans = scans.where(property_id: property_id) if property_id
       scan_targets = scans.order(:id).pluck(:id, :property_id)
@@ -51,6 +52,24 @@ module Crawling
       PolicyVersion.where(crawl_policy_set_id: set_ids).delete_all if set_ids.any?
       sets.delete_all
       set_ids.length + scan_ids.length
+    end
+
+    private
+
+    def delete_artifact_metadata!(organization_id, project_id, property_id)
+      artifacts = Artifact.where(organization_id: organization_id, project_id: project_id)
+      artifacts = artifacts.where(property_id: property_id) if property_id
+      if artifacts.where(legal_hold: true).exists?
+        raise ArtifactLifecycleBlocked.new(
+          "resource artifact deletion is paused by a legal hold",
+          reason_code: "artifact_legal_hold"
+        )
+      end
+
+      artifacts.delete_all
+      blobs = ArtifactBlob.where(organization_id: organization_id, project_id: project_id)
+      blobs = blobs.where(property_id: property_id) if property_id
+      blobs.delete_all
     end
   end
 end

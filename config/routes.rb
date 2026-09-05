@@ -1,4 +1,6 @@
 Rails.application.routes.draw do
+  get "private-artifacts/:token", to: "crawling/private_artifacts#show",
+    as: :private_artifact, constraints: { token: /[^\/]+/ }
   post "webhooks/billing/lemon_squeezy", to: Billing::WebhookRackEndpoint.new,
     as: :lemon_squeezy_billing_webhook
 

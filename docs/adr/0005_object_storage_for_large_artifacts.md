@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-09-04
 - Owners: Platform, Crawling
-- Last reviewed: 2026-09-04 (Prompt 005)
+- Last reviewed: 2026-09-05 (Prompt 070)
 
 ## Context
 
@@ -22,7 +22,10 @@ Store large artifacts in private S3-compatible object storage. PostgreSQL stores
 
 ## Implementation status
 
-Prompt 003 added typed S3-compatible settings and requires bucket/region in
-protected environments. The generated Rails production environment still uses
-local Active Storage until the private artifact-store work in Prompt 070; this
-is a documented pre-production gap, not a change to the decision.
+Prompt 070 implements the provider-neutral private artifact store independently
+of Active Storage. S3 uploads use server-side encryption and no public ACL;
+development and test use a private local streaming adapter. Logical artifact
+metadata and physical blob metadata are separate so content is deduplicated
+only inside an exact organization/project/property boundary. Authorized reads
+receive URLs valid for at most 15 minutes. Hourly expiry and daily reconciliation
+jobs own deletion and missing-object detection.

@@ -9,7 +9,7 @@ module Administration
     end
 
     def object_store
-      EmptyObjectStore.new
+      Crawling::Public.artifact_store
     end
   end
 end

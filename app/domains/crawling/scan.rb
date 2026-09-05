@@ -36,6 +36,8 @@ module Crawling
       dependent: :restrict_with_exception
     has_many :sitemap_entries, class_name: "Crawling::SitemapEntry", inverse_of: :scan,
       dependent: :restrict_with_exception
+    has_many :artifacts, class_name: "Crawling::Artifact", inverse_of: :scan,
+      dependent: :restrict_with_exception
     has_one :policy_snapshot, class_name: "Crawling::PolicySnapshot", inverse_of: false,
       dependent: :restrict_with_exception
     belongs_to :baseline_scan, class_name: "Crawling::Scan", optional: true

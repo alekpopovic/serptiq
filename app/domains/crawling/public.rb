@@ -143,5 +143,33 @@ module Crawling
     def signed_artifact_url(**attributes)
       SignArtifact.new.call(**attributes)
     end
+
+    def capture_artifact(store: nil, clock: -> { Time.current }, **attributes)
+      CaptureArtifact.new(store: store || artifact_store, clock: clock).call(**attributes)
+    end
+
+    def expire_artifacts(clock: -> { Time.current }, **attributes)
+      ExpireArtifacts.new(clock: clock).call(**attributes)
+    end
+
+    def delete_artifact(store: nil, clock: -> { Time.current }, **attributes)
+      DeleteArtifact.new(store: store || artifact_store, clock: clock).call(**attributes)
+    end
+
+    def reconcile_artifacts(store: nil, clock: -> { Time.current }, **attributes)
+      ReconcileArtifacts.new(store: store || artifact_store, clock: clock).call(**attributes)
+    end
+
+    def artifact_storage_metrics(**attributes)
+      ArtifactStorageMetrics.new.call(**attributes)
+    end
+
+    def set_artifact_legal_hold(clock: -> { Time.current }, **attributes)
+      SetArtifactLegalHold.new(clock: clock).call(**attributes)
+    end
+
+    def artifact_store
+      ArtifactStoreFactory.build
+    end
   end
 end

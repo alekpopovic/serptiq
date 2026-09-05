@@ -39,6 +39,16 @@ default: &default
     queue: maintenance
     priority: 50
     schedule: every minute
+  expire_private_artifacts:
+    command: "Crawling::ArtifactRetentionSweepJob.perform_later"
+    queue: maintenance
+    priority: 50
+    schedule: every hour at minute 22
+  reconcile_private_artifacts:
+    command: "Crawling::ArtifactReconciliationJob.perform_later"
+    queue: maintenance
+    priority: 50
+    schedule: every day at 04:07
   reconcile_billing_subscriptions:
     command: "Billing::ReconciliationSweepJob.perform_later"
     queue: billing

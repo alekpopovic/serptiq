@@ -505,6 +505,12 @@ module Searchops
     end
 
     def validate_integrations(errors)
+      storage_credentials = %i[object_storage_access_key_id object_storage_secret_access_key]
+        .map { |key| present?(secret(key)) }
+      if storage_credentials.one?
+        errors << "SEARCHOPS_OBJECT_STORAGE_ACCESS_KEY_ID and " \
+          "SEARCHOPS_OBJECT_STORAGE_SECRET_ACCESS_KEY must be configured together"
+      end
       if fetch(:oauth_google_enabled)
         require_settings(errors, :oauth_google_client_id)
         require_secrets(errors, :oauth_google_client_secret)

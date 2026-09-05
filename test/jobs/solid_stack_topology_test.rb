@@ -142,10 +142,12 @@ class SolidStackTopologyTest < ActiveSupport::TestCase
       cleanup_inactive_identity_sessions
       clear_solid_queue_finished_batches
       clear_solid_queue_finished_jobs
+      expire_private_artifacts
       maintain_organization_invitations
       maintain_usage_quota_reservations
       recheck_dns_verifications
       reconcile_billing_subscriptions
+      reconcile_private_artifacts
       reconcile_resource_deletions
       recover_crawl_frontier_leases
       recover_scan_dispatches
@@ -169,6 +171,10 @@ class SolidStackTopologyTest < ActiveSupport::TestCase
       tasks.fetch("recover_scan_dispatches").fetch("command")
     assert_equal "Crawling::FrontierLeaseRecoveryJob.perform_later",
       tasks.fetch("recover_crawl_frontier_leases").fetch("command")
+    assert_equal "Crawling::ArtifactRetentionSweepJob.perform_later",
+      tasks.fetch("expire_private_artifacts").fetch("command")
+    assert_equal "Crawling::ArtifactReconciliationJob.perform_later",
+      tasks.fetch("reconcile_private_artifacts").fetch("command")
     assert_equal({
       "command" => "Billing::ReconciliationSweepJob.perform_later",
       "queue" => "billing",
