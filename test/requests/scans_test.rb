@@ -27,7 +27,11 @@ class ScansRequestTest < ActionDispatch::IntegrationTest
     get organization_project_scan_path(@owner.organization.slug, @project.slug, @scan.id)
 
     assert_response :success
+    assert_select "turbo-cable-stream-source"
     assert_select "div#scan_progress_#{@scan.id}[aria-live='polite']"
+    assert_select "h2", text: "Live crawl progress"
+    assert_select "dt", text: "HTTP observations"
+    assert_select "dt", text: "Page snapshots"
     assert_select "h2", text: "Immutable provenance"
     assert_select "button", text: "Request cancellation"
     assert_includes response.body, "Individual failures"

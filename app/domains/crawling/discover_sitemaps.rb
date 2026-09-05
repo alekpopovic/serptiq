@@ -169,6 +169,19 @@ module Crawling
     def process_pending_files!(scan, discovery, environment, file_scope)
       scope = page_scope(scan)
       loop do
+        active = Scan.where(
+          organization_id: scan.organization_id,
+          id: scan.id,
+          status: %w[queued running]
+        ).exists?
+        unless active
+          SitemapFile.where(sitemap_discovery_id: discovery.id, status: "pending").update_all(
+            status: "rejected", error_code: "scan_canceled", updated_at: @clock.call
+          )
+          add_discovery_warning!(discovery, "scan_canceled")
+          break
+        end
+
         file = SitemapFile.where(sitemap_discovery_id: discovery.id, status: "pending")
           .order(:index_depth, :created_at, :id).first
         break unless file

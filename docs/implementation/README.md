@@ -119,6 +119,8 @@ Do not pre-populate these reports with fictional implementation or test results.
   decisions, immutable per-scan provenance, verified-owner override and untrusted sitemap boundary.
 - [`SITEMAP_DISCOVERY.md`](./SITEMAP_DISCOVERY.md) defines exact-origin candidate discovery, streaming
   XXE-safe XML/gzip limits, immutable graph evidence, scope-gated frontier insertion and per-scan metering.
+- [`STATIC_CRAWL_ORCHESTRATION.md`](./STATIC_CRAWL_ORCHESTRATION.md) defines the durable bounded worker flow,
+  normalized fetch/snapshot evidence, idempotent discovery, cancellation/recovery and terminal reconciliation.
 - [`RESOURCE_DELETION.md`](./RESOURCE_DELETION.md) defines exact-target deletion requests, the 30-day hold,
   cooperative cancellation, durable ordered cleanup, object reconciliation and retained tombstones.
 - [`BILLING_PROVIDER_CONTRACT.md`](./BILLING_PROVIDER_CONTRACT.md) defines normalized billing values,

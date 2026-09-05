@@ -49,6 +49,11 @@ default: &default
     queue: maintenance
     priority: 50
     schedule: every minute
+  recover_static_crawl_work:
+    command: "Crawling::StaticCrawlSweepJob.perform_later"
+    queue: maintenance
+    priority: 50
+    schedule: every minute
   expire_private_artifacts:
     command: "Crawling::ArtifactRetentionSweepJob.perform_later"
     queue: maintenance

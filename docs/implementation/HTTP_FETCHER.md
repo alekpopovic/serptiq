@@ -96,6 +96,9 @@ retry, fresh resolution, cancellation, media-type mismatch and fixed-size
 streaming. The security-contract CI job runs the destination corpus and both
 the transport and fetcher tests.
 
-Prompt 069 has no database migration or backfill. Durable fetch metadata is
-intentionally introduced with static crawl orchestration after private artifact
-metadata and credit accounting exist.
+Prompt 073 supplies a usage context and exact frontier permit for static page
+work. Every redirect/retry hop obtains both before DNS/transport; quota denial
+returns without a network call. Its immutable normalized result is persisted in
+`crawl_fetch_results`, while successful HTML bodies use private artifacts and
+exact `crawl_page_snapshots` references. Robots and sitemap clients use a
+pre-request observer with the same per-hop usage contract.

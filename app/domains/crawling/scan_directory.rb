@@ -55,7 +55,9 @@ module Crawling
         baseline_scan_id: scan.baseline_scan_id,
         progress_sequence: scan.progress_sequence,
         cost_breakdown: @cost_query.build(scan),
-        events: events
+        events: events,
+        fetch_observation_count: CrawlFetchResult.where(scan_id: scan.id).count,
+        page_snapshot_count: PageSnapshot.where(scan_id: scan.id).count
       )
     rescue ActiveRecord::RecordNotFound
       raise AccessDenied.new(reason_code: "scan_scope_unavailable"), cause: nil

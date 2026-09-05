@@ -444,6 +444,11 @@ response consumption. Crawling manually validates redirects, reauthorizes each
 retry, checks cancellation and streams/hashes bodies into caller-owned sinks.
 Direct target HTTP clients elsewhere under `app/` fail the architecture gate.
 
+Static crawl execution is one bounded Solid Queue delivery per frontier unit. PostgreSQL owns initialization,
+frontier and extraction leases plus immutable normalized fetch observations; private response bodies remain in
+object storage. Scan completion is derived only after no runnable durable frontier/extraction/initialization state
+remains. The operational contract is `docs/implementation/STATIC_CRAWL_ORCHESTRATION.md`.
+
 Application policy is reinforced by a default-deny crawl/render worker network
 policy. Its versioned contract is `config/crawler_egress_policy.yml`; protected
 workers fail boot until deployment attests that the policy is active.

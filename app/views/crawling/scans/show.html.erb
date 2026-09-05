@@ -1,5 +1,6 @@
 <% summary = @scan.summary %>
 <% content_for :title, "Scan #{summary.id}" %>
+<%= turbo_stream_from "scan", Current.organization.id, summary.id %>
 
 <div class="mx-auto max-w-6xl">
   <%= render "shared/breadcrumbs", items: [
@@ -24,6 +25,19 @@
     <section class="so-card p-5"><h2 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Individual failures</h2><p class="mt-2 text-2xl font-black text-slate-950"><%= number_with_delimiter(summary.counters.urls_failed_count) %></p><p class="mt-1 text-xs text-slate-500">These do not alone determine the terminal scan outcome.</p></section>
     <section class="so-card p-5"><h2 class="text-xs font-semibold uppercase tracking-wide text-slate-500">Finding observations</h2><p class="mt-2 text-2xl font-black text-slate-950"><%= number_with_delimiter(summary.counters.findings_count) %></p></section>
   </div>
+
+  <section class="so-card mt-6 p-6" aria-labelledby="scan-work-title">
+    <h2 id="scan-work-title" class="text-xl font-black text-slate-950"><%= summary.terminal? ? "Terminal crawl summary" : "Live crawl progress" %></h2>
+    <p class="mt-2 text-sm text-slate-600"><%= summary.terminal? ? "These are persisted crawl observations, not search-engine guarantees." : "This view refreshes from bounded durable checkpoints while workers continue in the background." %></p>
+    <dl class="mt-5 grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
+      <div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Queued</dt><dd class="mt-1 text-xl font-black"><%= number_with_delimiter(summary.counters.urls_queued_count) %></dd></div>
+      <div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Running</dt><dd class="mt-1 text-xl font-black"><%= number_with_delimiter(summary.counters.urls_running_count) %></dd></div>
+      <div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Succeeded</dt><dd class="mt-1 text-xl font-black"><%= number_with_delimiter(summary.counters.urls_succeeded_count) %></dd></div>
+      <div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Skipped</dt><dd class="mt-1 text-xl font-black"><%= number_with_delimiter(summary.counters.urls_skipped_count) %></dd></div>
+      <div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">HTTP observations</dt><dd class="mt-1 text-xl font-black"><%= number_with_delimiter(@scan.fetch_observation_count) %></dd></div>
+      <div><dt class="text-xs font-semibold uppercase tracking-wide text-slate-500">Page snapshots</dt><dd class="mt-1 text-xl font-black"><%= number_with_delimiter(@scan.page_snapshot_count) %></dd></div>
+    </dl>
+  </section>
 
   <% if summary.failure_category %>
     <p class="so-alert so-alert-danger mt-6" role="status">The scan ended with failure category <strong><%= summary.failure_category.humanize %></strong>. No exception details or worker logs are exposed here.</p>

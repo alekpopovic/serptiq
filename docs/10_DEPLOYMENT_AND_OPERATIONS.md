@@ -363,6 +363,12 @@ Recurring definitions are version-controlled. Tasks are idempotent and use datab
 
 Private artifact expiry runs hourly at minute 22 and selects at most 250 unlocked references. Missing-object reconciliation runs daily at 04:07 and checks at most 250 active blobs. Object deletion is retried through the normal transient-infrastructure job policy. Track unique retained bytes and logical reference counts per organization/project/storage service for cost attribution; alert on growing `uploading`, `missing`, or `deletion_pending` backlogs.
 
+Static crawl recovery runs every minute on `maintenance`. It reclaims at most 100 expired initialization and
+page-extraction leases per phase, then re-enqueues at most 100 eligible scans and 100 due snapshots. Monitor lease
+age, due frontier/snapshot backlog, repeated poison attempts, quota/deadline partial completion and crawl queue
+latency. Do not repair state by clearing opaque lease digests or editing immutable fetch rows; let the bounded
+recovery and terminal reconciliation services re-authorize the exact tenant scan.
+
 Resource-deletion reconciliation runs hourly at minute 37 on `maintenance`. It selects at most 200 workflows
 whose hold/retry time is due or whose five-minute lease expired, then enqueues exact organization/workflow IDs.
 Alert on overdue holds, repeated sanitized failure categories, expired running leases and object-prefix
@@ -454,6 +460,9 @@ The crawl-pressure runbook is `docs/implementation/CRAWL_PRESSURE_CONTROLS.md`. 
 minute in the maintenance queue. During an incident, use only the audited platform global/opaque-host switch,
 observe active/stale permits and lock health, wait for active permit expiry, then resume through the same control;
 never edit tenant rows or delete permit evidence directly.
+
+The static crawl execution and crash-recovery contract is
+`docs/implementation/STATIC_CRAWL_ORCHESTRATION.md`.
 
 ## 18. Production release checklist
 

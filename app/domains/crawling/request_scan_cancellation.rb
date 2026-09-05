@@ -55,9 +55,23 @@ module Crawling
         )
       end
       ScanLifecycleRecord.enqueue(outbox)
+      enqueue_worker_acknowledgement(scan) if scan.status == "cancel_requested"
       scan
     rescue ActiveRecord::RecordNotFound
       raise AccessDenied.new(reason_code: "scan_scope_unavailable"), cause: nil
+    end
+
+    private
+
+    def enqueue_worker_acknowledgement(scan)
+      StaticCrawlOrchestratorJob.perform_later(
+        organization_id: scan.organization_id,
+        scan_id: scan.id
+      )
+    rescue StandardError => error
+      Shared::Public.report_observability_failure(
+        error, event_name: "crawler.cancellation_enqueue"
+      )
     end
   end
 end

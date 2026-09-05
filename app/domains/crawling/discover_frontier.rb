@@ -21,14 +21,22 @@ module Crawling
       inserted_count = 0
       CrawlUrl.transaction do
         now = @clock.call
-        result = CrawlUrl.insert_all(
-          normalized.map { |entry| attributes_for(scan, entry, now) },
-          unique_by: :index_crawl_urls_on_scan_url_identity,
-          returning: %w[id normalized_url_digest]
-        )
-        promote_pending_entries!(scan, normalized, now)
-        rows = load_and_verify!(scan, normalized)
-        inserted_count = result.rows.length
+        lock_discovery!(scan)
+        scan.reload
+        ensure_active_scan!(scan)
+        admitted = admit_within_limit(scan, normalized)
+        result = if admitted.empty?
+          nil
+        else
+          CrawlUrl.insert_all(
+            admitted.map { |entry| attributes_for(scan, entry, now) },
+            unique_by: :index_crawl_urls_on_scan_url_identity,
+            returning: %w[id normalized_url_digest]
+          )
+        end
+        promote_pending_entries!(scan, admitted, now)
+        rows = load_and_verify!(scan, admitted)
+        inserted_count = result&.rows&.length.to_i
         if inserted_count.positive?
           scan = Scan.lock.find_by!(organization_id: organization_id, id: scan_id)
           ensure_active_scan!(scan)
@@ -114,6 +122,8 @@ module Crawling
     end
 
     def load_and_verify!(scan, entries)
+      return [] if entries.empty?
+
       expected = entries.index_by(&:normalized_url_digest)
       rows = CrawlUrl.where(scan_id: scan.id, normalized_url_digest: expected.keys).to_a
       collision = rows.any? do |row|
@@ -127,6 +137,8 @@ module Crawling
     end
 
     def promote_pending_entries!(scan, entries, now)
+      return if entries.empty?
+
       rows = entries.map { |entry| attributes_for(scan, entry, now) }
       CrawlUrl.upsert_all(
         rows,
@@ -145,6 +157,32 @@ module Crawling
     def discovery_operation_key(returned_rows)
       ids = returned_rows.map { |row| row.first.to_i }.sort.join(":")
       "discover:#{Digest::SHA256.hexdigest(ids)}"
+    end
+
+    def admit_within_limit(scan, entries)
+      existing = CrawlUrl.where(
+        scan_id: scan.id,
+        normalized_url_digest: entries.map(&:normalized_url_digest)
+      ).pluck(:normalized_url_digest).to_h { |digest| [ digest, true ] }
+      remaining = [ Integer(scan.settings_snapshot.to_h.fetch("max_urls", 0)) -
+        CrawlUrl.where(scan_id: scan.id).count, 0 ].max
+      entries.select do |entry|
+        if existing.key?(entry.normalized_url_digest)
+          true
+        elsif remaining.positive?
+          remaining -= 1
+          true
+        else
+          false
+        end
+      end
+    end
+
+    def lock_discovery!(scan)
+      key = CrawlUrl.connection.quote("crawl-frontier-discovery:#{scan.id}")
+      CrawlUrl.connection.execute(
+        "SELECT pg_advisory_xact_lock(hashtextextended(#{key}, 0))"
+      )
     end
 
     def settings

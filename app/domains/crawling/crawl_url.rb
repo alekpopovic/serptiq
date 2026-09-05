@@ -14,6 +14,10 @@ module Crawling
 
     belongs_to :scan, class_name: "Crawling::Scan", inverse_of: :crawl_urls
     belongs_to :discovered_from, class_name: "Crawling::CrawlUrl", optional: true
+    has_many :fetch_results, class_name: "Crawling::CrawlFetchResult", inverse_of: :crawl_url,
+      dependent: :restrict_with_exception
+    has_one :page_snapshot, class_name: "Crawling::PageSnapshot", inverse_of: :crawl_url,
+      dependent: :restrict_with_exception
 
     validates :organization_id, :project_id, :property_id, :environment_id, :scan_id,
       :fetch_url, :normalized_url, presence: true

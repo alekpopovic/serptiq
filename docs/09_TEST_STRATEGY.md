@@ -248,6 +248,12 @@ Build a local malicious-target fixture service. It should simulate:
 
 Every destination and every redirect hop must be resolved and validated. Tests assert that no forbidden network connection is attempted, not only that an error is eventually returned.
 
+The static crawl integration suite uses a scripted local-site transport behind the real destination policy and
+real PostgreSQL state. It verifies initialization, bounded artifacts, link discovery, URL/depth caps, duplicate
+delivery, poison retries, expired leases, cancellation, quota/deadline stops and terminal counters. Database
+tests separately forge cross-tenant artifact/fetch identities and direct immutable-row updates so model
+validations cannot hide a missing PostgreSQL constraint.
+
 ## 11. Browser-worker tests
 
 Execute hostile pages in an isolated Chromium test container and verify:

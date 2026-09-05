@@ -931,13 +931,25 @@ normalized URL identity, `lastmod` value/precision, scope outcome and the same-s
 relationship. Composite foreign keys prevent tenant, scan, child and crawl-URL substitution; terminal rows
 are immutable except through the authorized resource-deletion stage.
 
-### `crawl_fetches`
+### `crawl_scan_executions`
 
-Records requested URL, final URL, approved resolved address metadata, status, headers allowlist, timing, byte count, MIME, redirect chain, outcome, error classification, and artifact references.
+One exact-tenant row per scan owns bounded static-crawl initialization attempts, opaque lease-token digest,
+lease timing, terminal execution state and the throttled live-update checkpoint. Identity and attempt ceilings are
+immutable; a recovery index supports bounded expired-lease selection.
 
-### `page_snapshots`
+### `crawl_fetch_results`
 
-Normalized extraction: title, descriptions, robots directives, canonical, headings summary, language, content hash, text metrics, structured-data summary, rendered/static flag, viewport/device profile.
+Immutable bigint observations for exact scan/frontier attempts. Records final URL and digest, status, bounded
+header allowlist, timing/byte/hash/type facts, request/retry/redirect counts, outcome/failure category and an
+optional exact private-artifact reference. Unique scan/frontier/attempt and scan/source identities make replay
+idempotent. Bodies and raw resolution details are not stored in PostgreSQL.
+
+### `crawl_page_snapshots`
+
+Exact source references from one successful static HTML fetch to its frontier row and private body artifact,
+plus a bounded link-discovery extraction lease, retry state, parser version and discovered-link count. Prompt 073
+does not yet store normalized title/canonical/headings/structured-data facts; that broader extraction belongs to
+Prompt 074.
 
 ### `crawl_links`
 

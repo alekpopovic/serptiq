@@ -288,18 +288,32 @@ class CrawlingFrontierTest < ActiveSupport::TestCase
   end
 
   def finish(service, lease_record)
+    result = create_crawl_fetch_result_for(
+      scan: @scan,
+      crawl_url: Crawling::CrawlUrl.find(lease_record.id),
+      lease_token: lease_record.token,
+      at: @now + 39.seconds
+    )
     service.call(
       organization_id: lease_record.organization_id,
       crawl_url_id: lease_record.id,
       worker_id: lease_record.worker_id,
       lease_token: lease_record.token,
       outcome: "succeeded",
-      fetch_result_id: 123,
+      fetch_result_id: result.id,
       http_status_code: 200
     )
   end
 
   def permanently_fail(service, lease_record)
+    result = create_crawl_fetch_result_for(
+      scan: @scan,
+      crawl_url: Crawling::CrawlUrl.find(lease_record.id),
+      lease_token: lease_record.token,
+      at: @now,
+      outcome: "http_error",
+      status: 502
+    )
     service.call(
       organization_id: lease_record.organization_id,
       crawl_url_id: lease_record.id,
@@ -307,7 +321,7 @@ class CrawlingFrontierTest < ActiveSupport::TestCase
       lease_token: lease_record.token,
       failure_category: "invalid_response",
       retryable: false,
-      fetch_result_id: 124,
+      fetch_result_id: result.id,
       http_status_code: 502
     )
   end

@@ -14,7 +14,7 @@ module Crawling
       @clock = clock
     end
 
-    def call(origin:, url:)
+    def call(origin:, url:, request_observer: nil)
       canonical_origin = Properties::Public.canonical_origin(
         origin: origin.respond_to?(:origin) ? origin.origin : origin
       ).origin
@@ -24,7 +24,8 @@ module Crawling
         url: source_url,
         approved_redirect_origins: [ canonical_origin ],
         allowed_content_types: ALLOWED_CONTENT_TYPES,
-        user_agent: CrawlerIdentity.http_user_agent
+        user_agent: CrawlerIdentity.http_user_agent,
+        request_observer: request_observer
       )
       from_response(response, source_url)
     rescue Shared::Public::NetworkSafetyError => error

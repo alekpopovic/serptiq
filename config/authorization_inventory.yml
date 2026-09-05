@@ -233,6 +233,15 @@ jobs:
   Crawling::ScanUsageRecoveryJob:
     kind: system
     name: scan_usage_recovery
+  Crawling::StaticCrawlOrchestratorJob:
+    kind: system
+    name: static_crawl_orchestration
+  Crawling::StaticPageExtractionJob:
+    kind: system
+    name: static_page_extraction
+  Crawling::StaticCrawlSweepJob:
+    kind: system
+    name: static_crawl_recovery
   Crawling::ArtifactDeletionJob:
     kind: system
     name: artifact_deletion
@@ -521,6 +530,21 @@ domain_operations:
   Crawling::Public.recover_terminal_scan_usage:
     kind: system
     reason: bounded_terminal_scan_usage_recovery
+  Crawling::Public.initialize_static_crawl:
+    kind: system
+    reason: exact_tenant_static_crawl_initialization
+  Crawling::Public.orchestrate_static_crawl:
+    kind: system
+    reason: exact_tenant_bounded_static_crawl_work_unit
+  Crawling::Public.extract_static_page_links:
+    kind: system
+    reason: exact_tenant_bounded_static_page_link_discovery
+  Crawling::Public.conclude_static_crawl:
+    kind: system
+    reason: durable_static_crawl_terminal_state_reconciliation
+  Crawling::Public.recover_static_crawl_work:
+    kind: system
+    reason: bounded_stale_static_crawl_work_recovery
   Crawling::Public.scan_page: { kind: permission, permission: scans.read }
   Crawling::Public.scan_details: { kind: permission, permission: scans.read }
   Crawling::Public.scan_cost_breakdown: { kind: permission, permission: scans.read }

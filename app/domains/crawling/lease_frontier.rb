@@ -11,14 +11,18 @@ module Crawling
       @progress = progress
     end
 
-    def call(worker_id:, limit: nil, lease_duration: nil)
+    def call(worker_id:, limit: nil, lease_duration: nil, organization_id: nil, scan_id: nil)
       worker = worker_id.to_s
       settings = Rails.application.config.x.searchops
       maximum_batch = settings.fetch(:crawler_frontier_lease_batch_size)
       batch_size = Integer(limit || maximum_batch)
       maximum_duration = settings.fetch(:crawler_frontier_lease_duration)
       duration = Float(lease_duration || maximum_duration)
+      exact_scope = organization_id.present? || scan_id.present?
+      scope_valid = !exact_scope || (Shared::Public.application_uuid?(organization_id) &&
+        Shared::Public.application_uuid?(scan_id))
       unless CrawlUrl::WORKER_PATTERN.match?(worker) && batch_size.between?(1, maximum_batch) &&
+          scope_valid &&
           duration.between?(15, maximum_duration)
         raise ArgumentError, "frontier lease request is invalid"
       end
@@ -31,7 +35,9 @@ module Crawling
           worker_id: worker,
           limit: batch_size,
           leased_at: now,
-          lease_expires_at: now + duration.seconds
+          lease_expires_at: now + duration.seconds,
+          organization_id: organization_id,
+          scan_id: scan_id
         )
         leases.group_by(&:scan_id).sort.each do |scan_id, scan_leases|
           scan = Scan.lock.find_by!(organization_id: scan_leases.first.organization_id, id: scan_id)

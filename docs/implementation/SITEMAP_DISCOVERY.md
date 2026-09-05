@@ -36,10 +36,11 @@ override SearchOps' stricter configured-origin or SSRF policies.
 ## Graph, frontier and metering evidence
 
 `crawl_sitemap_discoveries` is the one-per-scan aggregate and stores terminal counters. A fetch attempt counts
-each initial or redirect-hop request passed to the network boundary; `metered_fetch_count` counts requests that produced an
-accepted HTTP response, matching the `crawl.http_fetch` observation policy. The scan's existing quota hold is
-not charged again here: Prompt 072 consumes these per-scan observations during one idempotent reservation
-finalization.
+each initial or redirect-hop request passed to the network boundary; `metered_fetch_count` counts requests that
+produced an accepted HTTP response. Prompt 073 starts one operation allocation before each request and finishes
+each redirect/final response separately. DNS/policy failures release their operation without billing, and quota
+denial prevents DNS/transport. The scan's existing admission hold supplies these allocations and terminal
+finalization consumes only the accepted-response usage events.
 
 `crawl_sitemap_files` stores the deduplicated index graph, first-parent provenance, digest-only artifact
 identity, response status, gzip byte counts, parser version and bounded warning codes. `crawl_sitemap_entries`

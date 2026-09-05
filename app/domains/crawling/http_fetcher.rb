@@ -26,7 +26,7 @@ module Crawling
       safe_retries: nil, retry_base_delay: nil, retry_max_delay: nil,
       monotonic_clock: -> { Process.clock_gettime(Process::CLOCK_MONOTONIC) },
       retry_waiter: nil, recorder: HttpFetchRecorder.new,
-      pressure_acquirer: nil, pressure_releaser: nil)
+      pressure_acquirer: nil, pressure_releaser: nil, usage_meter: HttpFetchUsageMeter.new)
       settings = Rails.application.config.x.searchops
       @destination_policy = destination_policy || Shared::Public.destination_policy(
         dns_timeout: settings.fetch(:crawler_dns_timeout)
@@ -42,15 +42,18 @@ module Crawling
       @recorder = recorder
       @pressure_acquirer = pressure_acquirer || ->(**attributes) { AcquireFetchPermit.new.call(**attributes) }
       @pressure_releaser = pressure_releaser || ->(**attributes) { ReleaseFetchPermit.new.call(**attributes) }
+      @usage_meter = usage_meter
       valid = @max_redirects.between?(0, 20) && @safe_retries.between?(0, 5) &&
         @retry_base_delay.between?(0.1, 10) && @retry_max_delay.between?(@retry_base_delay, 30) &&
         @retry_waiter.respond_to?(:call) && @recorder.respond_to?(:call) &&
-        @pressure_acquirer.respond_to?(:call) && @pressure_releaser.respond_to?(:call)
+        @pressure_acquirer.respond_to?(:call) && @pressure_releaser.respond_to?(:call) &&
+        @usage_meter.respond_to?(:start) && @usage_meter.respond_to?(:finish)
       raise ArgumentError, "HTTP fetcher limits are invalid" unless valid
     end
 
     def call(url:, method: :get, approved_redirect_origins: nil, contact_url: nil,
-      sink_factory: -> { NullSink.new }, cancellation: -> { false }, permit_context: nil)
+      sink_factory: -> { NullSink.new }, cancellation: -> { false }, permit_context: nil,
+      usage_context: nil)
       request = normalize_request(
         url: url,
         method: method,
@@ -66,7 +69,8 @@ module Crawling
         user_agent: request.fetch(:user_agent),
         sink_factory: sink_factory,
         cancellation: cancellation,
-        permit_context: normalize_permit_context(permit_context)
+        permit_context: normalize_permit_context(permit_context),
+        usage_context: normalize_usage_context(usage_context)
       )
     end
 
@@ -98,7 +102,8 @@ module Crawling
       raise ArgumentError, "HTTP fetch request is invalid", cause: nil
     end
 
-    def execute(initial:, redirect_policy:, method:, user_agent:, sink_factory:, cancellation:, permit_context:)
+    def execute(initial:, redirect_policy:, method:, user_agent:, sink_factory:, cancellation:, permit_context:,
+      usage_context:)
       started = @clock.call
       target = initial
       hops = []
@@ -113,6 +118,7 @@ module Crawling
         final_response = nil
         provenance = nil
         permit = nil
+        usage_operation = nil
         if canceled?(cancellation)
           failure_category = "scan_canceled"
           outcome = "canceled"
@@ -133,6 +139,19 @@ module Crawling
           permit = pressure.permit
         end
 
+        if usage_context
+          usage_operation = @usage_meter.start(context: usage_context, sequence: hops.length + 1)
+          if usage_operation.is_a?(HttpFetchUsageMeter::Denied)
+            failure_category = usage_operation.reason_code
+            outcome = "throttled"
+            release_pressure_failure(permit_context, permit, failure_category)
+            hops << failure_hop(
+              hops, target, retries, redirects, failure_category, nil, outcome: "retry"
+            )
+            break
+          end
+        end
+
         sink = sink_factory.call
         validate_sink!(sink)
         hop_started = @clock.call
@@ -148,6 +167,10 @@ module Crawling
         )
         final_response = response
         release_pressure_response(permit_context, permit, response)
+        permit = nil
+        completed_usage = usage_operation
+        usage_operation = nil
+        finish_usage(usage_context, completed_usage, hops.length + 1, "accepted")
 
         if REDIRECT_STATUSES.include?(response.status)
           begin
@@ -217,6 +240,14 @@ module Crawling
       rescue Shared::Public::NetworkSafetyError => error
         abort_sink(sink)
         release_pressure_failure(permit_context, permit, error.reason_code)
+        permit = nil
+        failed_usage = usage_operation
+        usage_operation = nil
+        finish_usage(
+          usage_context, failed_usage, hops.length + 1,
+          error.reason_code == "canceled" ? "canceled" :
+            (REJECTED_ERRORS.include?(error.reason_code) ? "rejected" : "failed")
+        )
         if retryable_error?(error, retries)
           retries += 1
           hops << failure_hop(
@@ -243,6 +274,11 @@ module Crawling
           hops, target, retries, redirects, failure_category, hop_started, provenance: provenance
         )
         break
+      rescue StandardError
+        abort_sink(sink)
+        release_pressure_failure(permit_context, permit, "transport_failure")
+        finish_usage(usage_context, usage_operation, hops.length + 1, "failed")
+        raise
       end
 
       result = build_result(
@@ -335,6 +371,26 @@ module Crawling
       FetchPermitContext.new(**value.to_h.symbolize_keys)
     rescue ArgumentError, NoMethodError, KeyError, TypeError
       raise ArgumentError, "HTTP fetch permit context is invalid", cause: nil
+    end
+
+    def normalize_usage_context(value)
+      return if value.nil?
+      return value if value.is_a?(HttpFetchUsageContext)
+
+      HttpFetchUsageContext.new(**value.to_h.symbolize_keys)
+    rescue ArgumentError, NoMethodError, KeyError, TypeError
+      raise ArgumentError, "HTTP fetch usage context is invalid", cause: nil
+    end
+
+    def finish_usage(context, operation, sequence, outcome)
+      return unless context && operation
+
+      @usage_meter.finish(
+        context: context,
+        sequence: sequence,
+        operation: operation,
+        outcome: outcome
+      )
     end
 
     def release_pressure_response(context, permit, response)

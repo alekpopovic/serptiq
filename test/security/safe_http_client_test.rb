@@ -35,6 +35,20 @@ class SafeHttpClientTest < ActiveSupport::TestCase
       answers.shift
     end
   end
+  RequestObserver = Struct.new(:events) do
+    def before_request(sequence:)
+      events << [ "before", sequence ]
+      "operation-#{sequence}"
+    end
+
+    def after_response(sequence:, operation:, status:)
+      events << [ "response", sequence, operation, status ]
+    end
+
+    def after_failure(sequence:, operation:, reason_code:)
+      events << [ "failure", sequence, operation, reason_code ]
+    end
+  end
 
   setup do
     @fixture = TestSupport::Network::MaliciousHttpFixture.new.start
@@ -183,6 +197,56 @@ class SafeHttpClientTest < ActiveSupport::TestCase
     assert_equal [ "93.184.216.34", "93.184.216.35" ],
       transport.calls.map { |call| call.fetch(:destination).connection_ip }
     assert_equal 2, result.fetch(:resolution_provenance).length
+  end
+
+  test "observes each redirect request before resolution and records each accepted response" do
+    resolver = FixtureResolver.new(addresses: { "example.com" => [ "93.184.216.34" ] }, calls: [])
+    transport = RecordingTransport.new(
+      responses: [
+        response(302, location: "/robots-current.txt"),
+        response(200, content_type: "text/plain", body: "User-agent: *")
+      ],
+      calls: []
+    )
+    observer = RequestObserver.new([])
+    client = Shared::NetworkSafety::SafeHttpClient.new(
+      resolver: resolver, transport: transport, max_redirects: 2
+    )
+
+    client.fetch_public_redirects(
+      origin: "https://example.com",
+      url: "https://example.com/robots.txt",
+      allowed_content_types: [ "text/plain" ],
+      request_observer: observer
+    )
+
+    assert_equal [
+      [ "before", 1 ], [ "response", 1, "operation-1", 302 ],
+      [ "before", 2 ], [ "response", 2, "operation-2", 200 ]
+    ], observer.events
+  end
+
+  test "observes a failed request without reporting an accepted response" do
+    resolver = RebindingResolver.new(answers: [ [ "127.0.0.1" ] ], calls: [])
+    observer = RequestObserver.new([])
+    client = Shared::NetworkSafety::SafeHttpClient.new(
+      resolver: resolver,
+      transport: RecordingTransport.new(responses: [], calls: [])
+    )
+
+    error = assert_raises(Shared::NetworkSafety::Error) do
+      client.fetch_public_redirects(
+        origin: "https://example.com",
+        url: "https://example.com/robots.txt",
+        allowed_content_types: [ "text/plain" ],
+        request_observer: observer
+      )
+    end
+
+    assert_equal "unsafe_destination", error.reason_code
+    assert_equal [
+      [ "before", 1 ], [ "failure", 1, "operation-1", "unsafe_destination" ]
+    ], observer.events
   end
 
   test "rejects an out-of-scope sitemap redirect before resolving or connecting to it" do

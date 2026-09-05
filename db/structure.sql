@@ -689,6 +689,53 @@ $$;
 
 
 --
+-- Name: protect_crawl_fetch_result_rows(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.protect_crawl_fetch_result_rows() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF TG_OP = 'DELETE' AND resource_deletion_stage_authorized(
+    OLD.organization_id, OLD.project_id, OLD.property_id, 'scans_and_findings'
+  ) THEN RETURN OLD; END IF;
+  RAISE EXCEPTION 'crawl fetch results are immutable outside an active lifecycle workflow';
+END;
+$$;
+
+
+--
+-- Name: protect_crawl_page_snapshot_identity(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.protect_crawl_page_snapshot_identity() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    IF resource_deletion_stage_authorized(
+      OLD.organization_id, OLD.project_id, OLD.property_id, 'scans_and_findings'
+    ) THEN RETURN OLD; END IF;
+    RAISE EXCEPTION 'crawl page snapshot deletion requires an active lifecycle workflow';
+  END IF;
+  IF NEW.organization_id IS DISTINCT FROM OLD.organization_id
+    OR NEW.project_id IS DISTINCT FROM OLD.project_id
+    OR NEW.property_id IS DISTINCT FROM OLD.property_id
+    OR NEW.environment_id IS DISTINCT FROM OLD.environment_id
+    OR NEW.scan_id IS DISTINCT FROM OLD.scan_id
+    OR NEW.crawl_url_id IS DISTINCT FROM OLD.crawl_url_id
+    OR NEW.crawl_fetch_result_id IS DISTINCT FROM OLD.crawl_fetch_result_id
+    OR NEW.artifact_id IS DISTINCT FROM OLD.artifact_id
+    OR NEW.maximum_extraction_attempts IS DISTINCT FROM OLD.maximum_extraction_attempts
+    OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+    RAISE EXCEPTION 'crawl page snapshot identity is immutable';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: protect_crawl_policy_set_deletion(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -720,6 +767,34 @@ BEGIN
     RETURN OLD;
   END IF;
   RAISE EXCEPTION 'crawl robots snapshots are immutable';
+END;
+$$;
+
+
+--
+-- Name: protect_crawl_scan_execution_identity(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.protect_crawl_scan_execution_identity() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    IF resource_deletion_stage_authorized(
+      OLD.organization_id, OLD.project_id, OLD.property_id, 'scans_and_findings'
+    ) THEN RETURN OLD; END IF;
+    RAISE EXCEPTION 'crawl execution deletion requires an active lifecycle workflow';
+  END IF;
+  IF NEW.organization_id IS DISTINCT FROM OLD.organization_id
+    OR NEW.project_id IS DISTINCT FROM OLD.project_id
+    OR NEW.property_id IS DISTINCT FROM OLD.property_id
+    OR NEW.environment_id IS DISTINCT FROM OLD.environment_id
+    OR NEW.scan_id IS DISTINCT FROM OLD.scan_id
+    OR NEW.maximum_initialization_attempts IS DISTINCT FROM OLD.maximum_initialization_attempts
+    OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+    RAISE EXCEPTION 'crawl execution identity is immutable';
+  END IF;
+  RETURN NEW;
 END;
 $$;
 
@@ -1634,6 +1709,121 @@ CREATE TABLE public.crawl_fetch_permits (
 
 
 --
+-- Name: crawl_fetch_results; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.crawl_fetch_results (
+    id bigint NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_id uuid NOT NULL,
+    environment_id uuid NOT NULL,
+    scan_id uuid NOT NULL,
+    crawl_url_id bigint NOT NULL,
+    artifact_id uuid,
+    attempt_number integer NOT NULL,
+    source_key_digest character varying(64) NOT NULL,
+    lease_token_digest character varying(64) NOT NULL,
+    request_method character varying(8) DEFAULT 'GET'::character varying NOT NULL,
+    outcome character varying(24) NOT NULL,
+    failure_category character varying(64),
+    http_status_code integer,
+    final_url text NOT NULL,
+    final_url_digest character varying(64) NOT NULL,
+    media_type character varying(128),
+    charset character varying(64),
+    content_encoding character varying(64) NOT NULL,
+    response_headers jsonb DEFAULT '{}'::jsonb NOT NULL,
+    header_bytes bigint DEFAULT 0 NOT NULL,
+    compressed_bytes bigint DEFAULT 0 NOT NULL,
+    decoded_bytes bigint DEFAULT 0 NOT NULL,
+    body_sha256 character varying(64) NOT NULL,
+    sniffed_kind character varying(24) NOT NULL,
+    request_count integer NOT NULL,
+    retry_count integer NOT NULL,
+    redirect_count integer NOT NULL,
+    duration_ms integer NOT NULL,
+    fetched_at timestamp(6) with time zone NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT crawl_fetch_results_bounded_shape CHECK (((jsonb_typeof(response_headers) = 'object'::text) AND (pg_column_size(response_headers) <= 16384) AND ((header_bytes >= 0) AND (header_bytes <= 262144)) AND ((compressed_bytes >= 0) AND (compressed_bytes <= 104857600)) AND ((decoded_bytes >= 0) AND (decoded_bytes <= 524288000)) AND ((request_count >= 0) AND (request_count <= 32)) AND ((retry_count >= 0) AND (retry_count <= 10)) AND ((redirect_count >= 0) AND (redirect_count <= 20)) AND ((duration_ms >= 0) AND (duration_ms <= 600000)) AND (retry_count <= request_count) AND (redirect_count <= request_count) AND ((sniffed_kind)::text = ANY ((ARRAY['empty'::character varying, 'html'::character varying, 'xml'::character varying, 'json'::character varying, 'pdf'::character varying, 'image'::character varying, 'text'::character varying, 'binary'::character varying, 'unknown'::character varying])::text[])))),
+    CONSTRAINT crawl_fetch_results_metadata_shape CHECK ((((octet_length(final_url) >= 1) AND (octet_length(final_url) <= 8192)) AND ((final_url_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((body_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND ((media_type IS NULL) OR ((media_type)::text ~ '^[a-z0-9!#\$&^_.+-]+/[a-z0-9!#\$&^_.+-]+$'::text)) AND ((charset IS NULL) OR ((charset)::text ~ '^[a-z0-9!#\$&^_.+\-]{1,64}$'::text)) AND ((content_encoding)::text ~ '^[a-z0-9!#\$&^_.+\-]{1,64}$'::text))),
+    CONSTRAINT crawl_fetch_results_outcome_shape CHECK ((((attempt_number >= 1) AND (attempt_number <= 10)) AND ((source_key_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((lease_token_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((request_method)::text = ANY ((ARRAY['GET'::character varying, 'HEAD'::character varying])::text[])) AND ((outcome)::text = ANY ((ARRAY['succeeded'::character varying, 'http_error'::character varying, 'rejected'::character varying, 'failed'::character varying, 'canceled'::character varying, 'throttled'::character varying])::text[])) AND ((failure_category IS NULL) OR ((failure_category)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text)) AND ((http_status_code IS NULL) OR ((http_status_code >= 100) AND (http_status_code <= 599))) AND ((((outcome)::text = 'succeeded'::text) AND (failure_category IS NULL) AND ((http_status_code >= 200) AND (http_status_code <= 299))) OR (((outcome)::text = 'http_error'::text) AND (http_status_code IS NOT NULL) AND ((http_status_code < 200) OR (http_status_code > 299)) AND ((failure_category)::text = ('http_'::text || (http_status_code)::text))) OR (((outcome)::text = ANY ((ARRAY['rejected'::character varying, 'failed'::character varying, 'canceled'::character varying, 'throttled'::character varying])::text[])) AND (failure_category IS NOT NULL)))))
+);
+
+
+--
+-- Name: crawl_fetch_results_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.crawl_fetch_results_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: crawl_fetch_results_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.crawl_fetch_results_id_seq OWNED BY public.crawl_fetch_results.id;
+
+
+--
+-- Name: crawl_page_snapshots; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.crawl_page_snapshots (
+    id bigint NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_id uuid NOT NULL,
+    environment_id uuid NOT NULL,
+    scan_id uuid NOT NULL,
+    crawl_url_id bigint NOT NULL,
+    crawl_fetch_result_id bigint NOT NULL,
+    artifact_id uuid NOT NULL,
+    state character varying(24) DEFAULT 'pending'::character varying NOT NULL,
+    extraction_attempts integer DEFAULT 0 NOT NULL,
+    maximum_extraction_attempts integer DEFAULT 3 NOT NULL,
+    extraction_worker_id character varying(128),
+    extraction_token_digest character varying(64),
+    extraction_started_at timestamp(6) with time zone,
+    extraction_lease_expires_at timestamp(6) with time zone,
+    next_attempt_at timestamp(6) with time zone,
+    last_failure_category character varying(64),
+    discovered_links_count integer DEFAULT 0 NOT NULL,
+    discovery_parser_version character varying(64),
+    finished_at timestamp(6) with time zone,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT crawl_page_snapshots_lifecycle_shape CHECK (((((state)::text = 'pending'::text) AND (extraction_worker_id IS NULL) AND (extraction_token_digest IS NULL) AND (extraction_started_at IS NULL) AND (extraction_lease_expires_at IS NULL) AND (next_attempt_at IS NOT NULL) AND (finished_at IS NULL)) OR (((state)::text = 'processing'::text) AND ((extraction_worker_id)::text ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'::text) AND ((extraction_token_digest)::text ~ '^[0-9a-f]{64}$'::text) AND (extraction_started_at IS NOT NULL) AND (extraction_lease_expires_at > extraction_started_at) AND (next_attempt_at IS NULL) AND (finished_at IS NULL)) OR (((state)::text = ANY ((ARRAY['completed'::character varying, 'failed'::character varying, 'skipped'::character varying])::text[])) AND (extraction_worker_id IS NULL) AND (extraction_token_digest IS NULL) AND (extraction_started_at IS NULL) AND (extraction_lease_expires_at IS NULL) AND (next_attempt_at IS NULL) AND (finished_at IS NOT NULL)))),
+    CONSTRAINT crawl_page_snapshots_state_shape CHECK ((((state)::text = ANY ((ARRAY['pending'::character varying, 'processing'::character varying, 'completed'::character varying, 'failed'::character varying, 'skipped'::character varying])::text[])) AND ((extraction_attempts >= 0) AND (extraction_attempts <= maximum_extraction_attempts)) AND ((maximum_extraction_attempts >= 1) AND (maximum_extraction_attempts <= 10)) AND ((discovered_links_count >= 0) AND (discovered_links_count <= 100000)) AND ((last_failure_category IS NULL) OR ((last_failure_category)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text)) AND ((discovery_parser_version IS NULL) OR ((discovery_parser_version)::text ~ '^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$'::text))))
+);
+
+
+--
+-- Name: crawl_page_snapshots_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.crawl_page_snapshots_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: crawl_page_snapshots_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.crawl_page_snapshots_id_seq OWNED BY public.crawl_page_snapshots.id;
+
+
+--
 -- Name: crawl_policy_sets; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1775,6 +1965,35 @@ CREATE TABLE public.crawl_robots_snapshots (
     CONSTRAINT crawl_robots_snapshots_identity_shape CHECK (((octet_length(origin) >= 1) AND (octet_length(origin) <= 2048) AND ((octet_length(source_url) >= 1) AND (octet_length(source_url) <= 2048)) AND ((final_url IS NULL) OR ((octet_length(final_url) >= 1) AND (octet_length(final_url) <= 2048))) AND ((origin_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((artifact_sha256 IS NULL) OR ((artifact_sha256)::text ~ '^[0-9a-f]{64}$'::text)))),
     CONSTRAINT crawl_robots_snapshots_payload_shape CHECK (((jsonb_typeof(groups) = 'array'::text) AND (pg_column_size(groups) <= 1048576) AND (jsonb_typeof(warnings) = 'array'::text) AND (pg_column_size(warnings) <= 1048576) AND (cardinality(sitemap_urls) <= 100) AND (array_position(sitemap_urls, NULL::text) IS NULL) AND (octet_length(array_to_string(sitemap_urls, ''::text)) <= 204800))),
     CONSTRAINT crawl_robots_snapshots_result_shape CHECK ((((retrieval_status)::text = ANY (ARRAY[('fetched'::character varying)::text, ('unavailable'::character varying)::text, ('unreachable'::character varying)::text, ('oversized'::character varying)::text, ('malformed'::character varying)::text])) AND (parser_version > 0) AND ((redirect_count >= 0) AND (redirect_count <= 5)) AND ((http_status IS NULL) OR ((http_status >= 100) AND (http_status <= 599))) AND ((error_code IS NULL) OR ((error_code)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text))))
+);
+
+
+--
+-- Name: crawl_scan_executions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.crawl_scan_executions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_id uuid NOT NULL,
+    environment_id uuid NOT NULL,
+    scan_id uuid NOT NULL,
+    state character varying(32) DEFAULT 'pending'::character varying NOT NULL,
+    initialization_attempts integer DEFAULT 0 NOT NULL,
+    maximum_initialization_attempts integer DEFAULT 3 NOT NULL,
+    initialization_worker_id character varying(128),
+    initialization_token_digest character varying(64),
+    initialization_started_at timestamp(6) with time zone,
+    initialization_lease_expires_at timestamp(6) with time zone,
+    initialized_at timestamp(6) with time zone,
+    last_failure_category character varying(64),
+    last_live_update_at timestamp(6) with time zone,
+    finished_at timestamp(6) with time zone,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT crawl_scan_executions_lifecycle_shape CHECK (((((state)::text = 'initializing'::text) = ((initialization_worker_id IS NOT NULL) AND ((initialization_worker_id)::text ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'::text) AND ((initialization_token_digest)::text ~ '^[0-9a-f]{64}$'::text) AND (initialization_started_at IS NOT NULL) AND (initialization_lease_expires_at > initialization_started_at))) AND (((state)::text <> ALL ((ARRAY['ready'::character varying, 'completed'::character varying, 'partially_completed'::character varying])::text[])) OR (initialized_at IS NOT NULL)) AND (((state)::text <> ALL ((ARRAY['completed'::character varying, 'partially_completed'::character varying, 'canceled'::character varying, 'failed'::character varying])::text[])) OR (finished_at IS NOT NULL)))),
+    CONSTRAINT crawl_scan_executions_state_shape CHECK ((((state)::text = ANY ((ARRAY['pending'::character varying, 'initializing'::character varying, 'ready'::character varying, 'completed'::character varying, 'partially_completed'::character varying, 'canceled'::character varying, 'failed'::character varying])::text[])) AND ((initialization_attempts >= 0) AND (initialization_attempts <= maximum_initialization_attempts)) AND ((maximum_initialization_attempts >= 1) AND (maximum_initialization_attempts <= 10)) AND ((last_failure_category IS NULL) OR ((last_failure_category)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text))))
 );
 
 
@@ -3457,6 +3676,20 @@ ALTER TABLE ONLY public.authentication_rate_limit_buckets ALTER COLUMN id SET DE
 
 
 --
+-- Name: crawl_fetch_results id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_fetch_results ALTER COLUMN id SET DEFAULT nextval('public.crawl_fetch_results_id_seq'::regclass);
+
+
+--
+-- Name: crawl_page_snapshots id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_page_snapshots ALTER COLUMN id SET DEFAULT nextval('public.crawl_page_snapshots_id_seq'::regclass);
+
+
+--
 -- Name: crawl_scan_usage_operations id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -3643,6 +3876,22 @@ ALTER TABLE ONLY public.crawl_fetch_permits
 
 
 --
+-- Name: crawl_fetch_results crawl_fetch_results_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_fetch_results
+    ADD CONSTRAINT crawl_fetch_results_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: crawl_page_snapshots crawl_page_snapshots_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_page_snapshots
+    ADD CONSTRAINT crawl_page_snapshots_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: crawl_policy_sets crawl_policy_sets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3680,6 +3929,14 @@ ALTER TABLE ONLY public.crawl_pressure_states
 
 ALTER TABLE ONLY public.crawl_robots_snapshots
     ADD CONSTRAINT crawl_robots_snapshots_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: crawl_scan_executions crawl_scan_executions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_scan_executions
+    ADD CONSTRAINT crawl_scan_executions_pkey PRIMARY KEY (id);
 
 
 --
@@ -4134,6 +4391,13 @@ CREATE INDEX index_artifacts_on_blob_retention ON public.artifacts USING btree (
 
 
 --
+-- Name: index_artifacts_on_exact_scan_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_artifacts_on_exact_scan_identity ON public.artifacts USING btree (organization_id, project_id, property_id, environment_id, scan_id, id);
+
+
+--
 -- Name: index_artifacts_on_retention_queue; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4456,6 +4720,62 @@ CREATE INDEX index_crawl_fetch_permits_on_active_scan ON public.crawl_fetch_perm
 
 
 --
+-- Name: index_crawl_fetch_results_on_scan_and_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_fetch_results_on_scan_and_id ON public.crawl_fetch_results USING btree (scan_id, id);
+
+
+--
+-- Name: index_crawl_fetch_results_on_source; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_fetch_results_on_source ON public.crawl_fetch_results USING btree (scan_id, source_key_digest);
+
+
+--
+-- Name: index_crawl_fetch_results_on_tenant_scan_outcome; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_fetch_results_on_tenant_scan_outcome ON public.crawl_fetch_results USING btree (organization_id, scan_id, outcome, id);
+
+
+--
+-- Name: index_crawl_fetch_results_on_url_attempt; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_fetch_results_on_url_attempt ON public.crawl_fetch_results USING btree (scan_id, crawl_url_id, attempt_number);
+
+
+--
+-- Name: index_crawl_page_snapshots_on_recovery; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_page_snapshots_on_recovery ON public.crawl_page_snapshots USING btree (state, extraction_lease_expires_at, id);
+
+
+--
+-- Name: index_crawl_page_snapshots_on_scan_fetch; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_page_snapshots_on_scan_fetch ON public.crawl_page_snapshots USING btree (scan_id, crawl_fetch_result_id);
+
+
+--
+-- Name: index_crawl_page_snapshots_on_scan_url; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_page_snapshots_on_scan_url ON public.crawl_page_snapshots USING btree (scan_id, crawl_url_id);
+
+
+--
+-- Name: index_crawl_page_snapshots_on_work_queue; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_page_snapshots_on_work_queue ON public.crawl_page_snapshots USING btree (state, next_attempt_at, id);
+
+
+--
 -- Name: index_crawl_policy_sets_on_environment; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4544,6 +4864,20 @@ CREATE UNIQUE INDEX index_crawl_robots_snapshots_on_scan_origin ON public.crawl_
 --
 
 CREATE INDEX index_crawl_robots_snapshots_on_tenant_scan ON public.crawl_robots_snapshots USING btree (organization_id, project_id, property_id, scan_id);
+
+
+--
+-- Name: index_crawl_scan_executions_on_recovery; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_scan_executions_on_recovery ON public.crawl_scan_executions USING btree (state, initialization_lease_expires_at, id);
+
+
+--
+-- Name: index_crawl_scan_executions_on_scan_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_scan_executions_on_scan_id ON public.crawl_scan_executions USING btree (scan_id);
 
 
 --
@@ -5870,6 +6204,20 @@ CREATE TRIGGER crawl_fetch_permits_protect_provenance BEFORE DELETE OR UPDATE ON
 
 
 --
+-- Name: crawl_fetch_results crawl_fetch_results_protect_rows; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER crawl_fetch_results_protect_rows BEFORE DELETE OR UPDATE ON public.crawl_fetch_results FOR EACH ROW EXECUTE FUNCTION public.protect_crawl_fetch_result_rows();
+
+
+--
+-- Name: crawl_page_snapshots crawl_page_snapshots_protect_identity; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER crawl_page_snapshots_protect_identity BEFORE DELETE OR UPDATE ON public.crawl_page_snapshots FOR EACH ROW EXECUTE FUNCTION public.protect_crawl_page_snapshot_identity();
+
+
+--
 -- Name: crawl_policy_sets crawl_policy_sets_require_deletion_workflow; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -5895,6 +6243,13 @@ CREATE TRIGGER crawl_policy_versions_immutable BEFORE DELETE OR UPDATE ON public
 --
 
 CREATE TRIGGER crawl_robots_snapshots_immutable BEFORE DELETE OR UPDATE ON public.crawl_robots_snapshots FOR EACH ROW EXECUTE FUNCTION public.protect_crawl_robots_snapshot();
+
+
+--
+-- Name: crawl_scan_executions crawl_scan_executions_protect_identity; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER crawl_scan_executions_protect_identity BEFORE DELETE OR UPDATE ON public.crawl_scan_executions FOR EACH ROW EXECUTE FUNCTION public.protect_crawl_scan_execution_identity();
 
 
 --
@@ -6250,6 +6605,62 @@ ALTER TABLE ONLY public.crawl_fetch_permits
 
 
 --
+-- Name: crawl_fetch_results fk_crawl_fetch_results_exact_artifact; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_fetch_results
+    ADD CONSTRAINT fk_crawl_fetch_results_exact_artifact FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id, artifact_id) REFERENCES public.artifacts(organization_id, project_id, property_id, environment_id, scan_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_fetch_results fk_crawl_fetch_results_exact_scan; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_fetch_results
+    ADD CONSTRAINT fk_crawl_fetch_results_exact_scan FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id) REFERENCES public.scans(organization_id, project_id, property_id, environment_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_fetch_results fk_crawl_fetch_results_same_scan_url; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_fetch_results
+    ADD CONSTRAINT fk_crawl_fetch_results_same_scan_url FOREIGN KEY (scan_id, crawl_url_id) REFERENCES public.crawl_urls(scan_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_page_snapshots fk_crawl_page_snapshots_exact_artifact; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_page_snapshots
+    ADD CONSTRAINT fk_crawl_page_snapshots_exact_artifact FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id, artifact_id) REFERENCES public.artifacts(organization_id, project_id, property_id, environment_id, scan_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_page_snapshots fk_crawl_page_snapshots_exact_scan; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_page_snapshots
+    ADD CONSTRAINT fk_crawl_page_snapshots_exact_scan FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id) REFERENCES public.scans(organization_id, project_id, property_id, environment_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_page_snapshots fk_crawl_page_snapshots_same_scan_fetch; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_page_snapshots
+    ADD CONSTRAINT fk_crawl_page_snapshots_same_scan_fetch FOREIGN KEY (scan_id, crawl_fetch_result_id) REFERENCES public.crawl_fetch_results(scan_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_page_snapshots fk_crawl_page_snapshots_same_scan_url; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_page_snapshots
+    ADD CONSTRAINT fk_crawl_page_snapshots_same_scan_url FOREIGN KEY (scan_id, crawl_url_id) REFERENCES public.crawl_urls(scan_id, id) ON DELETE RESTRICT;
+
+
+--
 -- Name: crawl_policy_sets fk_crawl_policy_sets_environment; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6311,6 +6722,14 @@ ALTER TABLE ONLY public.crawl_pressure_states
 
 ALTER TABLE ONLY public.crawl_robots_snapshots
     ADD CONSTRAINT fk_crawl_robots_snapshots_exact_scan FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id) REFERENCES public.scans(organization_id, project_id, property_id, environment_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_scan_executions fk_crawl_scan_executions_exact_scan; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_scan_executions
+    ADD CONSTRAINT fk_crawl_scan_executions_exact_scan FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id) REFERENCES public.scans(organization_id, project_id, property_id, environment_id, id) ON DELETE RESTRICT;
 
 
 --
@@ -6415,6 +6834,14 @@ ALTER TABLE ONLY public.crawl_urls
 
 ALTER TABLE ONLY public.crawl_urls
     ADD CONSTRAINT fk_crawl_urls_same_scan_discovery FOREIGN KEY (scan_id, discovered_from_id) REFERENCES public.crawl_urls(scan_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_urls fk_crawl_urls_same_scan_fetch_result; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_urls
+    ADD CONSTRAINT fk_crawl_urls_same_scan_fetch_result FOREIGN KEY (scan_id, fetch_result_id) REFERENCES public.crawl_fetch_results(scan_id, id) DEFERRABLE INITIALLY DEFERRED;
 
 
 --
@@ -7384,6 +7811,7 @@ ALTER TABLE ONLY public.website_property_configs
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904156000'),
 ('20260904155000'),
 ('20260904154000'),
 ('20260904153000'),

@@ -23,34 +23,40 @@ module Shared
         validate_limits!
       end
 
-      def fetch_exact(origin:, url:, allowed_content_types:, approved_redirect_origins: [], user_agent: nil)
+      def fetch_exact(origin:, url:, allowed_content_types:, approved_redirect_origins: [], user_agent: nil,
+        request_observer: nil)
         policy = ExactRedirectPolicy.new(
           origin: origin,
           url: url,
           approved_redirect_origins: approved_redirect_origins
         )
-        fetch_with_policy(policy, allowed_content_types, user_agent)
+        fetch_with_policy(policy, allowed_content_types, user_agent, request_observer)
       end
 
       def fetch_public_redirects(origin:, url:, allowed_content_types:, approved_redirect_origins: nil,
-        user_agent: nil)
+        user_agent: nil, request_observer: nil)
         policy = PublicRedirectPolicy.new(
           origin: origin,
           url: url,
           approved_redirect_origins: approved_redirect_origins
         )
-        fetch_with_policy(policy, allowed_content_types, user_agent)
+        fetch_with_policy(policy, allowed_content_types, user_agent, request_observer)
       end
 
       private
 
-      def fetch_with_policy(policy, allowed_content_types, user_agent)
+      def fetch_with_policy(policy, allowed_content_types, user_agent, request_observer)
+        validate_request_observer!(request_observer)
         target = policy.initial_target
         redirects = 0
         resolution_attempts = 0
         resolution_provenance = []
+        request_sequence = nil
+        observed_operation = nil
 
         loop do
+          request_sequence = resolution_attempts + 1
+          observed_operation = request_observer&.before_request(sequence: request_sequence)
           resolution_attempts += 1
           destination = @destination_policy.authorize_target!(target: target)
           resolution_provenance << destination.provenance.as_json
@@ -60,6 +66,13 @@ module Shared
             read_timeout: @read_timeout,
             max_response_bytes: @max_response_bytes,
             user_agent: user_agent
+          )
+          completed_operation = observed_operation
+          observed_operation = nil
+          request_observer&.after_response(
+            sequence: request_sequence,
+            operation: completed_operation,
+            status: response.status
           )
           reject_oversized!(response, redirects)
           if REDIRECT_STATUSES.include?(response.status)
@@ -99,6 +112,11 @@ module Shared
           }.freeze
         end
       rescue Error => error
+        request_observer&.after_failure(
+          sequence: request_sequence,
+          operation: observed_operation,
+          reason_code: error.reason_code
+        ) if observed_operation
         rejected_destination = %w[unsafe_destination dns_failure redirect_rejected].include?(error.reason_code)
         evidence = {
           destination_approved: !rejected_destination,
@@ -108,7 +126,20 @@ module Shared
         record_redirect_denial(error, evidence) if error.reason_code.in?(%w[redirect_rejected redirect_limit])
         raise Error.new(reason_code: error.reason_code, evidence: evidence), cause: nil
       rescue ArgumentError, KeyError, TypeError
+        request_observer&.after_failure(
+          sequence: request_sequence,
+          operation: observed_operation,
+          reason_code: "malformed_response"
+        ) if observed_operation
         raise Error.new(reason_code: "malformed_response"), cause: nil
+      end
+
+      def validate_request_observer!(observer)
+        return unless observer
+        return if observer.respond_to?(:before_request) && observer.respond_to?(:after_response) &&
+          observer.respond_to?(:after_failure)
+
+        raise ArgumentError, "HTTP request observer is invalid"
       end
 
       def reject_oversized!(response, redirects)

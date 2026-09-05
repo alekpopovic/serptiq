@@ -42,6 +42,12 @@ module Crawling
       dependent: :restrict_with_exception
     has_many :usage_operations, class_name: "Crawling::ScanUsageOperation", inverse_of: :scan,
       dependent: :restrict_with_exception
+    has_one :static_crawl_execution, class_name: "Crawling::StaticCrawlExecution",
+      inverse_of: :scan, dependent: :restrict_with_exception
+    has_many :fetch_results, class_name: "Crawling::CrawlFetchResult", inverse_of: :scan,
+      dependent: :restrict_with_exception
+    has_many :page_snapshots, class_name: "Crawling::PageSnapshot", inverse_of: :scan,
+      dependent: :restrict_with_exception
     has_one :policy_snapshot, class_name: "Crawling::PolicySnapshot", inverse_of: false,
       dependent: :restrict_with_exception
     belongs_to :baseline_scan, class_name: "Crawling::Scan", optional: true

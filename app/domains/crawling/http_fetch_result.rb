@@ -47,6 +47,8 @@ module Crawling
         body_sha256.match?(/\A[0-9a-f]{64}\z/) &&
         SNIFFED_KINDS.include?(sniffed_kind) &&
         request_count.between?(0, 32) && retry_count.between?(0, 10) && redirect_count.between?(0, 20) &&
+        retry_count <= request_count && redirect_count <= request_count &&
+        valid_outcome_evidence?(outcome, category, status) &&
         duration.between?(0, 600_000) && hops.length == request_count &&
         hops.all? { |hop| hop.is_a?(HttpFetchHop) }
       raise ArgumentError, "HTTP fetch result is invalid" unless valid
@@ -108,6 +110,16 @@ module Crawling
     def valid_media_type?(value)
       type, subtype = value.split("/", 2)
       type && subtype && TOKEN_PATTERN.match?(type) && TOKEN_PATTERN.match?(subtype)
+    end
+
+    def valid_outcome_evidence?(outcome, category, status)
+      if outcome == "succeeded"
+        category.nil? && status&.between?(200, 299)
+      elsif outcome == "http_error"
+        status && !status.between?(200, 299) && category == "http_#{status}"
+      else
+        category.present?
+      end
     end
   end
 end

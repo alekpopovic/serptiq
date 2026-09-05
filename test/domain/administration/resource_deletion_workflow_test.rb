@@ -141,6 +141,7 @@ class AdministrationResourceDeletionWorkflowTest < ActiveSupport::TestCase
   end
 
   test "project hold stops admission, signals prior work and deletes in durable stage order" do
+    fetch_result, page_snapshot, execution = prepare_static_fetch_evidence
     requested_at = 31.days.ago.change(usec: 0)
     workflow = request_project_deletion(at: requested_at)
     retry_workflow = request_project_deletion(at: requested_at + 1.minute)
@@ -179,6 +180,9 @@ class AdministrationResourceDeletionWorkflowTest < ActiveSupport::TestCase
     refute Properties::Environment.exists?(@environment.id)
     assert_empty Crawling::PolicySet.where(project_id: @project.id)
     refute Crawling::CrawlUrl.exists?(@crawl_url.id)
+    refute Crawling::CrawlFetchResult.exists?(fetch_result.id)
+    refute Crawling::PageSnapshot.exists?(page_snapshot.id)
+    refute Crawling::StaticCrawlExecution.exists?(execution.id)
     refute Crawling::RobotsSnapshot.exists?(@robots_snapshot.id)
     refute Crawling::SitemapEntry.exists?(@sitemap_entry.id)
     refute Crawling::SitemapFile.exists?(@sitemap_file.id)
@@ -317,5 +321,66 @@ class AdministrationResourceDeletionWorkflowTest < ActiveSupport::TestCase
       user_id: @owner.membership.user_id,
       clock: -> { at }
     )
+  end
+
+  def prepare_static_fetch_evidence
+    at = @scan.requested_at + 1.second
+    @scan = run_scan_to(@scan, "running", at: at)
+    body = "<!doctype html><p>delete me</p>"
+    store = TestSupport::FakeArtifactStore.new
+    artifact = Crawling::CaptureArtifact.new(store: store, clock: -> { at }).call(
+      organization_id: @scan.organization_id,
+      project_id: @scan.project_id,
+      property_id: @scan.property_id,
+      environment_id: @scan.environment_id,
+      scan_id: @scan.id,
+      source_type: "crawl_fetch",
+      source_id: SecureRandom.uuid,
+      kind: "response_body",
+      media_type: "text/html",
+      filename: "response.html",
+      retention_class: "raw_crawl",
+      retention_expires_at: at + 1.day,
+      io: StringIO.new(body)
+    )
+    @crawl_url.update!(attempts: 1)
+    fetch_result = create_crawl_fetch_result_for(
+      scan: @scan,
+      crawl_url: @crawl_url,
+      lease_token: SecureRandom.hex(32),
+      at: at,
+      body: body,
+      artifact_id: artifact.artifact_id
+    )
+    token_digest = fetch_result.lease_token_digest
+    @crawl_url.update!(
+      state: "succeeded",
+      next_attempt_at: nil,
+      last_lease_token_digest: token_digest,
+      last_lease_outcome: "succeeded",
+      fetch_result_id: fetch_result.id,
+      http_status_code: 200,
+      completed_at: at
+    )
+    page_snapshot = Crawling::PageSnapshot.create!(
+      organization_id: @scan.organization_id,
+      project_id: @scan.project_id,
+      property_id: @scan.property_id,
+      environment_id: @scan.environment_id,
+      scan_id: @scan.id,
+      crawl_url_id: @crawl_url.id,
+      crawl_fetch_result_id: fetch_result.id,
+      artifact_id: artifact.artifact_id,
+      state: "pending",
+      next_attempt_at: at
+    )
+    execution = Crawling::StaticCrawlExecution.create!(
+      organization_id: @scan.organization_id,
+      project_id: @scan.project_id,
+      property_id: @scan.property_id,
+      environment_id: @scan.environment_id,
+      scan_id: @scan.id
+    )
+    [ fetch_result, page_snapshot, execution ]
   end
 end

@@ -55,9 +55,8 @@ module Crawling
       code = status.nil? ? nil : Integer(status)
       if target == "succeeded"
         raise ArgumentError, "successful frontier result is required" unless id&.positive?
-      elsif id || code
-        raise ArgumentError, "rejected frontier item cannot have a fetch result"
       end
+      raise ArgumentError, "HTTP status requires a fetch result" if code && id.nil?
       raise ArgumentError, "HTTP status is invalid" unless code.nil? || code.between?(100, 599)
       category = failure_category&.to_s
       raise ArgumentError, "failure category is invalid" unless

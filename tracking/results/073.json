@@ -1,0 +1,25 @@
+{
+  "prompt_id": "073",
+  "title": "Implement static crawl orchestration",
+  "status": "completed",
+  "started_at": "2026-09-05T10:58:06Z",
+  "finished_at": "2026-09-05T12:10:49Z",
+  "summary": "Implemented crash-safe static crawl initialization, bounded tenant-exact frontier orchestration, metered safe HTTP retrieval, immutable fetch evidence and page snapshots, bounded link discovery, recovery/cancellation/conclusion workers, live scan updates, lifecycle cleanup, database invariants, and operational documentation.",
+  "tests": [
+    {
+      "command": "Migration rollback/reapply passed; focused crawl, frontier, HTTP/network safety, lifecycle, job, request, database, and query-plan suites passed; bin/rails test:all: 1069 runs, 9080 assertions, 0 failures, 0 errors; bin/quality: 15 checks passed, 0 security warnings; tracker validate passed.",
+      "outcome": "passed",
+      "notes": "Recorded through legacy --tests option."
+    }
+  ],
+  "files_changed": [],
+  "migrations": [],
+  "decisions": [],
+  "risks": [
+    "none reported"
+  ],
+  "next_steps": [
+    "follow the dependency graph"
+  ],
+  "commit": null
+}

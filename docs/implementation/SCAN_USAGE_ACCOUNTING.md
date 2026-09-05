@@ -47,6 +47,11 @@ finalizes consumed credits and releases the unused reservation. A minutely bound
 for terminal scans left with a held reservation after a crash. Generic reservation expiry also releases held
 allocations before expiring the remaining hold. Uncertain crash remnants are never silently charged.
 
+Prompt 073 applies this protocol to every static page request, redirect and retry, and to every robots/sitemap
+request hop. Page work also requires its independent PostgreSQL pressure permit. A control-fetch quota denial
+occurs before DNS/transport and ends initialization as a partial crawl; a page-fetch quota denial releases its
+pressure permit and halts remaining durable frontier work as skipped observations.
+
 ## Projections and corrections
 
 The scan detail projection reports attempts, accepted observations, billable/non-billable/pending counts and

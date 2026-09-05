@@ -8,12 +8,14 @@ module Crawling
       @connection = connection
     end
 
-    def lease(worker_id:, limit:, leased_at:, lease_expires_at:)
+    def lease(worker_id:, limit:, leased_at:, lease_expires_at:, organization_id: nil, scan_id: nil)
       @connection.exec_query(sql(
         worker_id: worker_id,
         limit: limit,
         leased_at: leased_at,
-        lease_expires_at: lease_expires_at
+        lease_expires_at: lease_expires_at,
+        organization_id: organization_id,
+        scan_id: scan_id
       )).map { |row| lease_from(row) }
     end
 
@@ -22,14 +24,22 @@ module Crawling
         worker_id: "explain-worker",
         limit: limit,
         leased_at: at,
-        lease_expires_at: at + 2.minutes
+        lease_expires_at: at + 2.minutes,
+        organization_id: nil,
+        scan_id: nil
       )
       @connection.select_value("EXPLAIN (FORMAT JSON, COSTS TRUE) #{statement}")
     end
 
     private
 
-    def sql(worker_id:, limit:, leased_at:, lease_expires_at:)
+    def sql(worker_id:, limit:, leased_at:, lease_expires_at:, organization_id:, scan_id:)
+      exact_scope = if organization_id && scan_id
+        "AND crawl_urls.organization_id = #{@connection.quote(organization_id)} " \
+          "AND crawl_urls.scan_id = #{@connection.quote(scan_id)}"
+      else
+        ""
+      end
       <<~SQL.squish
         WITH eligible AS MATERIALIZED (
           SELECT crawl_urls.id, crawl_urls.organization_id, crawl_urls.scan_id,
@@ -48,6 +58,7 @@ module Crawling
           WHERE crawl_urls.state = 'pending'
             AND crawl_urls.next_attempt_at <= #{@connection.quote(leased_at)}
             AND scans.status IN (#{quote_list(ACTIVE_SCAN_STATUSES)})
+            #{exact_scope}
         ), ranked AS MATERIALIZED (
           SELECT eligible.*,
             row_number() OVER (

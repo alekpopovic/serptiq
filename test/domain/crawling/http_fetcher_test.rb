@@ -56,6 +56,35 @@ class CrawlingHttpFetcherTest < ActiveSupport::TestCase
     end
   end
 
+  class UsageMeter
+    Operation = Data.define(:attempted_at)
+
+    attr_reader :events
+
+    def initialize
+      @events = []
+    end
+
+    def start(context:, sequence:)
+      @events << [ :start, context.source_key(sequence) ]
+      Operation.new(Time.current)
+    end
+
+    def finish(context:, sequence:, operation:, outcome:)
+      @events << [ :finish, context.source_key(sequence), outcome, operation.class.name ]
+    end
+  end
+
+  class DeniedUsageMeter
+    def start(**)
+      Crawling::HttpFetchUsageMeter::Denied.new("quota_exhausted")
+    end
+
+    def finish(**)
+      raise "denied usage must not be finalized"
+    end
+  end
+
   setup do
     @resolver = Resolver.new(
       addresses: {
@@ -265,6 +294,59 @@ class CrawlingHttpFetcherTest < ActiveSupport::TestCase
     assert_equal "7", release.fetch(:retry_after)
   end
 
+  test "usage accounting starts before and finalizes every accepted transport response" do
+    meter = UsageMeter.new
+    transport = ScriptedTransport.new(
+      scripted_response(status: 302, headers: { "location" => "/final" }),
+      scripted_response(body: "done")
+    )
+    context = Crawling::HttpFetchUsageContext.new(
+      organization_id: SecureRandom.uuid,
+      scan_id: SecureRandom.uuid,
+      source_key_prefix: "crawl-url:17:attempt:1"
+    )
+
+    result = fetcher(transport, usage_meter: meter).call(
+      url: "https://example.com/start",
+      usage_context: context,
+      sink_factory: -> { Sink.new }
+    )
+
+    assert result.successful?
+    assert_equal [
+      [ :start, "crawl-url:17:attempt:1:request:1" ],
+      [ :finish, "crawl-url:17:attempt:1:request:1", "accepted", "CrawlingHttpFetcherTest::UsageMeter::Operation" ],
+      [ :start, "crawl-url:17:attempt:1:request:2" ],
+      [ :finish, "crawl-url:17:attempt:1:request:2", "accepted", "CrawlingHttpFetcherTest::UsageMeter::Operation" ]
+    ], meter.events
+  end
+
+  test "usage denial releases pressure and prevents DNS and transport work" do
+    releases = []
+    transport = ScriptedTransport.new(scripted_response(body: "must not be fetched"))
+    result = fetcher(
+      transport,
+      usage_meter: DeniedUsageMeter.new,
+      pressure_acquirer: ->(**) { pressure_decision },
+      pressure_releaser: ->(**attributes) { releases << attributes }
+    ).call(
+      url: "https://example.com/quota",
+      permit_context: permit_context,
+      usage_context: Crawling::HttpFetchUsageContext.new(
+        organization_id: SecureRandom.uuid,
+        scan_id: SecureRandom.uuid,
+        source_key_prefix: "crawl-url:22:attempt:1"
+      )
+    )
+
+    assert_equal "throttled", result.outcome
+    assert_equal "quota_exhausted", result.failure_category
+    assert_empty transport.calls
+    assert_empty @resolver.calls
+    assert_equal "failed", releases.sole.fetch(:outcome)
+    assert_equal "quota_exhausted", releases.sole.fetch(:failure_category)
+  end
+
   test "does not retry certificate policy size encoding or malformed response failures" do
     %w[tls_certificate response_too_large unsupported_content_encoding malformed_response].each do |reason|
       @resolver.calls.clear
@@ -357,7 +439,8 @@ class CrawlingHttpFetcherTest < ActiveSupport::TestCase
       retry_waiter: options.fetch(:retry_waiter, ->(*) { }),
       recorder: recorder,
       pressure_acquirer: options[:pressure_acquirer],
-      pressure_releaser: options[:pressure_releaser]
+      pressure_releaser: options[:pressure_releaser],
+      usage_meter: options.fetch(:usage_meter, Crawling::HttpFetchUsageMeter.new)
     )
   end
 
@@ -383,6 +466,22 @@ class CrawlingHttpFetcherTest < ActiveSupport::TestCase
       host_rate: 2,
       permit_duration: 60,
       scan_deadline: Time.current + 1.hour
+    )
+  end
+
+  def pressure_decision
+    Crawling::FetchPermitDecision.new(
+      state: "acquired",
+      reason_code: nil,
+      scope: nil,
+      retry_at: nil,
+      permit: Crawling::FetchPermitGrant.new(
+        id: SecureRandom.uuid,
+        token: SecureRandom.hex(32),
+        host_key_digest: "a" * 64,
+        expires_at: Time.current + 1.minute
+      ),
+      limits: pressure_limits
     )
   end
 

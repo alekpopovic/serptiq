@@ -64,6 +64,10 @@ module Crawling
       FetchPermitContext.new(**attributes)
     end
 
+    def http_fetch_usage_context(**attributes)
+      HttpFetchUsageContext.new(**attributes)
+    end
+
     def acquire_fetch_permit(clock: -> { Time.current }, **attributes)
       AcquireFetchPermit.new(clock: clock).call(**attributes)
     end
@@ -162,6 +166,26 @@ module Crawling
 
     def recover_terminal_scan_usage(clock: -> { Time.current })
       RecoverTerminalScanUsage.new(finalizer: FinalizeScanUsage.new(clock: clock)).call
+    end
+
+    def initialize_static_crawl(clock: -> { Time.current }, **attributes)
+      InitializeStaticCrawl.new(clock: clock).call(**attributes)
+    end
+
+    def orchestrate_static_crawl(clock: -> { Time.current }, **attributes)
+      OrchestrateStaticCrawl.new(clock: clock).call(**attributes)
+    end
+
+    def extract_static_page_links(clock: -> { Time.current }, **attributes)
+      ExtractStaticPageLinks.new(clock: clock).call(**attributes)
+    end
+
+    def conclude_static_crawl(clock: -> { Time.current }, **attributes)
+      ConcludeStaticCrawl.new(clock: clock).call(**attributes)
+    end
+
+    def recover_static_crawl_work(clock: -> { Time.current })
+      RecoverStaticCrawlWork.new(clock: clock).call
     end
 
     def scan_page(**attributes)

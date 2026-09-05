@@ -40,6 +40,33 @@ class CrawlFrontierConcurrencyTest < ActiveSupport::TestCase
     assert_equal 1, @scan.urls_queued_count
   end
 
+  test "concurrent distinct discovery batches cannot exceed the immutable URL cap" do
+    limited = create_scan_for(
+      @owner,
+      project: @project,
+      property: @property,
+      at: @now - 2.seconds,
+      settings_snapshot: { "max_urls" => 3, "robots_behavior" => "respect" }
+    )
+    limited = run_scan_to(limited, "queued", at: @now - 1.second)
+
+    inserted = concurrently(2) do |batch|
+      entries = 3.times.map do |index|
+        entry("https://example.com/batch-#{batch}-#{index}")
+      end
+      Crawling::DiscoverFrontier.new(clock: -> { @now }).call(
+        organization_id: limited.organization_id,
+        scan_id: limited.id,
+        entries: entries
+      ).inserted_count
+    end
+
+    assert_equal 3, inserted.sum
+    assert_equal 3, Crawling::CrawlUrl.where(scan_id: limited.id).count
+    assert_equal 3, limited.reload.urls_discovered_count
+    assert_equal 3, limited.urls_queued_count
+  end
+
   test "SKIP LOCKED workers never receive the same frontier item" do
     entries = 20.times.map { |index| entry("https://example.com/page-#{index}") }
     Crawling::DiscoverFrontier.new(clock: -> { @now }).call(

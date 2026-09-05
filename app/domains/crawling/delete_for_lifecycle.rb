@@ -7,7 +7,23 @@ module Crawling
     end
 
     def call(organization_id:, project_id:, deletion_workflow_id:, property_id: nil)
-      delete_artifact_metadata!(organization_id, project_id, property_id)
+      Scan.transaction do
+        delete_within_transaction(
+          organization_id: organization_id,
+          project_id: project_id,
+          deletion_workflow_id: deletion_workflow_id,
+          property_id: property_id
+        )
+      end
+    end
+
+    private
+
+    def delete_within_transaction(organization_id:, project_id:, deletion_workflow_id:, property_id:)
+      Scan.connection.execute(
+        "SET CONSTRAINTS fk_crawl_urls_same_scan_fetch_result DEFERRED"
+      )
+      ensure_artifacts_deletable!(organization_id, project_id, property_id)
       scans = Scan.where(organization_id: organization_id, project_id: project_id)
       scans = scans.where(property_id: property_id) if property_id
       scan_targets = scans.order(:id).pluck(:id, :property_id)
@@ -43,6 +59,12 @@ module Crawling
       scan_ids = scan_targets.map(&:first)
       FetchPermit.where(scan_id: scan_ids).delete_all if scan_ids.any?
       PressureState.where(scope_type: "scan", scan_id: scan_ids).delete_all if scan_ids.any?
+      if scan_ids.any?
+        PageSnapshot.where(scan_id: scan_ids).delete_all
+        CrawlFetchResult.where(scan_id: scan_ids).delete_all
+        StaticCrawlExecution.where(scan_id: scan_ids).delete_all
+      end
+      delete_artifact_metadata!(organization_id, project_id, property_id)
       RobotsSnapshot.where(scan_id: scan_ids).delete_all if scan_ids.any?
       SitemapEntry.where(scan_id: scan_ids).delete_all if scan_ids.any?
       SitemapFile.where(scan_id: scan_ids).order(index_depth: :desc).delete_all if scan_ids.any?
@@ -56,8 +78,6 @@ module Crawling
       sets.delete_all
       set_ids.length + scan_ids.length
     end
-
-    private
 
     def delete_artifact_metadata!(organization_id, project_id, property_id)
       artifacts = Artifact.where(organization_id: organization_id, project_id: project_id)
@@ -73,6 +93,17 @@ module Crawling
       blobs = ArtifactBlob.where(organization_id: organization_id, project_id: project_id)
       blobs = blobs.where(property_id: property_id) if property_id
       blobs.delete_all
+    end
+
+    def ensure_artifacts_deletable!(organization_id, project_id, property_id)
+      artifacts = Artifact.where(organization_id: organization_id, project_id: project_id)
+      artifacts = artifacts.where(property_id: property_id) if property_id
+      return unless artifacts.where(legal_hold: true).exists?
+
+      raise ArtifactLifecycleBlocked.new(
+        "resource artifact deletion is paused by a legal hold",
+        reason_code: "artifact_legal_hold"
+      )
     end
   end
 end
