@@ -79,6 +79,8 @@ Do not pre-populate these reports with fictional implementation or test results.
   evaluation order, integration APIs, reservation cleanup and feature-operation key registry.
 - [`PROJECTS.md`](./PROJECTS.md) defines stable project identity, tenant/scope linkage, lifecycle,
   active-project capacity, audit/outbox history and bulk placeholder read models.
+- [`SCOPED_RESOURCE_ACCESS.md`](./SCOPED_RESOURCE_ACCESS.md) maps the complete project/property/environment/
+  verification surface to compatible scopes and defines collection, nested-route, lifecycle, UI and audit enforcement.
 - [`PROPERTIES.md`](./PROPERTIES.md) defines versioned typed property configuration, tenant/project scope
   linkage, active property limits, lifecycle, verification-reset and grouped read-model semantics.
 - [`PROPERTY_ENVIRONMENTS.md`](./PROPERTY_ENVIRONMENTS.md) defines canonical IDNA origin parsing, public-only

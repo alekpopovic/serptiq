@@ -1,16 +1,24 @@
 <% content_for :body_class, "bg-slate-100 text-slate-950" %>
 <% organization_path = Current.organization && organization_dashboard_path(Current.organization.slug) %>
+<% if Current.organization %>
+  <% organization_navigation_items = [
+    *(navigation_allowed_to?("organization.read") ? [ { label: "Dashboard", path: organization_path } ] : []),
+    *(project_navigation_available? ? [ { label: "Projects", path: organization_projects_path(Current.organization.slug) } ] : []),
+    *(navigation_allowed_to?("members.read") ? [ { label: "Members", path: organization_members_path(Current.organization.slug) } ] : []),
+    *(navigation_allowed_to?("members.read") ? [ { label: "Invitations", path: organization_invitations_path(Current.organization.slug) } ] : []),
+    *(navigation_allowed_to?("teams.read") ? [ { label: "Teams", path: organization_teams_path(Current.organization.slug) } ] : []),
+    *(navigation_allowed_to?("plans.read") ? [ { label: "Plans", path: organization_plan_comparison_path(Current.organization.slug) } ] : []),
+    *(navigation_allowed_to?("billing.read") ? [ { label: "Usage", path: organization_usage_path(Current.organization.slug) } ] : []),
+    *(navigation_allowed_to?("organization.read") ? [ { label: "Organization settings", path: organization_settings_path(Current.organization.slug) } ] : [])
+  ] %>
+<% else %>
+  <% organization_navigation_items = [
+    { label: "Dashboard", path: dashboard_path },
+    { label: "Get started", path: onboarding_path }
+  ] %>
+<% end %>
 <% navigation_items = [
-  { label: "Dashboard", path: organization_path || dashboard_path },
-  *(Current.organization ? [
-    { label: "Projects", path: organization_projects_path(Current.organization.slug) },
-    { label: "Members", path: organization_members_path(Current.organization.slug) },
-    *(Current.membership&.owner? ? [ { label: "Invitations", path: organization_invitations_path(Current.organization.slug) } ] : []),
-    { label: "Teams", path: organization_teams_path(Current.organization.slug) },
-    { label: "Plans", path: organization_plan_comparison_path(Current.organization.slug) },
-    { label: "Usage", path: organization_usage_path(Current.organization.slug) },
-    { label: "Organization settings", path: organization_settings_path(Current.organization.slug) }
-  ] : [ { label: "Get started", path: onboarding_path } ]),
+  *organization_navigation_items,
   { label: "Account details", path: account_profile_path },
   { label: "Account security", path: account_security_path },
   { label: "Sessions", path: account_sessions_path }

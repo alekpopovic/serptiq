@@ -14,6 +14,8 @@ module Projects
 
     def page(actor_membership:, number: nil, query: nil)
       visibility = @read_access.visibility(actor_membership: actor_membership)
+      raise ProjectAccessDenied unless visibility.accessible?
+
       relation = visible_relation(actor_membership.organization_id, visibility)
       term = query.to_s.strip.first(QUERY_LIMIT)
       relation = search(relation, term) if term.present?

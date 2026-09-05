@@ -60,19 +60,19 @@ controllers:
   Projects::ProjectsController:
     source: app/controllers/projects/projects_controller.rb
     actions:
-      index: { kind: exempt, reason: scope_filtered_project_directory }
-      new: &create_projects { kind: permission, permission: projects.create }
+      index: { kind: filtered, reason: scope_filtered_project_directory, permission: projects.read, scope: project_collection }
+      new: &create_projects { kind: permission, permission: projects.create, scope: organization }
       create: *create_projects
-      show: { kind: permission, permission: projects.read }
-      edit: &update_projects { kind: permission, permission: projects.update }
+      show: { kind: permission, permission: projects.read, scope: project }
+      edit: &update_projects { kind: permission, permission: projects.update, scope: project }
       update: *update_projects
-      archive: &archive_projects { kind: permission, permission: projects.archive }
+      archive: &archive_projects { kind: permission, permission: projects.archive, scope: project }
       reactivate: *archive_projects
-      destroy: { kind: permission, permission: projects.delete }
+      destroy: { kind: permission, permission: projects.delete, scope: project }
   Onboarding::ProjectSetupsController:
     source: app/controllers/onboarding/project_setups_controller.rb
     actions:
-      index: &guided_project_setup { kind: permission, permission: projects.create }
+      index: &guided_project_setup { kind: permission, permission: projects.create, scope: organization }
       create: *guided_project_setup
       show: *guided_project_setup
       update: *guided_project_setup
@@ -81,20 +81,20 @@ controllers:
   Properties::PropertiesController:
     source: app/controllers/properties/properties_controller.rb
     actions:
-      index: { kind: exempt, reason: scope_filtered_property_directory }
-      new: &manage_properties { kind: permission, permission: properties.manage }
-      create: *manage_properties
-      show: { kind: permission, permission: properties.read }
-      edit: *manage_properties
+      index: { kind: filtered, reason: scope_filtered_property_directory, permission: properties.read, scope: property_collection }
+      new: &create_properties { kind: permission, permission: properties.manage, scope: project }
+      create: *create_properties
+      show: { kind: permission, permission: properties.read, scope: property }
+      edit: &manage_properties { kind: permission, permission: properties.manage, scope: property }
       update: *manage_properties
       archive: *manage_properties
       reactivate: *manage_properties
   Properties::EnvironmentsController:
     source: app/controllers/properties/environments_controller.rb
     actions:
-      index: &read_property_environments { kind: permission, permission: properties.read }
+      index: &read_property_environments { kind: permission, permission: properties.read, scope: property }
       show: *read_property_environments
-      new: &manage_property_environments { kind: permission, permission: properties.manage }
+      new: &manage_property_environments { kind: permission, permission: properties.manage, scope: property }
       create: *manage_property_environments
       edit: *manage_property_environments
       update: *manage_property_environments
@@ -103,14 +103,14 @@ controllers:
   Verification::ChallengesController:
     source: app/controllers/verification/challenges_controller.rb
     actions:
-      show: &verify_property_environment { kind: permission, permission: properties.verify }
+      show: &verify_property_environment { kind: permission, permission: properties.verify, scope: property }
       create: *verify_property_environment
       attempt: *verify_property_environment
       revoke: *verify_property_environment
   Crawling::PoliciesController:
     source: app/controllers/crawling/policies_controller.rb
     actions:
-      edit: &configure_crawl_policy { kind: permission, permission: scans.configure }
+      edit: &configure_crawl_policy { kind: permission, permission: scans.configure, scope: property }
       update: *configure_crawl_policy
       reset: *configure_crawl_policy
   Tenancy::InvitationAcceptancesController:

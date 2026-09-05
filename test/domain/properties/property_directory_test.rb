@@ -52,6 +52,46 @@ class PropertiesPropertyDirectoryTest < ActiveSupport::TestCase
     assert active.active?
   end
 
+  test "exact property visibility constrains count and search and rejects another project" do
+    visible = create_property_for(
+      @owner, project: @project, display_name: "Visible Property Needle"
+    )
+    hidden = create_property_for(
+      @owner, project: @project, display_name: "Hidden Property Secret"
+    )
+    other_project = create_project_for(@owner, slug: "property-directory-other")
+    create_property_for(@owner, project: other_project, display_name: "Other Project Secret")
+    member = Tenancy::Public.create_membership(
+      actor_membership: @owner.membership,
+      user: create_identity_user(display_name: "Exact Property Viewer")
+    )
+    Authorization::Public.assign_role(
+      actor_membership: @owner.membership,
+      grantee_type: "Membership",
+      grantee_id: member.id,
+      role_id: Authorization::Role.find_by!(system: true, key: "viewer").id,
+      scope_type: "Property",
+      scope_id: visible.id
+    )
+
+    page = Properties::Public.property_page(
+      actor_membership: member, project_id: @project.id
+    )
+    assert_equal 1, page.total_count
+    assert_equal [ visible.id ], page.entries.map(&:id)
+
+    hidden_search = Properties::Public.property_page(
+      actor_membership: member, project_id: @project.id, query: hidden.display_name
+    )
+    assert_equal 0, hidden_search.total_count
+    assert_empty hidden_search.entries
+    assert_raises(Properties::PropertyAccessDenied) do
+      Properties::Public.property_page(
+        actor_membership: member, project_id: other_project.id
+      )
+    end
+  end
+
   private
 
   def query_count

@@ -1,9 +1,10 @@
 <% content_for :title, "Add property" %>
+<% project_readable = allowed_to?("projects.read", project: @project) %>
 
 <div class="mx-auto max-w-3xl">
   <%= render "shared/breadcrumbs", items: [
-    { label: "Projects", path: organization_projects_path(Current.organization.slug) },
-    { label: @project.name, path: organization_project_path(Current.organization.slug, @project.slug) },
+    { label: "Projects", path: (organization_projects_path(Current.organization.slug) if project_readable) },
+    { label: (project_readable ? @project.name : "Project"), path: (organization_project_path(Current.organization.slug, @project.slug) if project_readable) },
     { label: "Properties", path: organization_project_properties_path(Current.organization.slug, @project.slug) },
     { label: "Add property", path: nil }
   ] %>

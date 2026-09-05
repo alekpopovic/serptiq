@@ -43,6 +43,14 @@ lookup. `permission_hint` evaluates extra UI capabilities before rendering; `all
 prior decisions and fails closed when a hint was not loaded. View visibility never replaces the required action
 callback.
 
+Project and property indexes are the deliberate collection exception: each row
+may have a different allowed scope, so their directory first resolves an active
+visibility set. A caller with no visible scope is denied; otherwise the visible
+tenant relation is constrained before search, count, pagination and bulk read
+models. Organization navigation uses freshly evaluated presentation-only
+decisions and visible-project capability, while every destination repeats its
+authoritative controller/domain enforcement.
+
 Organization-scoped actions declare the catalog permission directly:
 
 ```ruby

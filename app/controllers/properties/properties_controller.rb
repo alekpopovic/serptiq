@@ -28,6 +28,7 @@ module Properties
     permission_hint "properties.manage", only: :index, scope: -> { { project: @project } }
     permission_hint "properties.manage", only: :show,
       scope: -> { { project: @project, property: @property } }
+    permission_hint "projects.read", only: %i[index new show], scope: -> { { project: @project } }
 
     def index
       @property_page = Public.property_page(

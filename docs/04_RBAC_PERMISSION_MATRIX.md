@@ -196,6 +196,12 @@ The implemented RBAC decision is deliberately uncached. A role grant/revocation,
 membership lifecycle change is therefore visible to the next decision, including later decisions in the same
 request. Request/value objects may carry a typed resource context, but never an entitlement or quota result.
 
+The complete controller action-to-permission-to-scope map and collection
+admission rules are documented in
+[`implementation/SCOPED_RESOURCE_ACCESS.md`](./implementation/SCOPED_RESOURCE_ACCESS.md).
+The executable copy is `config/authorization_inventory.yml`; quality checks
+reject missing scope metadata or a permission used at an incompatible scope.
+
 ## 6. Custom-role constraints
 
 Custom roles are designed for Agency/Enterprise but can be hidden until shipped. They cannot grant permissions the creating administrator does not possess. System roles cannot be edited. A custom role cannot include ownership transfer, organization deletion, or platform-administration permissions.

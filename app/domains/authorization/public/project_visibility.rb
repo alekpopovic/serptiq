@@ -14,6 +14,10 @@ module Authorization
       def all_projects?
         all_projects
       end
+
+      def accessible?
+        all_projects? || project_ids.any?
+      end
     end
   end
 end

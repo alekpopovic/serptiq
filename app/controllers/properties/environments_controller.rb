@@ -29,6 +29,7 @@ module Properties
       scope: -> { { project: @project, property: @property } }
     permission_hint "scans.configure", only: :show,
       scope: -> { { project: @project, property: @property } }
+    permission_hint "projects.read", only: :index, scope: -> { { project: @project } }
 
     def index
       @environment_page = Public.environment_page(

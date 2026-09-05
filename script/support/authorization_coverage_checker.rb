@@ -6,6 +6,19 @@ require "yaml"
 module Searchops
   module Authorization
     class CoverageChecker
+      CONTROLLER_POLICY_KINDS = %w[permission exempt filtered].freeze
+      RESOURCE_SCOPES = %w[
+        organization project property project_collection property_collection
+      ].freeze
+      SCOPED_SURFACE_CONTROLLERS = %w[
+        Projects::ProjectsController
+        Onboarding::ProjectSetupsController
+        Properties::PropertiesController
+        Properties::EnvironmentsController
+        Verification::ChallengesController
+        Crawling::PoliciesController
+      ].freeze
+
       attr_reader :root, :inventory_path
 
       def initialize(root:, inventory_path:)
@@ -17,10 +30,10 @@ module Searchops
         document = YAML.safe_load_file(inventory_path, aliases: true)
         issues = []
         issues << "authorization inventory version must equal 1" unless document["version"] == 1
-        known_permissions = ::Authorization::Catalog.load.permissions.map(&:key)
-        check_controllers(document.fetch("controllers", {}), known_permissions, issues)
+        permissions = ::Authorization::Catalog.load.permissions.index_by(&:key)
+        check_controllers(document.fetch("controllers", {}), permissions, issues)
         check_jobs(document.fetch("jobs", {}), issues)
-        check_domain_operations(document.fetch("domain_operations", {}), known_permissions, issues)
+        check_domain_operations(document.fetch("domain_operations", {}), permissions, issues)
         issues.sort.freeze
       rescue KeyError, Psych::Exception => error
         [ "authorization inventory could not be loaded: #{error.message}" ].freeze
@@ -28,7 +41,7 @@ module Searchops
 
       private
 
-      def check_controllers(inventory, known_permissions, issues)
+      def check_controllers(inventory, permissions, issues)
         expected_sources = inventory.values.map { |entry| entry.fetch("source") }.sort
         actual_sources = Dir[root.join("app/controllers/tenancy/*_controller.rb")].map do |path|
           Pathname(path).relative_path_from(root).to_s
@@ -49,9 +62,27 @@ module Searchops
             issues << "#{class_name}##{action}: inventory action does not exist"
           end
           entry.fetch("actions").each do |action, policy|
-            validate_permission(policy, "#{class_name}##{action}", known_permissions, issues)
+            label = "#{class_name}##{action}"
+            validate_controller_policy(policy, label, issues)
+            validate_permission(policy, label, permissions, issues)
+            validate_resource_scope(policy, label, permissions, issues)
+            if SCOPED_SURFACE_CONTROLLERS.include?(class_name) && !policy.key?("scope")
+              issues << "#{label}: scoped resource action is missing scope metadata"
+            end
             validate_controller_declaration(controller, action, policy, issues)
           end
+        end
+      end
+
+      def validate_controller_policy(policy, label, issues)
+        kind = policy.fetch("kind")
+        issues << "#{label}: unsupported controller policy kind #{kind}" unless
+          CONTROLLER_POLICY_KINDS.include?(kind)
+        return unless kind == "filtered"
+
+        issues << "#{label}: filtered collection requires a reason" if policy["reason"].to_s.empty?
+        unless %w[project_collection property_collection].include?(policy["scope"])
+          issues << "#{label}: filtered collection has incompatible scope #{policy['scope']}"
         end
       end
 
@@ -61,7 +92,7 @@ module Searchops
         expected_permission = if expected_kind == "required"
           policy.fetch("permission")
         else
-          "exempt:#{policy.fetch('reason')}"
+          "exempt:#{policy['reason']}"
         end
         return if declarations.any? do |declaration|
           declaration.fetch(:kind) == expected_kind && declaration.fetch(:permission) == expected_permission
@@ -91,17 +122,37 @@ module Searchops
         end
       end
 
-      def check_domain_operations(inventory, known_permissions, issues)
+      def check_domain_operations(inventory, permissions, issues)
         inventory.each do |operation, policy|
-          validate_permission(policy, operation, known_permissions, issues)
+          validate_permission(policy, operation, permissions, issues)
+          validate_resource_scope(policy, operation, permissions, issues)
         end
       end
 
-      def validate_permission(policy, label, known_permissions, issues)
-        return unless policy.fetch("kind") == "permission"
-        return if known_permissions.include?(policy.fetch("permission"))
+      def validate_permission(policy, label, permissions, issues)
+        return unless %w[permission filtered].include?(policy.fetch("kind"))
+        return if permissions.key?(policy.fetch("permission"))
 
         issues << "#{label}: unknown permission #{policy.fetch('permission')}"
+      end
+
+      def validate_resource_scope(policy, label, permissions, issues)
+        scope = policy["scope"]
+        return unless scope
+
+        unless RESOURCE_SCOPES.include?(scope)
+          issues << "#{label}: unknown authorization scope #{scope}"
+          return
+        end
+        permission = permissions[policy["permission"]]
+        return unless permission
+
+        compatible = if permission.scope == "organization"
+          scope == "organization"
+        else
+          scope != "organization"
+        end
+        issues << "#{label}: #{permission.key} is incompatible with #{scope} scope" unless compatible
       end
     end
   end

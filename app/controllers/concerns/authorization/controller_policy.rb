@@ -8,7 +8,7 @@ module Authorization
       class_attribute :authorization_declarations,
         instance_accessor: false,
         default: {}.freeze
-      helper_method :allowed_to?
+      helper_method :allowed_to?, :navigation_allowed_to?, :project_navigation_available?
     end
 
     class_methods do
@@ -83,6 +83,24 @@ module Authorization
       authorization_decisions.fetch(decision_cache_key(permission_key, scope), denied_hint).allow?
     end
 
+    # Navigation decisions are presentation hints only. Every destination still
+    # enforces its own controller/domain policy.
+    def navigation_allowed_to?(permission_key)
+      navigation_decisions.fetch(permission_key.to_s) do |key|
+        navigation_decisions[key] = authorization_policy.decision(permission_key: key).allow?
+      end
+    end
+
+    def project_navigation_available?
+      return @project_navigation_available unless @project_navigation_available.nil?
+
+      visibility = Public.visible_project_scopes(
+        organization_id: Current.organization&.id,
+        membership_id: Current.membership&.id
+      )
+      @project_navigation_available = visibility.accessible?
+    end
+
     def authorization_decision!(permission_key, **scope)
       authorization_decisions.fetch(decision_cache_key(permission_key, scope)) do
         raise "authorization decision for #{permission_key} was not evaluated"
@@ -96,6 +114,10 @@ module Authorization
 
     def authorization_decisions
       @authorization_decisions ||= {}
+    end
+
+    def navigation_decisions
+      @navigation_decisions ||= {}
     end
 
     def decision_cache_key(permission_key, scope)

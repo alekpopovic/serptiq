@@ -16,6 +16,8 @@ module Properties
     def page(actor_membership:, project_id:, number: nil, query: nil)
       project = @authorization.project!(actor_membership: actor_membership, project_id: project_id)
       visibility = @read_access.visibility(actor_membership: actor_membership, project: project)
+      raise PropertyAccessDenied unless visibility.accessible?
+
       relation = visible_relation(project, visibility)
       term = query.to_s.strip.first(QUERY_LIMIT)
       relation = search(relation, term) if term.present?

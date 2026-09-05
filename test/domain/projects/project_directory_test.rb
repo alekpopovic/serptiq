@@ -42,10 +42,35 @@ class ProjectsProjectDirectoryTest < ActiveSupport::TestCase
       actor_membership: @owner.membership, project_id: project.id, operation: "archive"
     )
 
-    assert_empty Projects::Public.project_page(actor_membership: scoped_member).entries
+    assert_raises(Projects::ProjectAccessDenied) do
+      Projects::Public.project_page(actor_membership: scoped_member)
+    end
     entries = Projects::Public.project_page(actor_membership: organization_member).entries
     assert_equal [ project.id ], entries.map(&:id)
     assert entries.first.archived?
+  end
+
+  test "visibility constrains count and search before project rows are loaded" do
+    visible = create_project_for(@owner, name: "Visible Needle", slug: "visible-needle")
+    hidden = create_project_for(@owner, name: "Hidden Secret", slug: "hidden-secret")
+    member = add_member("Directory Viewer")
+    viewer = Authorization::Role.find_by!(system: true, key: "viewer")
+    assign(viewer, member, "Project", visible.id)
+
+    page = Projects::Public.project_page(actor_membership: member)
+    assert_equal 1, page.total_count
+    assert_equal [ visible.id ], page.entries.map(&:id)
+
+    hidden_search = Projects::Public.project_page(
+      actor_membership: member, query: hidden.name
+    )
+    assert_equal 0, hidden_search.total_count
+    assert_empty hidden_search.entries
+
+    no_grant = add_member("No Project Scope")
+    assert_raises(Projects::ProjectAccessDenied) do
+      Projects::Public.project_page(actor_membership: no_grant)
+    end
   end
 
   private

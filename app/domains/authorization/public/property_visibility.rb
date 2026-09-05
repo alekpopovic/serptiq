@@ -14,6 +14,10 @@ module Authorization
       def all_properties?
         all_properties
       end
+
+      def accessible?
+        all_properties? || property_ids.any?
+      end
     end
   end
 end
