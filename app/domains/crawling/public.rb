@@ -52,8 +52,36 @@ module Crawling
       CrawlerIdentity.http_user_agent(**attributes)
     end
 
-    def fetch_http(**attributes)
-      HttpFetcher.new.call(**attributes)
+    def fetch_http(permit_context:, **attributes)
+      HttpFetcher.new.call(**attributes, permit_context: permit_context)
+    end
+
+    def host_key(**attributes)
+      HostKey.new(**attributes)
+    end
+
+    def fetch_permit_context(**attributes)
+      FetchPermitContext.new(**attributes)
+    end
+
+    def acquire_fetch_permit(clock: -> { Time.current }, **attributes)
+      AcquireFetchPermit.new(clock: clock).call(**attributes)
+    end
+
+    def release_fetch_permit(clock: -> { Time.current }, **attributes)
+      ReleaseFetchPermit.new(clock: clock).call(**attributes)
+    end
+
+    def recover_stale_fetch_permits(clock: -> { Time.current }, **attributes)
+      RecoverStaleFetchPermits.new(clock: clock).call(**attributes)
+    end
+
+    def set_emergency_control(clock: -> { Time.current }, **attributes)
+      SetEmergencyControl.new(clock: clock).call(**attributes)
+    end
+
+    def pressure_metrics(**attributes)
+      PressureMetrics.new.call(**attributes)
     end
 
     def url_scope_policy(**attributes)

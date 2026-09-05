@@ -8,7 +8,8 @@ environment/scan identity and uses a bigint primary key as its monotonic discove
 
 `Crawling::FrontierEntry` passes candidate HTTP(S) values through the versioned canonical normalizer and records
 the first normalized fetch URL separately from the query-policy identity URL, its version-prefixed SHA-256 digest
-and a separate host digest used for scheduling. The explicit `normalization_version` prevents later rules from
+and a version-2 host digest over scheme, IDNA hostname and effective port used for scheduling and pressure control.
+The explicit `normalization_version` prevents later rules from
 silently changing existing scan identities. The full contract is in
 [`URL_NORMALIZATION_AND_SCOPE.md`](./URL_NORMALIZATION_AND_SCOPE.md).
 
@@ -24,6 +25,10 @@ One SQL statement ranks eligible work in host and scan rounds, then in an organi
 candidate set with `FOR UPDATE SKIP LOCKED`, and changes it to `leased`. Higher priority wins within a lane, then
 shallower depth and bigint discovery sequence. This prevents one organization, scan or host from consuming the
 entire first scheduling round while keeping priority meaningful inside each lane.
+
+Prompt 071 retains this query as the fair selector, then requires a separate exact-owner fetch permit before each
+network attempt. Frontier ownership and pressure capacity are intentionally distinct; see
+[`CRAWL_PRESSURE_CONTROLS.md`](./CRAWL_PRESSURE_CONTROLS.md).
 
 Each claim has a bounded worker identifier, lease start/expiry and 256-bit random token. Only the token's SHA-256
 digest is stored. Heartbeat, success, rejection and failure require the exact current worker and raw token while

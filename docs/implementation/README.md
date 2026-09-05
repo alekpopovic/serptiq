@@ -111,6 +111,8 @@ Do not pre-populate these reports with fictional implementation or test results.
   preflight requirements, weighted quota/capacity transactions and recoverable post-commit dispatch.
 - [`CRAWL_FRONTIER.md`](./CRAWL_FRONTIER.md) defines durable URL identity, fair PostgreSQL row leasing,
   owner-token completion/retry, stale recovery, incremental progress and scale/partition operations.
+- [`CRAWL_PRESSURE_CONTROLS.md`](./CRAWL_PRESSURE_CONTROLS.md) defines mandatory per-attempt PostgreSQL permits,
+  global/organization/scan/host pressure limits, bounded backoff, operator controls and stale recovery.
 - [`URL_NORMALIZATION_AND_SCOPE.md`](./URL_NORMALIZATION_AND_SCOPE.md) defines versioned fetch/identity URL
   normalization, query identity filtering, explicit scope reason codes and the HTML-canonical trust boundary.
 - [`ROBOTS_POLICY.md`](./ROBOTS_POLICY.md) defines the SearchOps crawler identity, RFC 9309 parsing and status

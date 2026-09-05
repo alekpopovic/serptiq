@@ -9,7 +9,7 @@ module Crawling
     :compressed_bytes, :decoded_bytes, :body_sha256, :sniffed_kind, :request_count,
     :retry_count, :redirect_count, :duration_ms, :hops, :artifact
   )
-    OUTCOMES = %w[succeeded http_error rejected failed canceled].freeze
+    OUTCOMES = %w[succeeded http_error rejected failed canceled throttled].freeze
     SNIFFED_KINDS = %w[empty html xml json pdf image text binary unknown].freeze
     METHOD_PATTERN = /\A(?:GET|HEAD)\z/
     TOKEN_PATTERN = /\A[a-z0-9!#$&^_.+\-]{1,64}\z/
@@ -93,7 +93,9 @@ module Crawling
     def normalize_headers(value)
       value.to_h.each_with_object({}) do |(name, item), result|
         key = name.to_s.downcase
-        next unless %w[cache-control content-language content-type etag last-modified x-robots-tag].include?(key)
+        next unless %w[
+          cache-control content-language content-type etag last-modified retry-after x-robots-tag
+        ].include?(key)
 
         candidate = item.to_s
         raise ArgumentError, "HTTP fetch header is invalid" unless

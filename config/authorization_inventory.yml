@@ -227,6 +227,9 @@ jobs:
   Crawling::FrontierLeaseRecoveryJob:
     kind: system
     name: frontier_lease_recovery
+  Crawling::FetchPermitRecoveryJob:
+    kind: system
+    name: fetch_permit_recovery
   Crawling::ArtifactDeletionJob:
     kind: system
     name: artifact_deletion
@@ -430,6 +433,30 @@ domain_operations:
   Crawling::Public.crawler_user_agent:
     kind: context
     reason: public_bounded_crawler_identification_string
+  Crawling::Public.fetch_http:
+    kind: system
+    reason: pressure_permitted_bounded_crawler_http_fetch
+  Crawling::Public.host_key:
+    kind: context
+    reason: pure_scheme_hostname_port_pressure_identity
+  Crawling::Public.fetch_permit_context:
+    kind: context
+    reason: pure_exact_frontier_lease_pressure_context
+  Crawling::Public.acquire_fetch_permit:
+    kind: system
+    reason: postgresql_coordinated_global_tenant_scan_and_host_pressure_admission
+  Crawling::Public.release_fetch_permit:
+    kind: system
+    reason: exact_owner_token_pressure_release_and_bounded_host_backoff
+  Crawling::Public.recover_stale_fetch_permits:
+    kind: system
+    reason: bounded_skip_locked_stale_fetch_permit_recovery
+  Crawling::Public.set_emergency_control:
+    kind: context
+    reason: dedicated_platform_crawler_control_grant_validation
+  Crawling::Public.pressure_metrics:
+    kind: system
+    reason: bounded_operator_crawl_pressure_snapshot
   Crawling::Public.url_scope_policy:
     kind: context
     reason: pure_bounded_origin_host_path_depth_policy

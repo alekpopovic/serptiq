@@ -193,7 +193,10 @@ responsibilities.
 Bounded GET/HEAD fetch orchestration, manual redirect allowlists, safe transient retry/cancellation decisions,
 response normalization and artifact-sink lifecycle are Crawling-owned. Shared accepts only an immutable approved
 destination and owns the raw socket/TLS/header/body/decompression limits; it does not select crawl origins or
-persist fetches. Durable fetch metadata is introduced by static crawl orchestration after artifact and usage APIs.
+persist fetches. Crawling also owns PostgreSQL fetch-pressure state and exact frontier-owner permits. The public
+general fetch boundary requires one permit context per attempt; Shared never interprets tenant, scan, host-pressure
+or platform emergency policy. Durable fetch metadata is introduced by static crawl orchestration after artifact
+and usage APIs.
 Robots retrieval, RFC parsing, immutable per-scan provenance and allow/deny/unknown decisions are
 Crawling-owned. Shared provides a domain-neutral public-redirect transport that re-resolves and validates every
 hop; it does not interpret robots content. Sitemap directives leave Crawling only as untrusted candidate values

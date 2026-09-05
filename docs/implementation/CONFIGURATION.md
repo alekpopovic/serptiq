@@ -57,7 +57,7 @@ secret-management workflow; do not copy literal documentation values.
 | OAuth providers | enable flags, client IDs, bounded HTTP timeouts/response size, safe discovery/JWKS retries, JWKS TTL/key count, OIDC clock skew/token lifetime, transaction lifetime/retention, start/callback/session/account-security windows and per-IP/session caps | client secrets; callback tokens are transient and later persistent integration tokens use database encryption |
 | Billing | provider (`disabled`, development/test-only `fake`, or `lemon_squeezy`), store ID, bounded HTTP open/read/write timeouts and response cap | API key and webhook verification secret |
 | Encryption | active key version identifier | primary key ring, deterministic key and derivation salt |
-| Crawler limits | URL and concurrency bounds; per-project/global scan caps; frontier lease batch/duration, persisted attempt cap and retry base delay; bounded HTTP DNS/connect/TLS/header/body/total deadlines, header/compressed/decoded bytes, decompression ratio, redirects and idempotent retry/backoff; dedicated robots DNS/open/read deadlines, 500 KiB-or-higher response cap and at-most-five redirects; sitemap well-known switch plus DNS/open/read, compressed/decompressed byte, document/entry, XML/index depth and redirect limits; protected crawl/render worker egress-policy attestation | none |
+| Crawler limits | URL and concurrency bounds; per-project/global scan caps; frontier lease batch/duration, persisted attempt cap and retry base delay; global/organization/host fetch concurrency and rates, permit lifetime, maximum scan duration, host backoff bounds and throttle poll interval; bounded HTTP DNS/connect/TLS/header/body/total deadlines, header/compressed/decoded bytes, decompression ratio, redirects and idempotent retry/backoff; dedicated robots DNS/open/read deadlines, 500 KiB-or-higher response cap and at-most-five redirects; sitemap well-known switch plus DNS/open/read, compressed/decompressed byte, document/entry, XML/index depth and redirect limits; protected crawl/render worker egress-policy attestation | none |
 | Ownership verification | DNS/HTTP enable flags; DNS answer, chain, byte and timeout limits; HTTP DNS/open/read timeouts, response cap and redirect cap | proof derivation uses the application key ring; no provider credential |
 | Browser limits | wall-time, memory, request-count and concurrency bounds | none |
 | Provider integrations | Search Console, PageSpeed and CrUX enable flags | Google API key; user/provider tokens encrypted at rest |
@@ -85,6 +85,12 @@ Protected `worker_crawl` and `worker_render` processes additionally require
 `SEARCHOPS_CRAWLER_EGRESS_ENFORCED=true` after deployment has applied and
 verified the policy in `config/crawler_egress_policy.yml`. The value is an
 attestation and never replaces the actual infrastructure control.
+
+Crawler pressure validation also requires the fetch-permit duration to exceed
+the complete HTTP fetch timeout and maximum host backoff to be at least its
+base. Higher customer-derived allowances never relax configured global or host
+safety caps. The full coordination contract is in
+[`CRAWL_PRESSURE_CONTROLS.md`](./CRAWL_PRESSURE_CONTROLS.md).
 
 ## Redaction contract
 

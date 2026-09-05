@@ -130,6 +130,10 @@ class CrawlingHttpFetcherTest < ActiveSupport::TestCase
     end
     assert_empty transport.calls
     assert_empty @resolver.calls
+
+    assert_raises(ArgumentError) do
+      Crawling::Public.fetch_http(url: "https://example.com/page")
+    end
   end
 
   test "manually follows only approved redirects and records canonical hop provenance" do
@@ -202,6 +206,63 @@ class CrawlingHttpFetcherTest < ActiveSupport::TestCase
     assert_equal 1, result.hops.first.resolution_provenance.fetch(:address_count)
     assert_equal [ 0.25, 1 ], waits
     assert_equal [ "example.com" ] * 3, @resolver.calls
+  end
+
+  test "pressure denial prevents DNS and transport while preserving a durable retry observation" do
+    transport = ScriptedTransport.new(scripted_response(body: "forbidden"))
+    decision = Crawling::FetchPermitDecision.new(
+      state: "throttled",
+      reason_code: "host_backoff",
+      scope: "host",
+      retry_at: Time.current + 30.seconds,
+      permit: nil,
+      limits: pressure_limits
+    )
+    result = fetcher(
+      transport,
+      pressure_acquirer: ->(**) { decision }
+    ).call(url: "https://example.com/throttled", permit_context: permit_context)
+
+    assert_equal "throttled", result.outcome
+    assert_equal "host_backoff", result.failure_category
+    assert_equal "retry", result.hops.sole.outcome
+    assert_empty transport.calls
+    assert_empty @resolver.calls
+  end
+
+  test "pressure permit wraps one transport attempt and forwards bounded provider signals" do
+    releases = []
+    grant = Crawling::FetchPermitGrant.new(
+      id: SecureRandom.uuid,
+      token: SecureRandom.hex(32),
+      host_key_digest: "a" * 64,
+      expires_at: Time.current + 1.minute
+    )
+    decision = Crawling::FetchPermitDecision.new(
+      state: "acquired",
+      reason_code: nil,
+      scope: nil,
+      retry_at: nil,
+      permit: grant,
+      limits: pressure_limits
+    )
+    transport = ScriptedTransport.new(
+      scripted_response(status: 503, headers: { "retry-after" => "7" })
+    )
+    result = fetcher(
+      transport,
+      safe_retries: 0,
+      pressure_acquirer: ->(**) { decision },
+      pressure_releaser: ->(**attributes) { releases << attributes }
+    ).call(url: "https://example.com/busy", permit_context: permit_context)
+
+    assert_equal "http_error", result.outcome
+    release = releases.sole
+    assert_equal grant.id, release.fetch(:permit_id)
+    assert_equal "http_error", release.fetch(:outcome)
+    assert_equal 503, release.fetch(:http_status_code)
+    assert_equal "http_503", release.fetch(:failure_category)
+    assert_equal "7", release.fetch(:retry_after)
   end
 
   test "does not retry certificate policy size encoding or malformed response failures" do
@@ -294,7 +355,34 @@ class CrawlingHttpFetcherTest < ActiveSupport::TestCase
       retry_base_delay: 0.25,
       retry_max_delay: 5,
       retry_waiter: options.fetch(:retry_waiter, ->(*) { }),
-      recorder: recorder
+      recorder: recorder,
+      pressure_acquirer: options[:pressure_acquirer],
+      pressure_releaser: options[:pressure_releaser]
+    )
+  end
+
+  def permit_context
+    Crawling::FetchPermitContext.new(
+      organization_id: SecureRandom.uuid,
+      scan_id: SecureRandom.uuid,
+      crawl_url_id: 1,
+      worker_id: "pressure-http-worker",
+      frontier_lease_token: SecureRandom.hex(32)
+    )
+  end
+
+  def pressure_limits
+    Crawling::PressureLimits.new(
+      global_concurrency: 10,
+      organization_concurrency: 10,
+      scan_concurrency: 5,
+      host_concurrency: 2,
+      global_rate: 100,
+      organization_rate: 50,
+      scan_rate: 5,
+      host_rate: 2,
+      permit_duration: 60,
+      scan_deadline: Time.current + 1.hour
     )
   end
 

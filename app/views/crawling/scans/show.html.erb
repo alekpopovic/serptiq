@@ -29,6 +29,14 @@
     <p class="so-alert so-alert-danger mt-6" role="status">The scan ended with failure category <strong><%= summary.failure_category.humanize %></strong>. No exception details or worker logs are exposed here.</p>
   <% end %>
 
+  <% if summary.throttled? %>
+    <p class="so-alert mt-6" role="status">
+      Crawl pressure is currently observed as throttled (<strong><%= summary.throttle_reason.humanize %></strong>).
+      <% if summary.throttle_until %>The next eligible attempt is no earlier than <%= l(summary.throttle_until, format: :long) %>.<% end %>
+      This is a live scheduling observation, not a guaranteed resume time.
+    </p>
+  <% end %>
+
   <% if summary.cancellable? && allowed_to?("scans.cancel", project: @project) %>
     <div class="mt-6">
       <%= button_to "Request cancellation", cancel_organization_project_scan_path(Current.organization.slug, @project.slug, summary.id), method: :patch, class: "so-button so-button-danger", form: { data: { turbo_confirm: "Request cooperative cancellation for this scan?" } } %>

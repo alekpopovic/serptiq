@@ -63,6 +63,17 @@ shared:
   crawler_retry_max_delay: 5s
   crawler_egress_enforced: false
   crawler_concurrency: 8
+  crawler_global_fetch_concurrency: 100
+  crawler_organization_fetch_concurrency_per_scan: 4
+  crawler_host_fetch_concurrency: 2
+  crawler_global_request_rate: 100
+  crawler_organization_request_rate_per_scan: 10
+  crawler_host_request_rate: 2
+  crawler_fetch_permit_duration: 1m
+  crawler_scan_max_duration: 6h
+  crawler_host_backoff_base: 1s
+  crawler_host_backoff_max: 5m
+  crawler_throttle_poll_interval: 1s
   crawler_project_concurrent_scans: 10
   crawler_global_concurrent_scans: 1000
   crawler_frontier_lease_batch_size: 50
@@ -123,6 +134,17 @@ test:
   object_storage_service: local
   crawler_max_urls_per_scan: 25
   crawler_concurrency: 1
+  crawler_global_fetch_concurrency: 4
+  crawler_organization_fetch_concurrency_per_scan: 2
+  crawler_host_fetch_concurrency: 1
+  crawler_global_request_rate: 20
+  crawler_organization_request_rate_per_scan: 5
+  crawler_host_request_rate: 2
+  crawler_fetch_permit_duration: 1m
+  crawler_scan_max_duration: 30m
+  crawler_host_backoff_base: 1s
+  crawler_host_backoff_max: 1m
+  crawler_throttle_poll_interval: 1s
   crawler_project_concurrent_scans: 2
   crawler_global_concurrent_scans: 10
   crawler_frontier_lease_batch_size: 10

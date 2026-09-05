@@ -274,6 +274,13 @@ retry; every retry re-resolves the target and checks cancellation. Strong
 declared-type/signature conflicts are rejected before an artifact handle is
 returned, and fetch telemetry excludes URLs, addresses, headers and bodies.
 
+Prompt 071 requires an exact current frontier-owner context at that public fetch boundary and acquires a
+short-lived PostgreSQL permit before each DNS decision. Global, organization, scan and normalized-host rate/
+concurrency checks are serialized and durable across workers. Expiry and bounded recovery fail safely after a
+worker crash; 429/503/network signals cannot back off past the scan's hard lifetime. Emergency global/host
+controls require a dedicated platform grant, are audited and cannot be changed through tenant permissions.
+Pressure telemetry and customer throttle observations exclude hostnames, URLs and permit tokens.
+
 Property environment origins use one immutable value contract before any network activity. It lowercases the
 scheme and DNS identity, converts Unicode names to a stable ASCII IDNA network form, derives a normalized
 Unicode display form, collapses HTTP 80/HTTPS 443, removes one terminal DNS dot and treats only an empty/root

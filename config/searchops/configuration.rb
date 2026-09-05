@@ -147,6 +147,41 @@ module Searchops
       crawler_egress_enforced: Definition.new("SEARCHOPS_CRAWLER_EGRESS_ENFORCED", :boolean,
         false, nil, nil, nil, false, nil),
       crawler_concurrency: Definition.new("SEARCHOPS_CRAWLER_CONCURRENCY", :integer, 8, 1, 1000, nil, false, nil),
+      crawler_global_fetch_concurrency: Definition.new(
+        "SEARCHOPS_CRAWLER_GLOBAL_FETCH_CONCURRENCY", :integer, 100, 1, 10_000, nil, false, nil
+      ),
+      crawler_organization_fetch_concurrency_per_scan: Definition.new(
+        "SEARCHOPS_CRAWLER_ORGANIZATION_FETCH_CONCURRENCY_PER_SCAN", :integer, 4,
+        1, 1000, nil, false, nil
+      ),
+      crawler_host_fetch_concurrency: Definition.new(
+        "SEARCHOPS_CRAWLER_HOST_FETCH_CONCURRENCY", :integer, 2, 1, 100, nil, false, nil
+      ),
+      crawler_global_request_rate: Definition.new(
+        "SEARCHOPS_CRAWLER_GLOBAL_REQUEST_RATE", :integer, 100, 1, 100_000, nil, false, nil
+      ),
+      crawler_organization_request_rate_per_scan: Definition.new(
+        "SEARCHOPS_CRAWLER_ORGANIZATION_REQUEST_RATE_PER_SCAN", :integer, 10,
+        1, 10_000, nil, false, nil
+      ),
+      crawler_host_request_rate: Definition.new(
+        "SEARCHOPS_CRAWLER_HOST_REQUEST_RATE", :integer, 2, 1, 1000, nil, false, nil
+      ),
+      crawler_fetch_permit_duration: Definition.new(
+        "SEARCHOPS_CRAWLER_FETCH_PERMIT_DURATION", :duration, "1m", 5, 900, nil, false, nil
+      ),
+      crawler_scan_max_duration: Definition.new(
+        "SEARCHOPS_CRAWLER_SCAN_MAX_DURATION", :duration, "6h", 60, 86_400, nil, false, nil
+      ),
+      crawler_host_backoff_base: Definition.new(
+        "SEARCHOPS_CRAWLER_HOST_BACKOFF_BASE", :duration, "1s", 0.1, 60, nil, false, nil
+      ),
+      crawler_host_backoff_max: Definition.new(
+        "SEARCHOPS_CRAWLER_HOST_BACKOFF_MAX", :duration, "5m", 1, 3600, nil, false, nil
+      ),
+      crawler_throttle_poll_interval: Definition.new(
+        "SEARCHOPS_CRAWLER_THROTTLE_POLL_INTERVAL", :duration, "1s", 0.1, 60, nil, false, nil
+      ),
       crawler_project_concurrent_scans: Definition.new(
         "SEARCHOPS_CRAWLER_PROJECT_CONCURRENT_SCANS", :integer, 10, 1, 100_000, nil, false, nil
       ),
@@ -542,6 +577,7 @@ module Searchops
       end
       validate_database_capacity(errors)
       validate_crawler_egress(errors)
+      validate_crawler_pressure(errors)
     end
 
     def validate_database_capacity(errors)
@@ -564,6 +600,15 @@ module Searchops
       return unless protected_worker && !fetch(:crawler_egress_enforced)
 
       errors << "SEARCHOPS_CRAWLER_EGRESS_ENFORCED must attest an active infrastructure egress policy"
+    end
+
+    def validate_crawler_pressure(errors)
+      if fetch(:crawler_fetch_permit_duration) <= fetch(:crawler_total_timeout)
+        errors << "SEARCHOPS_CRAWLER_FETCH_PERMIT_DURATION must exceed SEARCHOPS_CRAWLER_TOTAL_TIMEOUT"
+      end
+      if fetch(:crawler_host_backoff_max) < fetch(:crawler_host_backoff_base)
+        errors << "SEARCHOPS_CRAWLER_HOST_BACKOFF_MAX must be at least SEARCHOPS_CRAWLER_HOST_BACKOFF_BASE"
+      end
     end
 
     def require_settings(errors, *keys)

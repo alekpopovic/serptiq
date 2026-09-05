@@ -13,6 +13,17 @@ class SearchopsConfigurationTest < ActiveSupport::TestCase
     assert_equal 25, configuration.fetch(:crawler_max_urls_per_scan)
     assert_equal 2, configuration.fetch(:crawler_project_concurrent_scans)
     assert_equal 10, configuration.fetch(:crawler_global_concurrent_scans)
+    assert_equal 4, configuration.fetch(:crawler_global_fetch_concurrency)
+    assert_equal 2, configuration.fetch(:crawler_organization_fetch_concurrency_per_scan)
+    assert_equal 1, configuration.fetch(:crawler_host_fetch_concurrency)
+    assert_equal 20, configuration.fetch(:crawler_global_request_rate)
+    assert_equal 5, configuration.fetch(:crawler_organization_request_rate_per_scan)
+    assert_equal 2, configuration.fetch(:crawler_host_request_rate)
+    assert_equal 60.0, configuration.fetch(:crawler_fetch_permit_duration)
+    assert_equal 1800.0, configuration.fetch(:crawler_scan_max_duration)
+    assert_equal 1.0, configuration.fetch(:crawler_host_backoff_base)
+    assert_equal 60.0, configuration.fetch(:crawler_host_backoff_max)
+    assert_equal 1.0, configuration.fetch(:crawler_throttle_poll_interval)
     assert_equal 10, configuration.fetch(:crawler_frontier_lease_batch_size)
     assert_equal 120, configuration.fetch(:crawler_frontier_lease_duration)
     assert_equal 3, configuration.fetch(:crawler_frontier_max_attempts)
@@ -208,6 +219,29 @@ class SearchopsConfigurationTest < ActiveSupport::TestCase
       )
       assert configuration.fetch(:crawler_egress_enforced)
     end
+  end
+
+  test "rejects unsafe crawl pressure timing relationships" do
+    error = assert_raises(Searchops::Configuration::Error) do
+      load_configuration(
+        environment: "test",
+        env: { "SEARCHOPS_CRAWLER_FETCH_PERMIT_DURATION" => "45s" }
+      )
+    end
+    assert_includes error.message, "SEARCHOPS_CRAWLER_FETCH_PERMIT_DURATION"
+    assert_includes error.message, "SEARCHOPS_CRAWLER_TOTAL_TIMEOUT"
+
+    error = assert_raises(Searchops::Configuration::Error) do
+      load_configuration(
+        environment: "test",
+        env: {
+          "SEARCHOPS_CRAWLER_HOST_BACKOFF_BASE" => "10s",
+          "SEARCHOPS_CRAWLER_HOST_BACKOFF_MAX" => "5s"
+        }
+      )
+    end
+    assert_includes error.message, "SEARCHOPS_CRAWLER_HOST_BACKOFF_MAX"
+    assert_includes error.message, "SEARCHOPS_CRAWLER_HOST_BACKOFF_BASE"
   end
 
   test "requires a numeric store and secrets for the Lemon Squeezy adapter" do

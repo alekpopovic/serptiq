@@ -33,6 +33,23 @@ class ScansRequestTest < ActionDispatch::IntegrationTest
     assert_includes response.body, "Individual failures"
   end
 
+  test "scan detail describes throttling as a bounded observation rather than a guarantee" do
+    observed_at = Time.current.change(usec: 0)
+    @scan.update!(
+      throttled_at: observed_at,
+      throttle_reason: "host_backoff",
+      throttle_until: observed_at + 30.seconds
+    )
+
+    get organization_project_scan_path(@owner.organization.slug, @project.slug, @scan.id)
+
+    assert_response :success
+    assert_includes response.body, "currently observed as throttled"
+    assert_includes response.body, "Host backoff"
+    assert_includes response.body, "not a guaranteed resume time"
+    refute_includes response.body, "example.com"
+  end
+
   test "cancel action records immediate cancellation and cannot reopen the terminal scan" do
     assert_difference("Crawling::ScanEvent.count", 1) do
       patch cancel_organization_project_scan_path(

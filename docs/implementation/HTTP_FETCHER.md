@@ -1,9 +1,11 @@
 # Bounded crawler HTTP fetcher
 
 Prompt 069 adds the Crawling-owned GET/HEAD operation on top of the approved
-destination boundary from Prompt 068. `Crawling::Public.fetch_http` returns an
-immutable normalized result and never performs destination resolution or a
-connection outside `Shared::NetworkSafety`.
+destination boundary from Prompt 068. Prompt 071 makes an exact frontier-lease
+`permit_context` mandatory at `Crawling::Public.fetch_http`; each request,
+redirect and retry must acquire PostgreSQL pressure capacity before resolution.
+The operation returns an immutable normalized result and never performs
+destination resolution or a connection outside `Shared::NetworkSafety`.
 
 ## Request and redirect contract
 
@@ -57,11 +59,19 @@ rechecks both cancellation and the total deadline. Default backoff waits poll
 cancellation at most every 100 ms. Certificate, malformed, oversize,
 decompression, encoding, redirect and content-type failures are not retried.
 
-Normalized outcomes are `succeeded`, `http_error`, `rejected`, `failed` and
-`canceled`, with a stable failure category. The final result is not itself
+Normalized outcomes are `succeeded`, `http_error`, `rejected`, `failed`,
+`canceled` and `throttled`, with a stable failure category. A pressure denial
+returns `throttled` without DNS or transport activity; orchestration uses its
+durable scan observation to schedule a later attempt. The final result is not itself
 retryable; orchestration must make any later durable retry decision explicitly.
 Every call emits a bounded `crawler.http_fetch` event containing method,
 outcome, category, status, duration and retry count only.
+
+Every transport response or classified network failure releases its opaque
+permit and supplies bounded status/failure evidence. HTTP 429/503 and valid
+`Retry-After` signals update host backoff. Release failure is reported without
+payload data; permit expiry remains the safe capacity-recovery boundary. See
+[`CRAWL_PRESSURE_CONTROLS.md`](./CRAWL_PRESSURE_CONTROLS.md).
 
 ## Operator settings
 

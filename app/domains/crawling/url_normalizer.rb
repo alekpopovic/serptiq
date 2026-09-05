@@ -134,7 +134,7 @@ module Crawling
 
     def build_value(fetch_url:, identity_url:, target:, path:, version:, digestor:)
       identity_digest = digestor.call("crawl-url:v#{version}:#{identity_url}").to_s
-      host_digest = digestor.call("crawl-host:v1:#{target.host}").to_s
+      host_digest = HostKey.new(url: target.origin, digestor: digestor).digest
       unless identity_digest.match?(/\A[0-9a-f]{64}\z/) && host_digest.match?(/\A[0-9a-f]{64}\z/)
         raise ArgumentError, "URL digest is invalid"
       end

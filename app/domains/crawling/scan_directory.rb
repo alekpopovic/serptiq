@@ -81,6 +81,9 @@ module Crawling
         started_at: scan.started_at,
         finished_at: scan.finished_at,
         failure_category: scan.failure_category,
+        throttled_at: scan.throttled_at,
+        throttle_reason: scan.throttle_reason,
+        throttle_until: scan.throttle_until,
         counters: scan.counters
       )
     end

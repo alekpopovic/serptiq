@@ -892,6 +892,20 @@ tenant and first-discovery provenance. The bigint row ID is also the monotonic d
 priority and depth. Scan aggregate counters are updated transactionally by frontier batches so dashboard reads do
 not count this high-volume table.
 
+### `crawl_pressure_states` / `crawl_fetch_permits`
+
+Pressure states use one unique typed key for global, organization, exact scan or normalized host scope. They
+retain the next eligible fetch clock, bounded host failure/backoff state and platform-only global/host emergency
+state. Scope-shape checks prohibit tenant identifiers on global/host rows and require the complete hierarchy on
+scan rows. Raw hostnames and URLs are not stored.
+
+Fetch permits repeat the exact tenant/project/property/environment/scan/frontier relationship, store only the
+digest of a 256-bit owner token and expire after a bounded interval. Partial indexes support active global,
+organization, scan, host and frontier counts; exact composite foreign keys prevent cross-tenant scan/frontier
+substitution. Lifecycle checks and an immutable-provenance trigger restrict release/expiry transitions and direct
+deletion. `scans.throttled_at`, `throttle_reason` and `throttle_until` are a customer-visible observation, not a
+promise that execution resumes at that time.
+
 ### `crawl_sitemap_discoveries` / `crawl_sitemap_files` / `crawl_sitemap_entries`
 
 One exact-tenant discovery aggregate per scan retains terminal document, entry, byte, warning, fetch-attempt,

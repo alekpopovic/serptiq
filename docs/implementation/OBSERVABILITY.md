@@ -67,7 +67,7 @@ contains:
 - optional bounded `request_id`, `trace_id` or `job_id`;
 - optional hashed organization ID and validated project/scan UUID;
 - only allowlisted operation, outcome, timing, retry, provider and error
-  fields.
+  fields, including a fixed low-cardinality pressure `scope_type` where needed.
 
 Additive optional fields retain the current event version. Increment
 `event_version` when a consumer-visible field is removed, renamed, changes
@@ -79,6 +79,11 @@ or retry values, invalid status codes, more than five cause classes and labels
 outside its bounded low-cardinality format. Metrics must use a fixed internal
 name and bounded enums; event IDs, tenant IDs, hostnames, paths, URLs and error
 text are never metric labels.
+
+Prompt 071 adds `crawler.fetch_pressure`, `crawler.emergency_control` and fixed
+pressure snapshot metric events. They expose bounded outcomes, reason codes,
+counts and one of `global`, `organization`, `scan` or `host`; host digests,
+hostnames, URLs, permit tokens and tenant identifiers never become labels.
 
 ## Redaction and prohibited fields
 

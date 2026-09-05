@@ -41,6 +41,8 @@ module Crawling
         .then { |relation| property_id ? relation.where(property_id: property_id) : relation }
         .delete_all
       scan_ids = scan_targets.map(&:first)
+      FetchPermit.where(scan_id: scan_ids).delete_all if scan_ids.any?
+      PressureState.where(scope_type: "scan", scan_id: scan_ids).delete_all if scan_ids.any?
       RobotsSnapshot.where(scan_id: scan_ids).delete_all if scan_ids.any?
       SitemapEntry.where(scan_id: scan_ids).delete_all if scan_ids.any?
       SitemapFile.where(scan_id: scan_ids).order(index_depth: :desc).delete_all if scan_ids.any?

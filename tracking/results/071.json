@@ -1,0 +1,77 @@
+{
+  "prompt_id": "071",
+  "title": "Implement host politeness, concurrency and rate controls",
+  "status": "completed",
+  "started_at": "2026-09-05T08:49:24Z",
+  "finished_at": "2026-09-05T09:38:31Z",
+  "summary": "Implemented mandatory PostgreSQL-coordinated crawl fetch permits with global, plan-derived organization, scan and normalized-host rate/concurrency limits; fair frontier integration; bounded Retry-After/network backoff and hard scan deadlines; stale recovery; customer throttle observations; bounded operator metrics; and audited platform-only global/host emergency controls.",
+  "tests": [
+    {
+      "command": "docker compose --profile test run --rm test bin/rails test:all",
+      "outcome": "passed",
+      "notes": "1041 runs, 8888 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "env -u DEBUG bin/quality",
+      "outcome": "passed",
+      "notes": "15 checks; 1271 Ruby files clean, architecture and authorization gates passed, Brakeman 0 warnings, no dependency advisories"
+    },
+    {
+      "command": "docker compose --profile test run --rm test test/domain/crawling/fetch_pressure_test.rb test/database/crawl_fetch_pressure_concurrency_test.rb test/database/crawl_fetch_pressure_constraints_test.rb test/domain/crawling/http_fetcher_test.rb test/jobs/crawling/fetch_permit_recovery_job_test.rb test/requests/scans_test.rb test/jobs/solid_stack_topology_test.rb test/configuration/configuration_test.rb test/domain/administration/resource_deletion_workflow_test.rb",
+      "outcome": "passed",
+      "notes": "61 runs, 736 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "docker compose --profile test run --rm test bin/rails test test/domain/crawling/fetch_pressure_test.rb test/database/crawl_fetch_pressure_concurrency_test.rb test/database/crawl_fetch_pressure_constraints_test.rb",
+      "outcome": "passed",
+      "notes": "15 runs, 91 assertions, 0 failures, 0 errors, 0 skips after active-permit replay hardening"
+    },
+    {
+      "command": "docker compose run --rm web bin/rails db:rollback:primary STEP=1; docker compose run --rm web bin/rails db:migrate:primary; test equivalents",
+      "outcome": "passed",
+      "notes": "Prompt 071 migration reverted and reapplied successfully in development and test PostgreSQL databases"
+    }
+  ],
+  "files_changed": [
+    ".env.example",
+    "app/domains/crawling",
+    "app/domains/shared/observability/event_emitter.rb",
+    "app/jobs/crawling/fetch_permit_recovery_job.rb",
+    "app/views/crawling/scans/show.html.erb",
+    "config/authorization_inventory.yml",
+    "config/recurring.yml",
+    "config/searchops.yml",
+    "config/searchops/configuration.rb",
+    "db/migrate/20260904154000_create_crawl_pressure_controls.rb",
+    "db/structure.sql",
+    "docs/02_ARCHITECTURE.md",
+    "docs/03_ERD.md",
+    "docs/05_PLAN_ENTITLEMENT_MATRIX.md",
+    "docs/07_SECURITY_AND_THREAT_MODEL.md",
+    "docs/10_DEPLOYMENT_AND_OPERATIONS.md",
+    "docs/adr/0006_ssrf_safe_crawler_boundary.md",
+    "docs/implementation",
+    "test/configuration/configuration_test.rb",
+    "test/database/crawl_fetch_pressure_concurrency_test.rb",
+    "test/database/crawl_fetch_pressure_constraints_test.rb",
+    "test/domain/crawling/fetch_pressure_test.rb",
+    "test/domain/crawling/http_fetcher_test.rb",
+    "test/jobs/crawling/fetch_permit_recovery_job_test.rb",
+    "test/jobs/solid_stack_topology_test.rb",
+    "test/requests/scans_test.rb"
+  ],
+  "migrations": [
+    "20260904154000 creates platform control grants",
+    "scoped pressure states and exact-tenant fetch permit leases with constraints/indexes/triggers; adds nullable scan throttle observation columns and a NOT VALID shape check without row backfill"
+  ],
+  "decisions": [
+    "Use a fixed short PostgreSQL transaction advisory lock for exact launch semantics; preserve frontier round-robin as the fair selector; derive organization caps from immutable crawl.concurrent_scans admission provenance without plan-name branches; require a permit context at the general fetch boundary"
+  ],
+  "risks": [
+    "The fleet-wide advisory lock is intentionally conservative and must be monitored for acquisition latency before any reviewed sharding; scans_throttle_observation_shape remains NOT VALID for separate production validation under lock limits"
+  ],
+  "next_steps": [
+    "Proceed to Prompt 072 after the Prompt 071 commit and push succeed."
+  ],
+  "commit": null
+}

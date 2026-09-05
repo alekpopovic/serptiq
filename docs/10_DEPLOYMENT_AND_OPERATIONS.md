@@ -282,6 +282,7 @@ Do not log credentials, raw OAuth codes, webhook secrets, page bodies, full quer
 - crawl fetch rate/status/bytes;
 - DNS and destination-policy denials;
 - host throttling;
+- active/stale fetch permits, pressure-admission wait and global/host emergency-switch state;
 - render startup/run/crash/timeout;
 - scan completion/cancellation/failure;
 - credit reservation/consumption/refund;
@@ -324,6 +325,7 @@ Enforce at admission time:
 - maximum scan concurrency per organization;
 - global HTTP/render concurrency;
 - per-host politeness;
+- PostgreSQL-coordinated global/organization/scan/host fetch permits and bounded host backoff;
 - browser wall time, memory and network-request limits;
 - provider import quotas;
 - report size and frequency;
@@ -441,6 +443,11 @@ Create and maintain:
 
 The implemented billing backlog/drift runbook is `docs/implementation/BILLING_RECONCILIATION.md`. Support
 mutations require an explicit platform manage grant, recent authentication and auditable exact targeting.
+
+The crawl-pressure runbook is `docs/implementation/CRAWL_PRESSURE_CONTROLS.md`. Permit recovery runs every
+minute in the maintenance queue. During an incident, use only the audited platform global/opaque-host switch,
+observe active/stale permits and lock health, wait for active permit expiry, then resume through the same control;
+never edit tenant rows or delete permit evidence directly.
 
 ## 18. Production release checklist
 

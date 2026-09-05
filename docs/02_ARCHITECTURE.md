@@ -579,6 +579,7 @@ All remain PostgreSQL. Development may consolidate when documented.
 High-volume candidates for later partitioning:
 
 - crawl_urls;
+- crawl_fetch_permits;
 - crawl_fetches;
 - crawl_links;
 - page_snapshots metadata;
@@ -622,6 +623,8 @@ The private artifact implementation stores source/scan/retention metadata in `ar
 - Jobs classify transient, permanent, quota, canceled, and security rejection states.
 - Scan checkpoints make retry idempotent.
 - Repeatedly failing work reaches an inspectable terminal state.
+- Every crawler request obtains short-lived global/organization/scan/host capacity from PostgreSQL before DNS;
+  provider backoff and a hard scan deadline prevent both pressure bypass and unbounded delay.
 - A partial provider outage does not erase previously known data; freshness and error state are shown.
 - The web application remains responsive when render workers are unavailable.
 

@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-09-04
 - Owners: Security, Crawling
-- Last reviewed: 2026-09-05 (Prompt 069)
+- Last reviewed: 2026-09-05 (Prompt 071)
 
 ## Context
 
@@ -57,6 +57,14 @@ decompression. Redirects and transient retries are explicit higher-level
 requests with fresh destination decisions and cancellation checks. Durable
 fetch/artifact persistence remains owned by later orchestration and storage
 prompts.
+
+Prompt 071 makes PostgreSQL pressure admission a mandatory step before every
+general fetch request, redirect and retry. Its normalized host key includes
+scheme, IDNA hostname and effective port, while observability retains no raw
+target. Pressure admission does not replace destination authorization: after a
+permit is acquired, Shared still resolves, classifies and pins the destination
+for that individual attempt. Conversely, an SSRF-safe destination never implies
+that tenant, scan, host or fleet pressure capacity is available.
 
 ## Consequences
 

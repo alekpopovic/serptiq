@@ -519,6 +519,42 @@ $$;
 
 
 --
+-- Name: protect_crawl_fetch_permit_provenance(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.protect_crawl_fetch_permit_provenance() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    IF resource_deletion_stage_authorized(
+      OLD.organization_id, OLD.project_id, OLD.property_id, 'scans_and_findings'
+    ) THEN
+      RETURN OLD;
+    END IF;
+    RAISE EXCEPTION 'crawl fetch permit deletion requires an active lifecycle workflow';
+  END IF;
+
+  IF NEW.organization_id IS DISTINCT FROM OLD.organization_id
+    OR NEW.project_id IS DISTINCT FROM OLD.project_id
+    OR NEW.property_id IS DISTINCT FROM OLD.property_id
+    OR NEW.environment_id IS DISTINCT FROM OLD.environment_id
+    OR NEW.scan_id IS DISTINCT FROM OLD.scan_id
+    OR NEW.crawl_url_id IS DISTINCT FROM OLD.crawl_url_id
+    OR NEW.host_key_digest IS DISTINCT FROM OLD.host_key_digest
+    OR NEW.worker_id IS DISTINCT FROM OLD.worker_id
+    OR NEW.permit_token_digest IS DISTINCT FROM OLD.permit_token_digest
+    OR NEW.acquired_at IS DISTINCT FROM OLD.acquired_at
+    OR NEW.expires_at IS DISTINCT FROM OLD.expires_at
+    OR NEW.created_at IS DISTINCT FROM OLD.created_at THEN
+    RAISE EXCEPTION 'crawl fetch permit provenance is immutable';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: protect_crawl_policy_set_deletion(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1417,6 +1453,53 @@ CREATE TABLE public.billing_webhook_events (
 
 
 --
+-- Name: crawl_control_access_grants; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.crawl_control_access_grants (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    user_id uuid NOT NULL,
+    permission character varying(64) NOT NULL,
+    granted_at timestamp(6) with time zone NOT NULL,
+    revoked_at timestamp(6) with time zone,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT crawl_control_access_grants_permission CHECK (((permission)::text = 'crawler_control.manage'::text)),
+    CONSTRAINT crawl_control_access_grants_revocation_time CHECK (((revoked_at IS NULL) OR (revoked_at >= granted_at)))
+);
+
+
+--
+-- Name: crawl_fetch_permits; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.crawl_fetch_permits (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_id uuid NOT NULL,
+    environment_id uuid NOT NULL,
+    scan_id uuid NOT NULL,
+    crawl_url_id bigint NOT NULL,
+    host_key_digest character varying(64) NOT NULL,
+    worker_id character varying(128) NOT NULL,
+    permit_token_digest character varying(64) NOT NULL,
+    state character varying(24) DEFAULT 'active'::character varying NOT NULL,
+    acquired_at timestamp(6) with time zone NOT NULL,
+    expires_at timestamp(6) with time zone NOT NULL,
+    released_at timestamp(6) with time zone,
+    release_outcome character varying(24),
+    failure_category character varying(64),
+    http_status_code integer,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT crawl_fetch_permits_identity_shape CHECK ((((host_key_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((worker_id)::text ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'::text) AND ((permit_token_digest)::text ~ '^[0-9a-f]{64}$'::text))),
+    CONSTRAINT crawl_fetch_permits_lifecycle_shape CHECK ((((state)::text = ANY ((ARRAY['active'::character varying, 'released'::character varying, 'expired'::character varying])::text[])) AND (expires_at > acquired_at) AND ((((state)::text = 'active'::text) AND (released_at IS NULL) AND (release_outcome IS NULL) AND (failure_category IS NULL) AND (http_status_code IS NULL)) OR (((state)::text = ANY ((ARRAY['released'::character varying, 'expired'::character varying])::text[])) AND (released_at IS NOT NULL) AND (released_at >= acquired_at) AND ((release_outcome)::text = ANY ((ARRAY['succeeded'::character varying, 'http_error'::character varying, 'failed'::character varying, 'canceled'::character varying, 'expired'::character varying])::text[])) AND ((((state)::text = 'released'::text) AND ((release_outcome)::text <> 'expired'::text)) OR (((state)::text = 'expired'::text) AND ((release_outcome)::text = 'expired'::text))))))),
+    CONSTRAINT crawl_fetch_permits_result_shape CHECK ((((failure_category IS NULL) OR ((failure_category)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text)) AND ((http_status_code IS NULL) OR ((http_status_code >= 100) AND (http_status_code <= 599))) AND (((state)::text <> 'expired'::text) OR (((release_outcome)::text = 'expired'::text) AND ((failure_category)::text = 'permit_expired'::text) AND (http_status_code IS NULL)))))
+);
+
+
+--
 -- Name: crawl_policy_sets; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1495,6 +1578,35 @@ CREATE TABLE public.crawl_policy_versions (
     CONSTRAINT crawl_policy_versions_rendering_shape CHECK (((rendering_sample_percent >= 0) AND (rendering_sample_percent <= 100) AND (max_rendered_pages >= 0) AND (((rendering_sample_percent = 0) AND (max_rendered_pages = 0)) OR ((rendering_sample_percent > 0) AND (max_rendered_pages > 0))))),
     CONSTRAINT crawl_policy_versions_retention CHECK (((artifact_retention_days >= 0) AND (artifact_retention_days <= 36500))),
     CONSTRAINT crawl_policy_versions_user_agent_suffix CHECK (((user_agent_suffix IS NULL) OR ((user_agent_suffix)::text ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$'::text)))
+);
+
+
+--
+-- Name: crawl_pressure_states; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.crawl_pressure_states (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    scope_type character varying(24) NOT NULL,
+    scope_key_digest character varying(64) NOT NULL,
+    organization_id uuid,
+    project_id uuid,
+    property_id uuid,
+    environment_id uuid,
+    scan_id uuid,
+    host_key_digest character varying(64),
+    next_fetch_at timestamp(6) with time zone NOT NULL,
+    backoff_until timestamp(6) with time zone,
+    failure_streak integer DEFAULT 0 NOT NULL,
+    disabled_at timestamp(6) with time zone,
+    disabled_by_user_id uuid,
+    disabled_reason character varying(64),
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT crawl_pressure_states_backoff_shape CHECK ((((failure_streak >= 0) AND (failure_streak <= 20)) AND ((backoff_until IS NULL) OR ((scope_type)::text = 'host'::text)))),
+    CONSTRAINT crawl_pressure_states_emergency_control_shape CHECK ((((disabled_at IS NULL) AND (disabled_by_user_id IS NULL) AND (disabled_reason IS NULL)) OR (((scope_type)::text = ANY ((ARRAY['global'::character varying, 'host'::character varying])::text[])) AND (disabled_at IS NOT NULL) AND (disabled_by_user_id IS NOT NULL) AND ((disabled_reason)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text)))),
+    CONSTRAINT crawl_pressure_states_identity_shape CHECK ((((scope_type)::text = ANY ((ARRAY['global'::character varying, 'organization'::character varying, 'scan'::character varying, 'host'::character varying])::text[])) AND ((scope_key_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((host_key_digest IS NULL) OR ((host_key_digest)::text ~ '^[0-9a-f]{64}$'::text)))),
+    CONSTRAINT crawl_pressure_states_scope_shape CHECK (((((scope_type)::text = 'global'::text) AND (organization_id IS NULL) AND (project_id IS NULL) AND (property_id IS NULL) AND (environment_id IS NULL) AND (scan_id IS NULL) AND (host_key_digest IS NULL)) OR (((scope_type)::text = 'organization'::text) AND (organization_id IS NOT NULL) AND (project_id IS NULL) AND (property_id IS NULL) AND (environment_id IS NULL) AND (scan_id IS NULL) AND (host_key_digest IS NULL)) OR (((scope_type)::text = 'scan'::text) AND (organization_id IS NOT NULL) AND (project_id IS NOT NULL) AND (property_id IS NOT NULL) AND (environment_id IS NOT NULL) AND (scan_id IS NOT NULL) AND (host_key_digest IS NULL)) OR (((scope_type)::text = 'host'::text) AND (organization_id IS NULL) AND (project_id IS NULL) AND (property_id IS NULL) AND (environment_id IS NULL) AND (scan_id IS NULL) AND (host_key_digest IS NOT NULL))))
 );
 
 
@@ -2693,6 +2805,9 @@ CREATE TABLE public.scans (
     dispatch_enqueued_at timestamp(6) with time zone,
     dispatch_attempt_count integer DEFAULT 0 NOT NULL,
     dispatch_last_error_category character varying(64),
+    throttled_at timestamp(6) with time zone,
+    throttle_reason character varying(64),
+    throttle_until timestamp(6) with time zone,
     CONSTRAINT scans_admission_provenance_shape CHECK ((((admission_version IS NULL) AND (request_source IS NULL) AND (request_idempotency_digest IS NULL) AND (request_checksum IS NULL) AND (usage_quota_reservation_id IS NULL) AND (domain_verification_id IS NULL) AND (preflight_checked_at IS NULL) AND (preflight_status_code IS NULL) AND (preflight_destination_digest IS NULL) AND (credit_estimate IS NULL)) OR ((admission_version = 1) AND ((request_source)::text = ANY (ARRAY[('manual'::character varying)::text, ('schedule'::character varying)::text, ('release'::character varying)::text])) AND ((request_idempotency_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((request_checksum)::text ~ '^[0-9a-f]{64}$'::text) AND (usage_quota_reservation_id IS NOT NULL) AND (domain_verification_id IS NOT NULL) AND (preflight_checked_at IS NOT NULL) AND ((preflight_status_code >= 100) AND (preflight_status_code <= 499)) AND ((preflight_destination_digest)::text ~ '^[0-9a-f]{64}$'::text) AND (credit_estimate > (0)::numeric)))),
     CONSTRAINT scans_bounded_snapshots CHECK (((jsonb_typeof(settings_snapshot) = 'object'::text) AND (octet_length((settings_snapshot)::text) <= 32768) AND (jsonb_typeof(entitlement_snapshot) = 'object'::text) AND (octet_length((entitlement_snapshot)::text) <= 32768))),
     CONSTRAINT scans_counter_consistency CHECK (((targets_count >= 0) AND (urls_discovered_count >= 0) AND (urls_queued_count >= 0) AND (urls_running_count >= 0) AND (urls_processed_count >= 0) AND (urls_succeeded_count >= 0) AND (urls_failed_count >= 0) AND (urls_skipped_count >= 0) AND (findings_count >= 0) AND (progress_sequence > 0) AND (urls_processed_count = ((urls_succeeded_count + urls_failed_count) + urls_skipped_count)) AND (urls_discovered_count >= ((urls_processed_count + urls_queued_count) + urls_running_count)) AND (((status)::text <> ALL (ARRAY[('canceled'::character varying)::text, ('completed'::character varying)::text, ('partially_completed'::character varying)::text, ('failed'::character varying)::text])) OR ((urls_queued_count = 0) AND (urls_running_count = 0))))),
@@ -3278,6 +3393,22 @@ ALTER TABLE ONLY public.billing_webhook_events
 
 
 --
+-- Name: crawl_control_access_grants crawl_control_access_grants_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_control_access_grants
+    ADD CONSTRAINT crawl_control_access_grants_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: crawl_fetch_permits crawl_fetch_permits_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_fetch_permits
+    ADD CONSTRAINT crawl_fetch_permits_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: crawl_policy_sets crawl_policy_sets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3299,6 +3430,14 @@ ALTER TABLE ONLY public.crawl_policy_snapshots
 
 ALTER TABLE ONLY public.crawl_policy_versions
     ADD CONSTRAINT crawl_policy_versions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: crawl_pressure_states crawl_pressure_states_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_pressure_states
+    ADD CONSTRAINT crawl_pressure_states_pkey PRIMARY KEY (id);
 
 
 --
@@ -3595,6 +3734,14 @@ ALTER TABLE ONLY public.scan_events
 
 ALTER TABLE ONLY public.scans
     ADD CONSTRAINT scans_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: scans scans_throttle_observation_shape; Type: CHECK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE public.scans
+    ADD CONSTRAINT scans_throttle_observation_shape CHECK ((((throttled_at IS NULL) AND (throttle_reason IS NULL) AND (throttle_until IS NULL)) OR ((throttled_at IS NOT NULL) AND ((throttle_reason)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text) AND ((throttle_until IS NULL) OR (throttle_until >= throttled_at))))) NOT VALID;
 
 
 --
@@ -4017,6 +4164,48 @@ CREATE INDEX index_billing_webhooks_on_tenant_received ON public.billing_webhook
 
 
 --
+-- Name: index_crawl_control_grants_on_active_permission; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_control_grants_on_active_permission ON public.crawl_control_access_grants USING btree (user_id, permission) WHERE (revoked_at IS NULL);
+
+
+--
+-- Name: index_crawl_fetch_permits_on_active_expiry; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_fetch_permits_on_active_expiry ON public.crawl_fetch_permits USING btree (state, expires_at, id) WHERE ((state)::text = 'active'::text);
+
+
+--
+-- Name: index_crawl_fetch_permits_on_active_frontier; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_fetch_permits_on_active_frontier ON public.crawl_fetch_permits USING btree (crawl_url_id) WHERE ((state)::text = 'active'::text);
+
+
+--
+-- Name: index_crawl_fetch_permits_on_active_host; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_fetch_permits_on_active_host ON public.crawl_fetch_permits USING btree (host_key_digest, state, expires_at) WHERE ((state)::text = 'active'::text);
+
+
+--
+-- Name: index_crawl_fetch_permits_on_active_organization; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_fetch_permits_on_active_organization ON public.crawl_fetch_permits USING btree (organization_id, state, expires_at) WHERE ((state)::text = 'active'::text);
+
+
+--
+-- Name: index_crawl_fetch_permits_on_active_scan; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_fetch_permits_on_active_scan ON public.crawl_fetch_permits USING btree (scan_id, state, expires_at) WHERE ((state)::text = 'active'::text);
+
+
+--
 -- Name: index_crawl_policy_sets_on_environment; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4063,6 +4252,34 @@ CREATE UNIQUE INDEX index_crawl_policy_versions_on_sequence ON public.crawl_poli
 --
 
 CREATE UNIQUE INDEX index_crawl_policy_versions_on_tenant_identity ON public.crawl_policy_versions USING btree (organization_id, project_id, property_id, environment_id, id);
+
+
+--
+-- Name: index_crawl_pressure_states_on_backoff; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_pressure_states_on_backoff ON public.crawl_pressure_states USING btree (backoff_until, id) WHERE (backoff_until IS NOT NULL);
+
+
+--
+-- Name: index_crawl_pressure_states_on_disabled; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_pressure_states_on_disabled ON public.crawl_pressure_states USING btree (scope_type, disabled_at, id) WHERE (disabled_at IS NOT NULL);
+
+
+--
+-- Name: index_crawl_pressure_states_on_scope_key; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_pressure_states_on_scope_key ON public.crawl_pressure_states USING btree (scope_type, scope_key_digest);
+
+
+--
+-- Name: index_crawl_pressure_states_on_tenant_scope; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_pressure_states_on_tenant_scope ON public.crawl_pressure_states USING btree (organization_id, scope_type) WHERE (organization_id IS NOT NULL);
 
 
 --
@@ -4976,6 +5193,13 @@ CREATE UNIQUE INDEX index_scans_on_tenant_admission_idempotency ON public.scans 
 
 
 --
+-- Name: index_scans_on_throttle_observation; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_scans_on_throttle_observation ON public.scans USING btree (throttled_at, id) WHERE (throttled_at IS NOT NULL);
+
+
+--
 -- Name: index_sessions_on_active_expiry; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5309,6 +5533,13 @@ CREATE TRIGGER audit_target_tombstones_immutable BEFORE DELETE OR UPDATE ON publ
 --
 
 CREATE TRIGGER billing_customers_immutable_mapping BEFORE DELETE OR UPDATE ON public.billing_customers FOR EACH ROW EXECUTE FUNCTION public.enforce_billing_customer_mapping_immutability();
+
+
+--
+-- Name: crawl_fetch_permits crawl_fetch_permits_protect_provenance; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER crawl_fetch_permits_protect_provenance BEFORE DELETE OR UPDATE ON public.crawl_fetch_permits FOR EACH ROW EXECUTE FUNCTION public.protect_crawl_fetch_permit_provenance();
 
 
 --
@@ -5662,6 +5893,22 @@ ALTER TABLE ONLY public.billing_webhook_events
 
 
 --
+-- Name: crawl_fetch_permits fk_crawl_fetch_permits_exact_frontier; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_fetch_permits
+    ADD CONSTRAINT fk_crawl_fetch_permits_exact_frontier FOREIGN KEY (scan_id, crawl_url_id) REFERENCES public.crawl_urls(scan_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_fetch_permits fk_crawl_fetch_permits_exact_scan; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_fetch_permits
+    ADD CONSTRAINT fk_crawl_fetch_permits_exact_scan FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id) REFERENCES public.scans(organization_id, project_id, property_id, environment_id, id) ON DELETE RESTRICT;
+
+
+--
 -- Name: crawl_policy_sets fk_crawl_policy_sets_environment; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5699,6 +5946,22 @@ ALTER TABLE ONLY public.crawl_policy_versions
 
 ALTER TABLE ONLY public.crawl_policy_versions
     ADD CONSTRAINT fk_crawl_policy_versions_tenant_actor FOREIGN KEY (organization_id, created_by_membership_id) REFERENCES public.memberships(organization_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_pressure_states fk_crawl_pressure_states_disabled_by_user; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_pressure_states
+    ADD CONSTRAINT fk_crawl_pressure_states_disabled_by_user FOREIGN KEY (disabled_by_user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_pressure_states fk_crawl_pressure_states_exact_scan; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_pressure_states
+    ADD CONSTRAINT fk_crawl_pressure_states_exact_scan FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id) REFERENCES public.scans(organization_id, project_id, property_id, environment_id, id) ON DELETE RESTRICT;
 
 
 --
@@ -6022,6 +6285,14 @@ ALTER TABLE ONLY public.entitlement_subscription_contexts
 
 
 --
+-- Name: crawl_pressure_states fk_rails_2bebbc3e68; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_pressure_states
+    ADD CONSTRAINT fk_rails_2bebbc3e68 FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE RESTRICT;
+
+
+--
 -- Name: audit_events fk_rails_2e3720791c; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6059,6 +6330,14 @@ ALTER TABLE ONLY public.billing_support_access_grants
 
 ALTER TABLE ONLY public.subscriptions
     ADD CONSTRAINT fk_rails_364213cc3e FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_control_access_grants fk_rails_405dee28d0; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_control_access_grants
+    ADD CONSTRAINT fk_rails_405dee28d0 FOREIGN KEY (user_id) REFERENCES public.users(id) ON DELETE RESTRICT;
 
 
 --
@@ -6692,6 +6971,7 @@ ALTER TABLE ONLY public.website_property_configs
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904154000'),
 ('20260904153000'),
 ('20260904152000'),
 ('20260904151000'),

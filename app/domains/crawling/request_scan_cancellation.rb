@@ -34,6 +34,9 @@ module Crawling
           status: target,
           cancel_requested_at: now,
           canceled_at: target == "canceled" ? now : nil,
+          throttled_at: nil,
+          throttle_reason: nil,
+          throttle_until: nil,
           urls_queued_count: target == "canceled" ? 0 : scan.urls_queued_count,
           urls_running_count: target == "canceled" ? 0 : scan.urls_running_count
         )

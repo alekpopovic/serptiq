@@ -88,6 +88,8 @@ module Crawling
           urls_queued_count: 0, urls_running_count: 0
         )
       end
+      attributes.merge!(throttled_at: nil, throttle_reason: nil, throttle_until: nil) if
+        target.in?(Scan::TERMINAL_STATUSES)
       attributes
     end
   end

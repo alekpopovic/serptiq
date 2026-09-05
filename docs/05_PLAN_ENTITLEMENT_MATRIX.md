@@ -95,6 +95,10 @@ authorize member and scope
 
 Never use plan-name conditionals in domain code. Use stable keys such as `crawl.javascript_rendering` and `crawl.credits_monthly`.
 
+Prompt 071 derives organization fetch concurrency and request-rate ceilings from the immutable admitted
+`crawl.concurrent_scans` snapshot and operator-owned per-scan multipliers. The most restrictive global,
+organization, scan or host value always applies; no plan or override can bypass global/host safety caps.
+
 Prompt 057's guided project setup previews current resource counts and the effective `projects.max`,
 `website_properties.max`, `mobile_properties.max`, `crawl.manual`, `crawl.max_urls_per_scan` and
 `crawl.javascript_rendering` values before provisioning. It re-resolves them at completion, but creates no

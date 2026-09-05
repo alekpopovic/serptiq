@@ -147,3 +147,5 @@
 | 2026-09-05T08:44:28Z | 070 | reset | Repair result metadata to record migration and design decisions accurately; affected=070 |
 | 2026-09-05T08:44:31Z | 070 | started | Implement private artifact storage and lifecycle |
 | 2026-09-05T08:44:46Z | 070 | completed | Implemented exact-tenant private artifact metadata, bounded streaming local/S3 adapters, opaque keys, authorized short-lived retrieval, scoped deduplication, retention deletion, legal-hold blocking, missing/orphan reconciliation, and storage cost attribution. |
+| 2026-09-05T08:49:24Z | 071 | started | Implement host politeness, concurrency and rate controls |
+| 2026-09-05T09:38:31Z | 071 | completed | Implemented mandatory PostgreSQL-coordinated crawl fetch permits with global, plan-derived organization, scan and normalized-host rate/concurrency limits; fair frontier integration; bounded Retry-After/network backoff and hard scan deadlines; stale recovery; customer throttle observations; bounded operator metrics; and audited platform-only global/host emergency controls. |

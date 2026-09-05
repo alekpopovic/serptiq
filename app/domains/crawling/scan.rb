@@ -38,6 +38,8 @@ module Crawling
       dependent: :restrict_with_exception
     has_many :artifacts, class_name: "Crawling::Artifact", inverse_of: :scan,
       dependent: :restrict_with_exception
+    has_many :fetch_permits, class_name: "Crawling::FetchPermit", inverse_of: :scan,
+      dependent: :restrict_with_exception
     has_one :policy_snapshot, class_name: "Crawling::PolicySnapshot", inverse_of: false,
       dependent: :restrict_with_exception
     belongs_to :baseline_scan, class_name: "Crawling::Scan", optional: true
@@ -66,6 +68,7 @@ module Crawling
     validates :credit_estimate, numericality: { greater_than: 0 }, if: :admitted_by_request?
     validates :dispatch_attempt_count, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
     validates :dispatch_last_error_category, format: { with: FAILURE_CATEGORY_PATTERN }, allow_nil: true
+    validates :throttle_reason, format: { with: FAILURE_CATEGORY_PATTERN }, allow_nil: true
     validate :identifier_shapes
     validate :initiator_shape
     validate :snapshots_are_bounded_objects
@@ -75,6 +78,7 @@ module Crawling
     validate :inputs_are_immutable, on: :update
     validate :admission_provenance_consistency
     validate :dispatch_consistency
+    validate :throttle_observation_consistency
 
     scope :terminal, -> { where(status: TERMINAL_STATUSES) }
     scope :active_work, -> { where.not(status: TERMINAL_STATUSES) }
@@ -89,6 +93,10 @@ module Crawling
 
     def successful_outcome?
       status.in?(%w[completed partially_completed])
+    end
+
+    def throttled?
+      throttled_at.present?
     end
 
     def counters
@@ -225,6 +233,13 @@ module Crawling
         true
       end
       errors.add(:dispatch_attempt_count, "does not match dispatch evidence") unless attempted && enqueued
+    end
+
+    def throttle_observation_consistency
+      values = [ throttled_at, throttle_reason ]
+      valid = values.all?(&:nil?) && throttle_until.nil?
+      valid ||= values.all?(&:present?) && (throttle_until.nil? || throttle_until >= throttled_at)
+      errors.add(:throttled_at, "does not match throttle observation") unless valid
     end
   end
 end

@@ -14,7 +14,7 @@ module Shared
       ALLOWED_ATTRIBUTES = %i[
         address_count address_policy_version cause_classes destination_port duration_ms error_category
         error_code exception_class http_status ipv4_address_count ipv6_address_count operation outcome
-        provider reason_code retry_count
+        provider reason_code retry_count scope_type
       ].freeze
 
       def initialize(logger: Rails.logger, clock: -> { Time.current }, redaction: nil)
@@ -64,7 +64,7 @@ module Shared
         end
         validate_http_status!(attributes[:http_status])
         validate_outcome!(attributes[:outcome])
-        %i[address_policy_version error_category error_code operation provider reason_code].each do |name|
+        %i[address_policy_version error_category error_code operation provider reason_code scope_type].each do |name|
           validate_label!(name, attributes[name])
         end
         validate_class_name!(:exception_class, attributes[:exception_class])

@@ -27,6 +27,7 @@ module Crawling
 
     def event_outcome(result)
       return "succeeded" if result.successful?
+      return "retrying" if result.outcome == "throttled"
       return "denied" if result.outcome.in?(%w[rejected canceled])
 
       "failed"
