@@ -16,7 +16,7 @@ leases, progress and terminal state.
 4. lease one exact-tenant frontier row with its opaque owner token;
 5. evaluate the cached robots decision and fetch through the pinned, bounded HTTP transport;
 6. persist normalized response metadata and an optional private response-body artifact;
-7. finish or retry the frontier row and enqueue an HTML snapshot for bounded link discovery;
+7. finish or retry the frontier row and enqueue an HTML snapshot for bounded fact and link extraction;
 8. reconcile the terminal scan state, publish a throttled live update and enqueue another unit only when
    eligible durable frontier work exists.
 
@@ -39,11 +39,11 @@ an exact optional artifact reference. It never stores the response body. Unique 
 scan/frontier/attempt identities make delivery replay deterministic; conflicting replay fails closed.
 
 `crawl_page_snapshots` links one successful static HTML fetch to its exact frontier row and private artifact.
-The analysis worker downloads at most the configured decompressed-byte ceiling, parses with Nokogiri HTML5
-without executing JavaScript and inspects at most 5,000 anchor elements. URLs are resolved against the observed
-final URL, passed through the immutable scan scope, deduplicated and inserted through the capped frontier API.
-This is deliberately link discovery only. Full normalized page facts, canonical trust, structured data and
-link-edge evidence belong to Prompt 074.
+The analysis worker downloads no more than the dedicated 5 MiB HTML extraction ceiling, parses with bounded
+Nokogiri HTML5 without executing JavaScript, persists immutable normalized facts and directed edge evidence,
+and passes only allowed internal anchor destinations to the capped frontier API. Canonical and hreflang values
+remain untrusted observations and never expand crawl authorization. The detailed contract is in
+`HTML_EXTRACTION_AND_LINK_GRAPH.md`.
 
 All three tables repeat organization/project/property/environment/scan identity. Composite foreign keys reject
 cross-tenant, cross-scan, frontier, fetch and artifact substitution. Database checks bound states, attempts,

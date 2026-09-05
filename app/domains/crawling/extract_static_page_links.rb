@@ -1,34 +1,45 @@
 # frozen_string_literal: true
 
-require "addressable/uri"
-require "nokogiri"
 require "securerandom"
 
 module Crawling
   class ExtractStaticPageLinks
-    PARSER_VERSION = "link-discovery-1.0"
-    MAX_LINKS = 5_000
-    MAX_HREF_BYTES = 8_192
     Claim = Data.define(:snapshot, :token)
     Canceled = Class.new(StandardError)
 
     def initialize(clock: -> { Time.current }, store: ArtifactStoreFactory.build,
-      discoverer: nil)
+      discoverer: nil, extractor: HtmlPageExtractor.new,
+      persister: nil)
       @clock = clock
       @store = store
       @discoverer = discoverer || ->(**attributes) { Public.discover_frontier(**attributes) }
+      @extractor = extractor
+      @persister = persister || PersistHtmlExtraction.new(clock: clock)
     end
 
     def call(organization_id:, scan_id:, page_snapshot_id:, worker_id:)
       snapshot = exact_snapshot!(organization_id, scan_id, page_snapshot_id)
       claim = claim(snapshot, worker_id)
       return snapshot.reload unless claim
+      return complete(claim, persisted_frontier_count(claim.snapshot)) if claim.snapshot.page_fact
 
       body = download(claim.snapshot)
       raise Canceled if canceled?(claim.snapshot)
 
-      count = discover_links(claim.snapshot, body)
-      complete(claim, count)
+      extraction = extract(claim.snapshot, body)
+      raise Canceled if canceled?(claim.snapshot)
+
+      _inserted_count, destinations = discover_links(claim.snapshot, extraction.links)
+      linked_count = extraction.links.count do |link|
+        link.discoverable? && destinations.key?(link.destination_url_digest)
+      end
+      @persister.call(
+        snapshot: claim.snapshot,
+        extraction: extraction,
+        destinations: destinations,
+        frontier_linked_count: linked_count
+      )
+      complete(claim, linked_count)
     rescue Canceled
       skip(claim, "scan_canceled") if claim
     rescue AccessDenied
@@ -64,19 +75,23 @@ module Crawling
           id: snapshot.id
         )
         next if snapshot.terminal?
-        next if snapshot.processing? && snapshot.extraction_lease_expires_at > @clock.call
+        now = @clock.call
+        next if snapshot.processing? && snapshot.extraction_lease_expires_at > now
+        next if snapshot.pending? && snapshot.next_attempt_at > now
 
         if scan.status != "running"
-          terminalize!(snapshot, "skipped", scan.status == "cancel_requested" ? "scan_canceled" : "scan_unavailable")
+          category = scan.status == "cancel_requested" ? "scan_canceled" : "scan_unavailable"
+          persist_unavailable(snapshot, category)
+          terminalize!(snapshot, "skipped", category)
           next
         end
         if snapshot.extraction_attempts >= snapshot.maximum_extraction_attempts
+          persist_unavailable(snapshot, "extraction_exhausted")
           terminalize!(snapshot, "failed", "extraction_exhausted")
           next
         end
 
         token = SecureRandom.hex(32)
-        now = @clock.call
         snapshot.update!(
           state: "processing",
           extraction_attempts: snapshot.extraction_attempts + 1,
@@ -102,40 +117,41 @@ module Crawling
       )
       raise ArtifactStore::MissingObject.new(reason_code: "artifact_object_missing") unless artifact.downloadable?
 
-      limit = Rails.application.config.x.searchops.fetch(:crawler_max_decompressed_bytes)
+      configured_limit = Rails.application.config.x.searchops.fetch(:crawler_max_decompressed_bytes)
+      limit = [ configured_limit, HtmlPageExtractor::MAX_HTML_BYTES ].min
       body = +"".b
       @store.download(key: artifact.blob.object_key) do |chunk|
         body << chunk
-        raise Invalid.new(reason_code: "extraction_body_too_large") if body.bytesize > limit
+        raise Invalid.new(
+          field_errors: { html: "HTML exceeds the extraction limit." },
+          reason_code: "extraction_body_too_large"
+        ) if body.bytesize > limit
       end
       body.freeze
     rescue ActiveRecord::RecordNotFound
       raise AccessDenied.new(reason_code: "page_snapshot_artifact_unavailable"), cause: nil
     end
 
-    def discover_links(snapshot, body)
-      document = Nokogiri::HTML5.parse(body, max_errors: 0)
+    def extract(snapshot, body)
       scope = Public.url_scope_for_scan(
         organization_id: snapshot.organization_id,
         scan_id: snapshot.scan_id
       )
       settings = snapshot.scan.settings_snapshot.to_h.stringify_keys
-      entries = []
-      seen = {}
-      document.css("a[href]").first(MAX_LINKS).each_with_index do |node, index|
-        raise Canceled if (index % 100).zero? && canceled?(snapshot)
+      @extractor.call(
+        body: body,
+        document_url: snapshot.fetch_result.final_url,
+        scope: scope,
+        depth: snapshot.crawl_url.depth,
+        settings: settings
+      )
+    end
 
-        href = node["href"].to_s
-        next if href.blank? || href.bytesize > MAX_HREF_BYTES
-
-        url = resolve_url(snapshot.fetch_result.final_url, href)
-        decision = scope.evaluate(url: url, depth: snapshot.crawl_url.depth + 1)
-        next unless decision.allowed?
-        next if seen[decision.normalized_url.identity_digest]
-
-        seen[decision.normalized_url.identity_digest] = true
-        entries << Public.frontier_entry(
-          url: url,
+    def discover_links(snapshot, links)
+      settings = snapshot.scan.settings_snapshot.to_h.stringify_keys
+      entries = links.select(&:discoverable?).map do |link|
+        Public.frontier_entry(
+          url: link.destination_url,
           depth: snapshot.crawl_url.depth + 1,
           priority: 0,
           discovery_source: "link",
@@ -144,11 +160,11 @@ module Crawling
           query_parameter_allowlist: settings.fetch("query_parameter_allowlist", []),
           query_parameter_denylist: settings.fetch("query_parameter_denylist", [])
         )
-      rescue Addressable::URI::InvalidURIError, ArgumentError
-        next
       end
 
-      entries.each_slice(DiscoverFrontier::MAXIMUM_BATCH_SIZE).sum do |batch|
+      inserted_count = entries.each_slice(DiscoverFrontier::MAXIMUM_BATCH_SIZE).sum do |batch|
+        raise Canceled if canceled?(snapshot)
+
         @discoverer.call(
           organization_id: snapshot.organization_id,
           scan_id: snapshot.scan_id,
@@ -156,10 +172,10 @@ module Crawling
           clock: @clock
         ).inserted_count
       end
-    end
-
-    def resolve_url(base, href)
-      Addressable::URI.join(base, href).to_s
+      digests = entries.map(&:normalized_url_digest)
+      destinations = CrawlUrl.where(scan_id: snapshot.scan_id, normalized_url_digest: digests)
+        .pluck(:normalized_url_digest, :id).to_h
+      [ inserted_count, destinations ]
     end
 
     def complete(claim, count)
@@ -170,7 +186,7 @@ module Crawling
           "completed",
           nil,
           discovered_links_count: count,
-          discovery_parser_version: PARSER_VERSION
+          discovery_parser_version: HtmlPageExtractor::PARSER_VERSION
         )
       end
       claim.snapshot
@@ -181,6 +197,7 @@ module Crawling
         return claim.snapshot unless claim.snapshot.processing? &&
           claim.snapshot.extraction_token_matches?(claim.token)
 
+        persist_unavailable(claim.snapshot, category)
         terminalize!(claim.snapshot, "skipped", category)
       end
       claim.snapshot
@@ -206,6 +223,7 @@ module Crawling
           )
         else
           target = scan.status == "running" ? "failed" : "skipped"
+          persist_unavailable(claim.snapshot, category)
           terminalize!(claim.snapshot, target, category)
         end
       end
@@ -249,6 +267,16 @@ module Crawling
 
     def extraction_lease_duration
       Rails.application.config.x.searchops.fetch(:crawler_frontier_lease_duration)
+    end
+
+    def persisted_frontier_count(snapshot)
+      snapshot.page_fact.counts.to_h.fetch("frontier_linked", 0).to_i
+    end
+
+    def persist_unavailable(snapshot, category)
+      return if PageFact.exists?(page_snapshot_id: snapshot.id)
+
+      @persister.unavailable(snapshot: snapshot, failure_category: category)
     end
   end
 end

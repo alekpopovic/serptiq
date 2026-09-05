@@ -141,7 +141,7 @@ class AdministrationResourceDeletionWorkflowTest < ActiveSupport::TestCase
   end
 
   test "project hold stops admission, signals prior work and deletes in durable stage order" do
-    fetch_result, page_snapshot, execution = prepare_static_fetch_evidence
+    fetch_result, page_snapshot, page_fact, crawl_link, execution = prepare_static_fetch_evidence
     requested_at = 31.days.ago.change(usec: 0)
     workflow = request_project_deletion(at: requested_at)
     retry_workflow = request_project_deletion(at: requested_at + 1.minute)
@@ -182,6 +182,8 @@ class AdministrationResourceDeletionWorkflowTest < ActiveSupport::TestCase
     refute Crawling::CrawlUrl.exists?(@crawl_url.id)
     refute Crawling::CrawlFetchResult.exists?(fetch_result.id)
     refute Crawling::PageSnapshot.exists?(page_snapshot.id)
+    refute Crawling::PageFact.exists?(page_fact.id)
+    refute Crawling::CrawlLink.exists?(crawl_link.id)
     refute Crawling::StaticCrawlExecution.exists?(execution.id)
     refute Crawling::RobotsSnapshot.exists?(@robots_snapshot.id)
     refute Crawling::SitemapEntry.exists?(@sitemap_entry.id)
@@ -326,7 +328,7 @@ class AdministrationResourceDeletionWorkflowTest < ActiveSupport::TestCase
   def prepare_static_fetch_evidence
     at = @scan.requested_at + 1.second
     @scan = run_scan_to(@scan, "running", at: at)
-    body = "<!doctype html><p>delete me</p>"
+    body = '<!doctype html><p>delete me</p><a href="/">Home</a>'
     store = TestSupport::FakeArtifactStore.new
     artifact = Crawling::CaptureArtifact.new(store: store, clock: -> { at }).call(
       organization_id: @scan.organization_id,
@@ -381,6 +383,22 @@ class AdministrationResourceDeletionWorkflowTest < ActiveSupport::TestCase
       environment_id: @scan.environment_id,
       scan_id: @scan.id
     )
-    [ fetch_result, page_snapshot, execution ]
+    extraction = Crawling::HtmlPageExtractor.new.call(
+      body: body,
+      document_url: fetch_result.final_url,
+      scope: Crawling::Public.url_scope_for_scan(
+        organization_id: @scan.organization_id,
+        scan_id: @scan.id
+      ),
+      depth: @crawl_url.depth,
+      settings: @scan.settings_snapshot
+    )
+    persisted = Crawling::PersistHtmlExtraction.new(clock: -> { at }).call(
+      snapshot: page_snapshot,
+      extraction: extraction,
+      destinations: { @crawl_url.normalized_url_digest => @crawl_url.id },
+      frontier_linked_count: 1
+    )
+    [ fetch_result, page_snapshot, persisted.page_fact, page_snapshot.crawl_links.sole, execution ]
   end
 end

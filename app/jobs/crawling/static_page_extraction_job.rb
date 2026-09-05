@@ -4,7 +4,7 @@ module Crawling
   class StaticPageExtractionJob < ApplicationJob
     runs_on :analysis
     system_authorization :static_page_extraction,
-      reason: "extracts bounded link discovery from one exact tenant page snapshot"
+      reason: "extracts bounded facts and links from one exact tenant page snapshot"
 
     def perform(organization_id:, scan_id:, page_snapshot_id:)
       Public.extract_static_page_links(

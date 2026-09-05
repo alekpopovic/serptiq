@@ -705,6 +705,38 @@ $$;
 
 
 --
+-- Name: protect_crawl_link_rows(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.protect_crawl_link_rows() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF TG_OP = 'DELETE' AND resource_deletion_stage_authorized(
+    OLD.organization_id, OLD.project_id, OLD.property_id, 'scans_and_findings'
+  ) THEN RETURN OLD; END IF;
+  RAISE EXCEPTION 'crawl links are immutable outside an active lifecycle workflow';
+END;
+$$;
+
+
+--
+-- Name: protect_crawl_page_fact_rows(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.protect_crawl_page_fact_rows() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF TG_OP = 'DELETE' AND resource_deletion_stage_authorized(
+    OLD.organization_id, OLD.project_id, OLD.property_id, 'scans_and_findings'
+  ) THEN RETURN OLD; END IF;
+  RAISE EXCEPTION 'crawl page facts are immutable outside an active lifecycle workflow';
+END;
+$$;
+
+
+--
 -- Name: protect_crawl_page_snapshot_identity(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -1769,6 +1801,127 @@ CREATE SEQUENCE public.crawl_fetch_results_id_seq
 --
 
 ALTER SEQUENCE public.crawl_fetch_results_id_seq OWNED BY public.crawl_fetch_results.id;
+
+
+--
+-- Name: crawl_links; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.crawl_links (
+    id bigint NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_id uuid NOT NULL,
+    environment_id uuid NOT NULL,
+    scan_id uuid NOT NULL,
+    page_snapshot_id bigint NOT NULL,
+    source_crawl_url_id bigint NOT NULL,
+    destination_crawl_url_id bigint,
+    destination_url text NOT NULL,
+    destination_url_digest character varying(64) NOT NULL,
+    normalization_version integer NOT NULL,
+    destination_host_digest character varying(64) NOT NULL,
+    classification character varying(16) NOT NULL,
+    scope_status character varying(16) NOT NULL,
+    scope_reason character varying(64) NOT NULL,
+    discovery_status character varying(24) NOT NULL,
+    source_locator character varying(512) NOT NULL,
+    rel_tokens character varying[] DEFAULT '{}'::character varying[] NOT NULL,
+    anchor_summary text,
+    anchor_digest character varying(64) NOT NULL,
+    nofollow boolean DEFAULT false NOT NULL,
+    occurrence_count integer DEFAULT 1 NOT NULL,
+    nofollow_count integer DEFAULT 0 NOT NULL,
+    edge_digest character varying(64) NOT NULL,
+    discovered_at timestamp(6) with time zone NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT crawl_links_destination_shape CHECK (((((classification)::text = 'external'::text) AND (destination_crawl_url_id IS NULL) AND ((scope_status)::text = 'denied'::text) AND ((discovery_status)::text = 'not_applicable'::text)) OR (((classification)::text = 'internal'::text) AND ((((scope_status)::text = 'allowed'::text) AND (destination_crawl_url_id IS NOT NULL) AND ((discovery_status)::text = 'linked'::text)) OR (((scope_status)::text = 'allowed'::text) AND (destination_crawl_url_id IS NULL) AND ((discovery_status)::text = 'not_admitted'::text)) OR (((scope_status)::text = 'denied'::text) AND (destination_crawl_url_id IS NULL) AND ((discovery_status)::text = 'not_applicable'::text)))))),
+    CONSTRAINT crawl_links_evidence_shape CHECK ((((octet_length((source_locator)::text) >= 1) AND (octet_length((source_locator)::text) <= 512)) AND ((anchor_summary IS NULL) OR (octet_length(anchor_summary) <= 2048)) AND (cardinality(rel_tokens) <= 20) AND (pg_column_size(rel_tokens) <= 2048) AND (array_position(rel_tokens, NULL::character varying) IS NULL) AND (array_to_string(rel_tokens, ','::text) ~ '^([a-z][a-z0-9_-]{0,63})(,[a-z][a-z0-9_-]{0,63})*$|^$'::text) AND ((occurrence_count >= 1) AND (occurrence_count <= 5000)) AND ((nofollow_count >= 0) AND (nofollow_count <= occurrence_count)) AND (nofollow = (nofollow_count > 0)))),
+    CONSTRAINT crawl_links_identity_shape CHECK ((((octet_length(destination_url) >= 1) AND (octet_length(destination_url) <= 8192)) AND ((destination_url_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((destination_host_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((edge_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((anchor_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((normalization_version >= 1) AND (normalization_version <= 100)) AND ((classification)::text = ANY ((ARRAY['internal'::character varying, 'external'::character varying])::text[])) AND ((scope_status)::text = ANY ((ARRAY['allowed'::character varying, 'denied'::character varying])::text[])) AND ((scope_reason)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text)))
+);
+
+
+--
+-- Name: crawl_links_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.crawl_links_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: crawl_links_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.crawl_links_id_seq OWNED BY public.crawl_links.id;
+
+
+--
+-- Name: crawl_page_facts; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.crawl_page_facts (
+    id bigint NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_id uuid NOT NULL,
+    environment_id uuid NOT NULL,
+    scan_id uuid NOT NULL,
+    page_snapshot_id bigint NOT NULL,
+    parser_version character varying(64) NOT NULL,
+    content_sha256 character varying(64) NOT NULL,
+    fact_digest character varying(64) NOT NULL,
+    parse_status character varying(24) NOT NULL,
+    parse_error_count integer DEFAULT 0 NOT NULL,
+    element_count integer DEFAULT 0 NOT NULL,
+    effective_base_url text,
+    title_status character varying(24) NOT NULL,
+    title_summary text,
+    title_digest character varying(64),
+    description_status character varying(24) NOT NULL,
+    description_summary text,
+    description_digest character varying(64),
+    language_status character varying(24) NOT NULL,
+    document_language character varying(64),
+    fact_statuses jsonb DEFAULT '{}'::jsonb NOT NULL,
+    meta_directives jsonb DEFAULT '[]'::jsonb NOT NULL,
+    headings jsonb DEFAULT '[]'::jsonb NOT NULL,
+    canonicals jsonb DEFAULT '[]'::jsonb NOT NULL,
+    hreflangs jsonb DEFAULT '[]'::jsonb NOT NULL,
+    images jsonb DEFAULT '[]'::jsonb NOT NULL,
+    structured_data_blocks jsonb DEFAULT '[]'::jsonb NOT NULL,
+    counts jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT crawl_page_facts_availability_shape CHECK (((((parse_status)::text = 'unavailable'::text) AND ((title_status)::text = 'unavailable'::text) AND ((description_status)::text = 'unavailable'::text) AND ((language_status)::text = 'unavailable'::text)) OR ((parse_status)::text = ANY ((ARRAY['parsed'::character varying, 'malformed'::character varying])::text[])))),
+    CONSTRAINT crawl_page_facts_bounded_json CHECK (((jsonb_typeof(fact_statuses) = 'object'::text) AND (jsonb_typeof(meta_directives) = 'array'::text) AND (jsonb_typeof(headings) = 'array'::text) AND (jsonb_typeof(canonicals) = 'array'::text) AND (jsonb_typeof(hreflangs) = 'array'::text) AND (jsonb_typeof(images) = 'array'::text) AND (jsonb_typeof(structured_data_blocks) = 'array'::text) AND (jsonb_typeof(counts) = 'object'::text) AND (pg_column_size(fact_statuses) <= 4096) AND (pg_column_size(meta_directives) <= 65536) AND (pg_column_size(headings) <= 131072) AND (pg_column_size(canonicals) <= 32768) AND (pg_column_size(hreflangs) <= 65536) AND (pg_column_size(images) <= 262144) AND (pg_column_size(structured_data_blocks) <= 262144) AND (pg_column_size(counts) <= 4096) AND ((((((((pg_column_size(fact_statuses) + pg_column_size(meta_directives)) + pg_column_size(headings)) + pg_column_size(canonicals)) + pg_column_size(hreflangs)) + pg_column_size(images)) + pg_column_size(structured_data_blocks)) + pg_column_size(counts)) <= 786432))),
+    CONSTRAINT crawl_page_facts_identity_shape CHECK ((((parser_version)::text ~ '^[A-Za-z0-9][A-Za-z0-9._+-]{0,63}$'::text) AND ((content_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND ((fact_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((parse_status)::text = ANY ((ARRAY['parsed'::character varying, 'malformed'::character varying, 'unavailable'::character varying])::text[])) AND ((parse_error_count >= 0) AND (parse_error_count <= 20)) AND ((element_count >= 0) AND (element_count <= 50000)) AND ((effective_base_url IS NULL) OR ((octet_length(effective_base_url) >= 1) AND (octet_length(effective_base_url) <= 8192))))),
+    CONSTRAINT crawl_page_facts_scalar_shape CHECK ((((title_status)::text = ANY ((ARRAY['present'::character varying, 'absent'::character varying, 'malformed'::character varying, 'unavailable'::character varying])::text[])) AND ((description_status)::text = ANY ((ARRAY['present'::character varying, 'absent'::character varying, 'malformed'::character varying, 'unavailable'::character varying])::text[])) AND ((language_status)::text = ANY ((ARRAY['present'::character varying, 'absent'::character varying, 'malformed'::character varying, 'unavailable'::character varying])::text[])) AND ((title_summary IS NULL) OR (octet_length(title_summary) <= 2048)) AND ((description_summary IS NULL) OR (octet_length(description_summary) <= 4096)) AND ((title_digest IS NULL) OR ((title_digest)::text ~ '^[0-9a-f]{64}$'::text)) AND ((description_digest IS NULL) OR ((description_digest)::text ~ '^[0-9a-f]{64}$'::text))))
+);
+
+
+--
+-- Name: crawl_page_facts_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.crawl_page_facts_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: crawl_page_facts_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.crawl_page_facts_id_seq OWNED BY public.crawl_page_facts.id;
 
 
 --
@@ -3683,6 +3836,20 @@ ALTER TABLE ONLY public.crawl_fetch_results ALTER COLUMN id SET DEFAULT nextval(
 
 
 --
+-- Name: crawl_links id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_links ALTER COLUMN id SET DEFAULT nextval('public.crawl_links_id_seq'::regclass);
+
+
+--
+-- Name: crawl_page_facts id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_page_facts ALTER COLUMN id SET DEFAULT nextval('public.crawl_page_facts_id_seq'::regclass);
+
+
+--
 -- Name: crawl_page_snapshots id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -3881,6 +4048,22 @@ ALTER TABLE ONLY public.crawl_fetch_permits
 
 ALTER TABLE ONLY public.crawl_fetch_results
     ADD CONSTRAINT crawl_fetch_results_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: crawl_links crawl_links_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_links
+    ADD CONSTRAINT crawl_links_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: crawl_page_facts crawl_page_facts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_page_facts
+    ADD CONSTRAINT crawl_page_facts_pkey PRIMARY KEY (id);
 
 
 --
@@ -4745,6 +4928,62 @@ CREATE INDEX index_crawl_fetch_results_on_tenant_scan_outcome ON public.crawl_fe
 --
 
 CREATE UNIQUE INDEX index_crawl_fetch_results_on_url_attempt ON public.crawl_fetch_results USING btree (scan_id, crawl_url_id, attempt_number);
+
+
+--
+-- Name: index_crawl_links_on_internal_destination; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_links_on_internal_destination ON public.crawl_links USING btree (scan_id, destination_crawl_url_id, source_crawl_url_id) WHERE (((classification)::text = 'internal'::text) AND (destination_crawl_url_id IS NOT NULL));
+
+
+--
+-- Name: index_crawl_links_on_scan_source; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_links_on_scan_source ON public.crawl_links USING btree (scan_id, source_crawl_url_id, id);
+
+
+--
+-- Name: index_crawl_links_on_snapshot_destination; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_links_on_snapshot_destination ON public.crawl_links USING btree (page_snapshot_id, destination_url_digest);
+
+
+--
+-- Name: index_crawl_links_on_tenant_scan_classification; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_links_on_tenant_scan_classification ON public.crawl_links USING btree (organization_id, scan_id, classification, id);
+
+
+--
+-- Name: index_crawl_page_facts_on_page_snapshot_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_page_facts_on_page_snapshot_id ON public.crawl_page_facts USING btree (page_snapshot_id);
+
+
+--
+-- Name: index_crawl_page_facts_on_scan_title; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_page_facts_on_scan_title ON public.crawl_page_facts USING btree (scan_id, title_digest) WHERE (title_digest IS NOT NULL);
+
+
+--
+-- Name: index_crawl_page_facts_on_tenant_scan_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_page_facts_on_tenant_scan_status ON public.crawl_page_facts USING btree (organization_id, scan_id, parse_status, id);
+
+
+--
+-- Name: index_crawl_page_snapshots_on_exact_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_page_snapshots_on_exact_identity ON public.crawl_page_snapshots USING btree (organization_id, project_id, property_id, environment_id, scan_id, id);
 
 
 --
@@ -6211,6 +6450,20 @@ CREATE TRIGGER crawl_fetch_results_protect_rows BEFORE DELETE OR UPDATE ON publi
 
 
 --
+-- Name: crawl_links crawl_links_immutable; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER crawl_links_immutable BEFORE DELETE OR UPDATE ON public.crawl_links FOR EACH ROW EXECUTE FUNCTION public.protect_crawl_link_rows();
+
+
+--
+-- Name: crawl_page_facts crawl_page_facts_immutable; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER crawl_page_facts_immutable BEFORE DELETE OR UPDATE ON public.crawl_page_facts FOR EACH ROW EXECUTE FUNCTION public.protect_crawl_page_fact_rows();
+
+
+--
 -- Name: crawl_page_snapshots crawl_page_snapshots_protect_identity; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -6626,6 +6879,38 @@ ALTER TABLE ONLY public.crawl_fetch_results
 
 ALTER TABLE ONLY public.crawl_fetch_results
     ADD CONSTRAINT fk_crawl_fetch_results_same_scan_url FOREIGN KEY (scan_id, crawl_url_id) REFERENCES public.crawl_urls(scan_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_links fk_crawl_links_exact_snapshot; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_links
+    ADD CONSTRAINT fk_crawl_links_exact_snapshot FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id, page_snapshot_id) REFERENCES public.crawl_page_snapshots(organization_id, project_id, property_id, environment_id, scan_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_links fk_crawl_links_same_scan_destination; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_links
+    ADD CONSTRAINT fk_crawl_links_same_scan_destination FOREIGN KEY (scan_id, destination_crawl_url_id) REFERENCES public.crawl_urls(scan_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_links fk_crawl_links_same_scan_source; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_links
+    ADD CONSTRAINT fk_crawl_links_same_scan_source FOREIGN KEY (scan_id, source_crawl_url_id) REFERENCES public.crawl_urls(scan_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_page_facts fk_crawl_page_facts_exact_snapshot; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_page_facts
+    ADD CONSTRAINT fk_crawl_page_facts_exact_snapshot FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id, page_snapshot_id) REFERENCES public.crawl_page_snapshots(organization_id, project_id, property_id, environment_id, scan_id, id) ON DELETE RESTRICT;
 
 
 --
@@ -7811,6 +8096,7 @@ ALTER TABLE ONLY public.website_property_configs
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904157000'),
 ('20260904156000'),
 ('20260904155000'),
 ('20260904154000'),

@@ -18,6 +18,12 @@ module Crawling
       dependent: :restrict_with_exception
     has_one :page_snapshot, class_name: "Crawling::PageSnapshot", inverse_of: :crawl_url,
       dependent: :restrict_with_exception
+    has_many :outgoing_crawl_links, class_name: "Crawling::CrawlLink",
+      foreign_key: :source_crawl_url_id, inverse_of: :source_crawl_url,
+      dependent: :restrict_with_exception
+    has_many :incoming_crawl_links, class_name: "Crawling::CrawlLink",
+      foreign_key: :destination_crawl_url_id, inverse_of: :destination_crawl_url,
+      dependent: :restrict_with_exception
 
     validates :organization_id, :project_id, :property_id, :environment_id, :scan_id,
       :fetch_url, :normalized_url, presence: true

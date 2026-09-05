@@ -48,6 +48,10 @@ module Crawling
       dependent: :restrict_with_exception
     has_many :page_snapshots, class_name: "Crawling::PageSnapshot", inverse_of: :scan,
       dependent: :restrict_with_exception
+    has_many :page_facts, class_name: "Crawling::PageFact", inverse_of: :scan,
+      dependent: :restrict_with_exception
+    has_many :crawl_links, class_name: "Crawling::CrawlLink", inverse_of: :scan,
+      dependent: :restrict_with_exception
     has_one :policy_snapshot, class_name: "Crawling::PolicySnapshot", inverse_of: false,
       dependent: :restrict_with_exception
     belongs_to :baseline_scan, class_name: "Crawling::Scan", optional: true

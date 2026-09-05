@@ -591,6 +591,7 @@ High-volume candidates for later partitioning:
 - crawl_fetch_permits;
 - crawl_fetches;
 - crawl_links;
+- crawl_page_facts;
 - page_snapshots metadata;
 - finding_occurrences;
 - usage_events;

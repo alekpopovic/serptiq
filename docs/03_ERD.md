@@ -74,7 +74,8 @@ erDiagram
   CRAWL_URL ||--o{ CRAWL_FETCH : fetches
   CRAWL_FETCH ||--o{ PAGE_SNAPSHOT : captures
   CRAWL_FETCH ||--o{ ARTIFACT : stores
-  SCAN ||--o{ CRAWL_LINK : discovers
+  PAGE_SNAPSHOT ||--o| PAGE_FACT : normalizes
+  PAGE_SNAPSHOT ||--o{ CRAWL_LINK : discovers
   RULE_DEFINITION ||--o{ RULE_VERSION : versions
   RULE_VERSION ||--o{ FINDING_OCCURRENCE : produces
   FINDING ||--o{ FINDING_OCCURRENCE : observed_as
@@ -947,13 +948,26 @@ idempotent. Bodies and raw resolution details are not stored in PostgreSQL.
 ### `crawl_page_snapshots`
 
 Exact source references from one successful static HTML fetch to its frontier row and private body artifact,
-plus a bounded link-discovery extraction lease, retry state, parser version and discovered-link count. Prompt 073
-does not yet store normalized title/canonical/headings/structured-data facts; that broader extraction belongs to
-Prompt 074.
+plus a bounded HTML extraction lease, retry state, parser version and admitted-link count. One exact snapshot may
+own one immutable normalized fact aggregate and many deduplicated directed links. Snapshot terminal state is
+separate from fact availability, so a failed analysis retains an explicit unavailable observation.
+
+### `crawl_page_facts`
+
+One immutable bigint aggregate per exact tenant/project/property/environment/scan/page snapshot. It retains the
+parser version, exact source content hash, canonical fact digest, parse status/error and element counts, effective
+base URL, bounded title/description/language observations, explicit per-family present/absent/malformed/
+unavailable status and bounded meta, heading, canonical, hreflang, image and JSON-LD facts. Repeated evidence
+contains bounded source locators and digests. Full visible text and source HTML remain outside PostgreSQL.
 
 ### `crawl_links`
 
-Source fetch/page, destination normalized key, relation, anchor summary/hash, follow flags, internal/external classification, and discovery timestamp.
+Immutable directed source-page to normalized-destination edges. Exact tenant/snapshot/source and optional
+same-scan destination foreign keys prevent substitution. A unique snapshot/destination digest aggregates repeat
+DOM occurrences with occurrence/nofollow counts, bounded relation tokens, representative source locator and
+anchor summary/hash. Classification, scope reason and discovery status distinguish external, policy-denied,
+frontier-linked and cap-not-admitted observations. Destination and reverse indexes support broken, orphan and
+depth graph reads.
 
 ### `artifacts`
 

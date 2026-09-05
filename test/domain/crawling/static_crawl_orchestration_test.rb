@@ -170,6 +170,10 @@ class CrawlingStaticCrawlOrchestrationTest < ActiveSupport::TestCase
     assert_equal [ "example.com", "example.com" ], resolver.calls
     assert_equal 2, Crawling::CrawlFetchResult.where(scan_id: @scan.id).count
     assert_equal 2, Crawling::PageSnapshot.where(scan_id: @scan.id, state: "completed").count
+    assert_equal 2, Crawling::PageFact.where(scan_id: @scan.id).count
+    assert_equal 2, root_snapshot.crawl_links.count
+    assert_equal "not_admitted",
+      root_snapshot.crawl_links.find_by!(destination_url: "https://example.com/ignored").discovery_status
     assert_equal 2, Crawling::Artifact.where(scan_id: @scan.id).count
     assert_equal %w[https://example.com/ https://example.com/about],
       Crawling::CrawlUrl.where(scan_id: @scan.id).order(:id).pluck(:normalized_url)

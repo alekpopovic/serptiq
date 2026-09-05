@@ -1,0 +1,97 @@
+{
+  "prompt_id": "074",
+  "title": "Implement HTML extraction and internal link graph",
+  "status": "completed",
+  "started_at": "2026-09-05T12:13:30Z",
+  "finished_at": "2026-09-05T12:56:17Z",
+  "summary": "Implemented bounded Nokogiri HTML5 extraction, immutable tenant-exact page facts and deduplicated directed link edges, scope-gated frontier discovery, crash-safe replay, and broken/orphan/depth graph reads with adversarial and performance coverage.",
+  "tests": [
+    {
+      "command": "docker compose --profile test run --rm test bin/rails test test/domain/crawling/html_page_extractor_test.rb test/domain/crawling/html_extraction_graph_test.rb test/database/static_crawl_constraints_test.rb test/performance/html_extraction_performance_test.rb test/domain/crawling/static_crawl_orchestration_test.rb test/jobs/crawling/static_crawl_jobs_test.rb test/domain/administration/resource_deletion_workflow_test.rb test/domain/crawling/artifact_lifecycle_test.rb test/database/resource_deletion_constraints_test.rb",
+      "outcome": "passed",
+      "notes": "44 runs, 339 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "docker compose --profile test run --rm test bin/rails test:all",
+      "outcome": "passed",
+      "notes": "1081 runs, 9201 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "env -u DEBUG RUBOCOP_CACHE_ROOT=tmp/rubocop bundle exec rubocop app/domains/crawling app/jobs/crawling/static_page_extraction_job.rb db/migrate/20260904157000_create_html_extraction_graph.rb and affected tests",
+      "outcome": "passed",
+      "notes": "197 files inspected, no offenses detected"
+    },
+    {
+      "command": "env -u DEBUG RUBOCOP_CACHE_ROOT=tmp/rubocop bin/quality",
+      "outcome": "passed",
+      "notes": "QUALITY PASSED: 15 checks; Brakeman 0 warnings and advisory audits clean"
+    },
+    {
+      "command": "docker compose --profile test run --rm test bin/rails zeitwerk:check",
+      "outcome": "passed",
+      "notes": "Application eager loading is valid"
+    },
+    {
+      "command": "docker compose test database migration rollback and reapply",
+      "outcome": "passed",
+      "notes": "Prompt 074 migration rolled back and reapplied successfully against PostgreSQL"
+    },
+    {
+      "command": "ruby tracking/scripts/prompt_tracker.rb validate",
+      "outcome": "passed",
+      "notes": "120 prompts; catalog and state are consistent"
+    }
+  ],
+  "files_changed": [
+    "app/domains/crawling/crawl_link.rb",
+    "app/domains/crawling/crawl_url.rb",
+    "app/domains/crawling/delete_for_lifecycle.rb",
+    "app/domains/crawling/evidence_snippet.rb",
+    "app/domains/crawling/extract_static_page_links.rb",
+    "app/domains/crawling/html_extraction_result.rb",
+    "app/domains/crawling/html_link_observation.rb",
+    "app/domains/crawling/html_page_extractor.rb",
+    "app/domains/crawling/link_graph_query.rb",
+    "app/domains/crawling/link_graph_summary.rb",
+    "app/domains/crawling/page_fact.rb",
+    "app/domains/crawling/page_snapshot.rb",
+    "app/domains/crawling/persist_html_extraction.rb",
+    "app/domains/crawling/public.rb",
+    "app/domains/crawling/scan.rb",
+    "app/jobs/crawling/static_page_extraction_job.rb",
+    "db/migrate/20260904157000_create_html_extraction_graph.rb",
+    "db/structure.sql",
+    "docs/02_ARCHITECTURE.md",
+    "docs/03_ERD.md",
+    "docs/07_SECURITY_AND_THREAT_MODEL.md",
+    "docs/09_TEST_STRATEGY.md",
+    "docs/implementation/HTML_EXTRACTION_AND_LINK_GRAPH.md",
+    "docs/implementation/README.md",
+    "docs/implementation/STATIC_CRAWL_ORCHESTRATION.md",
+    "test/database/static_crawl_constraints_test.rb",
+    "test/domain/administration/resource_deletion_workflow_test.rb",
+    "test/domain/crawling/html_extraction_graph_test.rb",
+    "test/domain/crawling/html_page_extractor_test.rb",
+    "test/domain/crawling/static_crawl_orchestration_test.rb",
+    "test/fixtures/files/crawling/html/extraction_document.html",
+    "test/fixtures/files/crawling/html/malformed_adversarial.html",
+    "test/performance/html_extraction_performance_test.rb"
+  ],
+  "migrations": [
+    "db/migrate/20260904157000_create_html_extraction_graph.rb creates crawl_page_facts and crawl_links plus concurrent snapshot identity index; new tables are empty and constraints/indexes are created before ingestion"
+  ],
+  "decisions": [
+    "Use bounded tolerant HTML5 parsing without JavaScript",
+    "store only bounded derived evidence and parsed JSON-LD",
+    "apply canonical normalization and URL scope before frontier admission",
+    "persist immutable replay-verified facts and graph edges",
+    "keep graph reads tenant-exact by organization and scan"
+  ],
+  "risks": [
+    "No known correctness blocker; extracted customer values remain untrusted and every future display must preserve normal Rails escaping. Dynamic rendered-DOM parity is intentionally deferred to Prompts 075 and 085."
+  ],
+  "next_steps": [
+    "Proceed to Prompt 075 dedicated Chromium/Ferrum render workers after this commit is pushed."
+  ],
+  "commit": null
+}

@@ -3,7 +3,7 @@
   "project": "SearchOps Rails Production MVP",
   "catalog_sha256": "79759682fd3d3fcc759bb98d814334f863f198f11079a390854809547a3b5bd8",
   "created_at": "2026-09-03T23:18:11Z",
-  "updated_at": "2026-09-05T12:10:49Z",
+  "updated_at": "2026-09-05T12:56:17Z",
   "current_prompt": null,
   "prompts": {
     "000": {
@@ -821,14 +821,14 @@
       "commit": null
     },
     "074": {
-      "status": "pending",
-      "attempts": 0,
-      "started_at": null,
-      "finished_at": null,
+      "status": "completed",
+      "attempts": 1,
+      "started_at": "2026-09-05T12:13:30Z",
+      "finished_at": "2026-09-05T12:56:17Z",
       "blocked_at": null,
       "block_reason": null,
-      "summary": null,
-      "result_file": null,
+      "summary": "Implemented bounded Nokogiri HTML5 extraction, immutable tenant-exact page facts and deduplicated directed link edges, scope-gated frontier discovery, crash-safe replay, and broken/orphan/depth graph reads with adversarial and performance coverage.",
+      "result_file": "tracking/results/074.json",
       "commit": null
     },
     "075": {
@@ -2310,6 +2310,19 @@
       "prompt_id": "073",
       "summary": "Implemented crash-safe static crawl initialization, bounded tenant-exact frontier orchestration, metered safe HTTP retrieval, immutable fetch evidence and page snapshots, bounded link discovery, recovery/cancellation/conclusion workers, live scan updates, lifecycle cleanup, database invariants, and operational documentation.",
       "result_file": "tracking/results/073.json",
+      "commit": null
+    },
+    {
+      "at": "2026-09-05T12:13:30Z",
+      "event": "started",
+      "prompt_id": "074"
+    },
+    {
+      "at": "2026-09-05T12:56:17Z",
+      "event": "completed",
+      "prompt_id": "074",
+      "summary": "Implemented bounded Nokogiri HTML5 extraction, immutable tenant-exact page facts and deduplicated directed link edges, scope-gated frontier discovery, crash-safe replay, and broken/orphan/depth graph reads with adversarial and performance coverage.",
+      "result_file": "tracking/results/074.json",
       "commit": null
     }
   ]

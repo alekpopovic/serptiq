@@ -121,6 +121,8 @@ Do not pre-populate these reports with fictional implementation or test results.
   XXE-safe XML/gzip limits, immutable graph evidence, scope-gated frontier insertion and per-scan metering.
 - [`STATIC_CRAWL_ORCHESTRATION.md`](./STATIC_CRAWL_ORCHESTRATION.md) defines the durable bounded worker flow,
   normalized fetch/snapshot evidence, idempotent discovery, cancellation/recovery and terminal reconciliation.
+- [`HTML_EXTRACTION_AND_LINK_GRAPH.md`](./HTML_EXTRACTION_AND_LINK_GRAPH.md) defines bounded no-script HTML5
+  facts, explicit unavailable/malformed states, normalized directed edges and tenant-exact graph read models.
 - [`RESOURCE_DELETION.md`](./RESOURCE_DELETION.md) defines exact-target deletion requests, the 30-day hold,
   cooperative cancellation, durable ordered cleanup, object reconciliation and retained tombstones.
 - [`BILLING_PROVIDER_CONTRACT.md`](./BILLING_PROVIDER_CONTRACT.md) defines normalized billing values,

@@ -180,6 +180,10 @@ module Crawling
       ExtractStaticPageLinks.new(clock: clock).call(**attributes)
     end
 
+    def link_graph(**attributes)
+      LinkGraphQuery.new.call(**attributes)
+    end
+
     def conclude_static_crawl(clock: -> { Time.current }, **attributes)
       ConcludeStaticCrawl.new(clock: clock).call(**attributes)
     end

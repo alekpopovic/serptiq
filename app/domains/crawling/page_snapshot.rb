@@ -12,6 +12,10 @@ module Crawling
     belongs_to :fetch_result, class_name: "Crawling::CrawlFetchResult",
       foreign_key: :crawl_fetch_result_id, inverse_of: :page_snapshot
     belongs_to :artifact, class_name: "Crawling::Artifact"
+    has_one :page_fact, class_name: "Crawling::PageFact", inverse_of: :page_snapshot,
+      dependent: :restrict_with_exception
+    has_many :crawl_links, class_name: "Crawling::CrawlLink", inverse_of: :page_snapshot,
+      dependent: :restrict_with_exception
 
     validates :organization_id, :project_id, :property_id, :environment_id, :scan_id,
       :crawl_url_id, :crawl_fetch_result_id, :artifact_id, presence: true

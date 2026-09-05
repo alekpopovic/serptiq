@@ -254,6 +254,12 @@ delivery, poison retries, expired leases, cancellation, quota/deadline stops and
 tests separately forge cross-tenant artifact/fetch identities and direct immutable-row updates so model
 validations cannot hide a missing PostgreSQL constraint.
 
+HTML extraction fixtures cover valid and malformed HTML5, base URL resolution, canonical/hreflang, meta robots,
+headings, images, JSON-LD, unsafe protocols, oversized attributes and escaped hostile snippets. Integration tests
+use real PostgreSQL to verify exact fact/edge identity, graph deduplication, retry replay, unavailable facts,
+cross-tenant denial, lifecycle deletion and broken/orphan/depth read models. A large bounded document test guards
+the 5,000-link aggregation path with a generous deterministic wall-clock regression ceiling.
+
 ## 11. Browser-worker tests
 
 Execute hostile pages in an isolated Chromium test container and verify:

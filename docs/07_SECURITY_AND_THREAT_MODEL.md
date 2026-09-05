@@ -339,6 +339,12 @@ Controls:
 - global emergency disable entitlement;
 - operational alerts.
 
+Static HTML analysis applies a separate 5 MiB source ceiling before the tolerant HTML5 DOM parse, explicit tree
+depth/attribute/element limits, and independent caps for links, metadata, headings, images and JSON-LD. It stores
+only bounded normalized facts and deduplicated edge evidence; oversized structured data retains a digest/status,
+not its payload. Relative references and the first valid base URL still pass URL normalization, immutable scan
+scope and frontier capacity before discovery.
+
 ### T-09 Stored and reflected XSS
 
 Sources include fetched HTML, titles, anchor text, JSON-LD, app metadata, issue comments, webhook errors, and provider profile data.
@@ -353,6 +359,10 @@ Controls:
 - safe Markdown renderer if introduced;
 - no remote script injection through report branding;
 - system tests with hostile fixtures.
+
+HTML evidence normalization removes invalid encoding and control characters and bounds every display snippet,
+but the stored value remains hostile text. Rails automatic escaping is mandatory and extraction code never marks
+page evidence safe or executes scripts. Malformed/XSS fixture tests cover title, anchor, alt and JSON-LD values.
 
 ### T-10 SQL/command/template injection
 
