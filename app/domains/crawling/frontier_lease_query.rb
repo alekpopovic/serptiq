@@ -93,6 +93,7 @@ module Crawling
         property_id: row.fetch("property_id"),
         environment_id: row.fetch("environment_id"),
         scan_id: row.fetch("scan_id"),
+        fetch_url: row.fetch("fetch_url"),
         normalized_url: row.fetch("normalized_url"),
         normalized_url_digest: row.fetch("normalized_url_digest"),
         normalization_version: row.fetch("normalization_version"),

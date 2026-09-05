@@ -41,6 +41,8 @@ module TestSupport
         max_urls: 20,
         max_depth: 5,
         query_handling: "tracking_only",
+        query_parameter_allowlist: "",
+        query_parameter_denylist: "session_id",
         user_agent_suffix: "AcmeAudit",
         request_rate_per_second: "2.5",
         max_concurrency: 1,

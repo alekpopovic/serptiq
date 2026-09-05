@@ -1,0 +1,17 @@
+[
+  {
+    "input": "HTTPS://EXAMPLE.COM:443/",
+    "identity_url": "https://example.com/",
+    "identity_digest": "515795e3cd81172f3ccf25694ebcbd1b5593c3a6bc97d845419ddd286ef89c6b"
+  },
+  {
+    "input": "https://example.com/a?b=2&a=1",
+    "identity_url": "https://example.com/a?b=2&a=1",
+    "identity_digest": "d76f9f7a145f7f94c3bf88c5cc714f63b4c4e42e73d44d81847d347c36adc48c"
+  },
+  {
+    "input": "https://B\u00dcCHER.example:8443/path",
+    "identity_url": "https://xn--bcher-kva.example:8443/path",
+    "identity_digest": "499cfc769be1debc4f0a9e952dae5e59519aa0b0877bf8d265a80dacdf6aed1a"
+  }
+]

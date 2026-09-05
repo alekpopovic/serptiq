@@ -30,7 +30,10 @@
       start_urls: "crawl_policy_start_urls", sitemap_urls: "crawl_policy_sitemap_urls",
       include_patterns: "crawl_policy_include_patterns", exclude_patterns: "crawl_policy_exclude_patterns",
       max_urls: "crawl_policy_max_urls", max_depth: "crawl_policy_max_depth",
-      query_handling: "crawl_policy_query_handling", user_agent_suffix: "crawl_policy_user_agent_suffix",
+      query_handling: "crawl_policy_query_handling",
+      query_parameter_allowlist: "crawl_policy_query_parameter_allowlist",
+      query_parameter_denylist: "crawl_policy_query_parameter_denylist",
+      user_agent_suffix: "crawl_policy_user_agent_suffix",
       request_rate_per_second: "crawl_policy_request_rate_per_second",
       max_concurrency: "crawl_policy_max_concurrency", robots_behavior: "crawl_policy_robots_behavior",
       rendering_sample_percent: "crawl_policy_rendering_sample_percent",
@@ -54,6 +57,8 @@
         <div><%= form.label :max_urls, "Maximum URLs", class: "so-label" %><%= form.number_field :max_urls, min: 1, max: @policy_view.limits.max_urls, required: true, class: "so-input" %><p class="so-help">Effective cap: <%= number_with_delimiter(@policy_view.limits.max_urls) %>.</p></div>
         <div><%= form.label :max_depth, "Maximum depth", class: "so-label" %><%= form.number_field :max_depth, min: 0, max: @policy_view.limits.max_depth, required: true, class: "so-input" %></div>
         <div><%= form.label :query_handling, "Query handling", class: "so-label" %><%= form.select :query_handling, [ [ "Ignore all query parameters", "ignore" ], [ "Ignore known tracking parameters", "tracking_only" ], [ "Keep all query parameters", "all" ] ], {}, class: "so-select" %></div>
+        <div><%= form.label :query_parameter_allowlist, "Only identify these query parameters", class: "so-label" %><%= form.text_area :query_parameter_allowlist, rows: 3, class: "so-input font-mono text-sm" %><p class="so-help">Optional exact parameter names, one per line. Other parameters remain in the fetch URL but not URL identity.</p></div>
+        <div><%= form.label :query_parameter_denylist, "Never identify these query parameters", class: "so-label" %><%= form.text_area :query_parameter_denylist, rows: 3, class: "so-input font-mono text-sm" %><p class="so-help">Optional exact names. Denied and known tracking parameters remain fetchable but do not create crawl variants.</p></div>
         <div><%= form.label :request_rate_per_second, "Requests per second", class: "so-label" %><%= form.number_field :request_rate_per_second, min: 0.1, max: @policy_view.limits.max_request_rate.to_s("F"), step: 0.1, required: true, class: "so-input" %></div>
         <div><%= form.label :max_concurrency, "Per-scan concurrency", class: "so-label" %><%= form.number_field :max_concurrency, min: 1, max: @policy_view.limits.max_concurrency, required: true, class: "so-input" %></div>
         <div><%= form.label :robots_behavior, "Robots behavior", class: "so-label" %><%= form.select :robots_behavior, [ [ "Respect robots.txt (required)", "respect" ] ], {}, class: "so-select" %></div>

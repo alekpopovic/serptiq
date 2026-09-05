@@ -16,11 +16,11 @@ module Crawling
     belongs_to :discovered_from, class_name: "Crawling::CrawlUrl", optional: true
 
     validates :organization_id, :project_id, :property_id, :environment_id, :scan_id,
-      :normalized_url, presence: true
+      :fetch_url, :normalized_url, presence: true
     validates :next_attempt_at, presence: true, if: :pending?
     validates :normalized_url_digest, :host_digest, format: { with: DIGEST_PATTERN }
     validates :normalized_url_digest, uniqueness: { scope: :scan_id }
-    validates :normalized_url, length: { maximum: 8192 }
+    validates :fetch_url, :normalized_url, length: { maximum: 8192 }
     validates :normalization_version, numericality: { only_integer: true, greater_than: 0 }
     validates :depth, numericality: { only_integer: true, in: 0..100 }
     validates :priority, numericality: { only_integer: true, in: -1_000_000..1_000_000 }

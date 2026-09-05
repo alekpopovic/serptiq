@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-09-04
 - Owners: Security, Crawling
-- Last reviewed: 2026-09-04 (Prompt 055)
+- Last reviewed: 2026-09-05 (Prompt 065)
 
 ## Context
 
@@ -23,6 +23,10 @@ Prompt 055 establishes that central policy as `Shared::NetworkSafety`, exposed t
 HTML ownership verification is its first production consumer; Crawling must reuse this boundary rather than
 introducing a direct customer-target HTTP client. Verification may redirect only to an explicitly enumerated
 same/canonical-host variant, with exact path preservation, no query/fragment and no HTTPS downgrade.
+
+Prompt 065 adds the Crawling-owned versioned syntactic identity above this boundary. It preserves a normalized
+fetch URL separately from the query-filtered identity URL and returns explicit host/path/depth scope decisions.
+Neither deduplication nor an HTML canonical observation authorizes DNS answers, redirects or connections.
 
 ## Consequences
 

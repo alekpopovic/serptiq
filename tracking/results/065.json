@@ -1,0 +1,91 @@
+{
+  "prompt_id": "065",
+  "title": "Implement canonical URL normalization and scope policy",
+  "status": "completed",
+  "started_at": "2026-09-05T04:10:08Z",
+  "finished_at": "2026-09-05T04:39:47Z",
+  "summary": "Implemented versioned HTTP(S) fetch and identity URL normalization, deterministic query identity filtering, exact host/path/depth scope decisions, tenant-bound scan policy resolution, immutable frontier fetch URLs, policy persistence, migration constraints, tests, and synchronized security/architecture documentation.",
+  "tests": [
+    {
+      "command": "docker compose --profile test run --rm test",
+      "outcome": "passed",
+      "notes": "873 runs, 7187 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test test/domain/crawling/url_normalizer_test.rb",
+      "outcome": "passed",
+      "notes": "final expanded corpus and fuzz run: 6 runs, 588 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test test/domain/crawling/url_normalizer_test.rb test/domain/crawling/url_scope_policy_test.rb test/domain/crawling/frontier_test.rb test/domain/crawling/policy_test.rb test/database/crawl_frontier_constraints_test.rb test/database/crawl_frontier_concurrency_test.rb test/database/crawl_policy_constraints_test.rb test/performance/crawl_frontier_query_plan_test.rb test/requests/crawl_policies_test.rb",
+      "outcome": "passed",
+      "notes": "40 runs, 737 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "SEARCHOPS_PROCESS_ROLE=worker_default bin/quality",
+      "outcome": "passed",
+      "notes": "14 checks passed including style, data, architecture, authorization, security and advisory audits"
+    },
+    {
+      "command": "docker compose --profile test run --rm --entrypoint /rails/bin/rails test db:drop db:create db:schema:load",
+      "outcome": "passed",
+      "notes": "all four test databases recreated and structure loaded"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails db:rollback:primary STEP=1; docker compose --profile test run --rm test ./bin/rails db:migrate:primary",
+      "outcome": "passed",
+      "notes": "migration reverted in 0.0106s and reapplied with backfill in 0.0142s"
+    }
+  ],
+  "files_changed": [
+    "app/controllers/crawling/policies_controller.rb",
+    "app/domains/crawling/crawl_url.rb",
+    "app/domains/crawling/default_policy.rb",
+    "app/domains/crawling/frontier_entry.rb",
+    "app/domains/crawling/frontier_lease.rb",
+    "app/domains/crawling/frontier_lease_query.rb",
+    "app/domains/crawling/normalize_policy.rb",
+    "app/domains/crawling/normalized_url.rb",
+    "app/domains/crawling/policy_configuration.rb",
+    "app/domains/crawling/public.rb",
+    "app/domains/crawling/resolve_url_scope_policy.rb",
+    "app/domains/crawling/url_normalizer.rb",
+    "app/domains/crawling/url_query_policy.rb",
+    "app/domains/crawling/url_scope_decision.rb",
+    "app/domains/crawling/url_scope_policy.rb",
+    "app/domains/shared/network_safety/http_target.rb",
+    "app/forms/crawling/policy_form.rb",
+    "app/views/crawling/policies/edit.html.erb",
+    "config/authorization_inventory.yml",
+    "db/migrate/20260904150000_add_canonical_url_identity.rb",
+    "db/structure.sql",
+    "docs/03_ERD.md",
+    "docs/07_SECURITY_AND_THREAT_MODEL.md",
+    "docs/adr/0006_ssrf_safe_crawler_boundary.md",
+    "docs/implementation/CRAWL_FRONTIER.md",
+    "docs/implementation/CRAWL_POLICIES.md",
+    "docs/implementation/MODULE_BOUNDARIES.md",
+    "docs/implementation/README.md",
+    "docs/implementation/URL_NORMALIZATION_AND_SCOPE.md",
+    "test/database/crawl_frontier_constraints_test.rb",
+    "test/database/crawl_policy_constraints_test.rb",
+    "test/domain/crawling/frontier_test.rb",
+    "test/domain/crawling/policy_test.rb",
+    "test/domain/crawling/url_normalizer_test.rb",
+    "test/domain/crawling/url_scope_policy_test.rb",
+    "test/fixtures/files/crawling/url_normalization_v1.json",
+    "test/performance/crawl_frontier_query_plan_test.rb",
+    "test/requests/crawl_policies_test.rb",
+    "test/support/crawl_policy_helpers.rb"
+  ],
+  "migrations": [],
+  "decisions": [],
+  "risks": [
+    "The high-volume crawl_urls backfill rewrites existing rows and the final NOT NULL change takes a table lock; deploy during a low-write window and observe replicas when production frontier volume is material."
+  ],
+  "next_steps": [
+    "Prompt 066: implement robots.txt retrieval",
+    "parsing and crawl-delay policy."
+  ],
+  "commit": null
+}

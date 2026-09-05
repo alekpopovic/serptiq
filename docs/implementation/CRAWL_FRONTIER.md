@@ -6,10 +6,11 @@ environment/scan identity and uses a bigint primary key as its monotonic discove
 
 ## URL identity and discovery
 
-`Crawling::FrontierEntry` passes candidate HTTP(S) values through the Shared syntactic target parser and records
-the resulting URL, a versioned SHA-256 identity and a separate host digest used for scheduling. Prompt 065 owns the
-complete canonical normalization and scope policy; the explicit `normalization_version` prevents later rules from
-silently changing existing scan identities.
+`Crawling::FrontierEntry` passes candidate HTTP(S) values through the versioned canonical normalizer and records
+the first normalized fetch URL separately from the query-policy identity URL, its version-prefixed SHA-256 digest
+and a separate host digest used for scheduling. The explicit `normalization_version` prevents later rules from
+silently changing existing scan identities. The full contract is in
+[`URL_NORMALIZATION_AND_SCOPE.md`](./URL_NORMALIZATION_AND_SCOPE.md).
 
 Discovery accepts at most 500 items per transaction. `INSERT ... ON CONFLICT DO NOTHING` makes repeated and
 concurrent batches safe under unique `(scan_id, normalized_url_digest)`. The operation then compares every stored

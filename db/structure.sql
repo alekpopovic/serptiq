@@ -558,6 +558,7 @@ BEGIN
     OR NEW.property_id IS DISTINCT FROM OLD.property_id
     OR NEW.environment_id IS DISTINCT FROM OLD.environment_id
     OR NEW.scan_id IS DISTINCT FROM OLD.scan_id
+    OR NEW.fetch_url IS DISTINCT FROM OLD.fetch_url
     OR NEW.normalized_url_digest IS DISTINCT FROM OLD.normalized_url_digest
     OR NEW.normalization_version IS DISTINCT FROM OLD.normalization_version
     OR NEW.normalized_url IS DISTINCT FROM OLD.normalized_url
@@ -1322,10 +1323,13 @@ CREATE TABLE public.crawl_policy_versions (
     created_by_membership_id uuid NOT NULL,
     change_kind character varying(24) NOT NULL,
     created_at timestamp(6) with time zone NOT NULL,
+    query_parameter_allowlist text[] DEFAULT '{}'::text[] NOT NULL,
+    query_parameter_denylist text[] DEFAULT '{}'::text[] NOT NULL,
     CONSTRAINT crawl_policy_versions_allowlists CHECK ((((query_handling)::text = ANY (ARRAY[('ignore'::character varying)::text, ('tracking_only'::character varying)::text, ('all'::character varying)::text])) AND ((robots_behavior)::text = 'respect'::text) AND ((change_kind)::text = ANY (ARRAY[('configured'::character varying)::text, ('reset'::character varying)::text, ('onboarding'::character varying)::text])))),
     CONSTRAINT crawl_policy_versions_bounded_lists CHECK (((cardinality(start_urls) >= 1) AND (cardinality(start_urls) <= 20) AND (cardinality(sitemap_urls) <= 20) AND (cardinality(include_patterns) <= 50) AND (cardinality(exclude_patterns) <= 50) AND (octet_length(array_to_string(start_urls, ''::text)) <= 40960) AND (octet_length(array_to_string(sitemap_urls, ''::text)) <= 40960) AND (octet_length(array_to_string(include_patterns, ''::text)) <= 12800) AND (octet_length(array_to_string(exclude_patterns, ''::text)) <= 12800))),
     CONSTRAINT crawl_policy_versions_crawl_bounds CHECK (((max_urls >= 1) AND (max_urls <= 1000000) AND ((max_depth >= 0) AND (max_depth <= 20)) AND ((request_rate_per_second >= 0.10) AND (request_rate_per_second <= 10.00)) AND ((max_concurrency >= 1) AND (max_concurrency <= 1000)))),
     CONSTRAINT crawl_policy_versions_positive_version CHECK ((version > 0)),
+    CONSTRAINT crawl_policy_versions_query_parameter_lists CHECK (((cardinality(query_parameter_allowlist) <= 50) AND (cardinality(query_parameter_denylist) <= 50) AND (array_position(query_parameter_allowlist, NULL::text) IS NULL) AND (array_position(query_parameter_denylist, NULL::text) IS NULL) AND (octet_length(array_to_string(query_parameter_allowlist, ''::text)) <= 6400) AND (octet_length(array_to_string(query_parameter_denylist, ''::text)) <= 6400))),
     CONSTRAINT crawl_policy_versions_rendering_shape CHECK (((rendering_sample_percent >= 0) AND (rendering_sample_percent <= 100) AND (max_rendered_pages >= 0) AND (((rendering_sample_percent = 0) AND (max_rendered_pages = 0)) OR ((rendering_sample_percent > 0) AND (max_rendered_pages > 0))))),
     CONSTRAINT crawl_policy_versions_retention CHECK (((artifact_retention_days >= 0) AND (artifact_retention_days <= 36500))),
     CONSTRAINT crawl_policy_versions_user_agent_suffix CHECK (((user_agent_suffix IS NULL) OR ((user_agent_suffix)::text ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$'::text)))
@@ -1367,8 +1371,10 @@ CREATE TABLE public.crawl_urls (
     completed_at timestamp(6) with time zone,
     created_at timestamp(6) with time zone NOT NULL,
     updated_at timestamp(6) with time zone NOT NULL,
+    fetch_url text NOT NULL,
     CONSTRAINT crawl_urls_attempt_shape CHECK ((((state)::text = ANY ((ARRAY['pending'::character varying, 'leased'::character varying, 'succeeded'::character varying, 'rejected'::character varying, 'failed'::character varying, 'exhausted'::character varying])::text[])) AND ((attempts >= 0) AND (attempts <= maximum_attempts)) AND ((maximum_attempts >= 1) AND (maximum_attempts <= 10)) AND (((state)::text <> 'pending'::text) OR (attempts < maximum_attempts)))),
     CONSTRAINT crawl_urls_discovery_shape CHECK ((((depth >= 0) AND (depth <= 100)) AND ((priority >= '-1000000'::integer) AND (priority <= 1000000)) AND ((discovery_source)::text = ANY ((ARRAY['seed'::character varying, 'sitemap'::character varying, 'link'::character varying, 'redirect'::character varying, 'canonical'::character varying])::text[])) AND ((discovered_from_id IS NULL) OR (discovered_from_id <> id)))),
+    CONSTRAINT crawl_urls_fetch_url_shape CHECK (((fetch_url IS NOT NULL) AND ((octet_length(fetch_url) >= 1) AND (octet_length(fetch_url) <= 8192)))),
     CONSTRAINT crawl_urls_last_outcome_shape CHECK (((((last_lease_token_digest IS NULL) AND (last_lease_outcome IS NULL)) OR (((last_lease_token_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((last_lease_outcome)::text = ANY ((ARRAY['retry'::character varying, 'stale_recovered'::character varying, 'succeeded'::character varying, 'rejected'::character varying, 'failed'::character varying, 'exhausted'::character varying])::text[])))) AND ((last_failure_category IS NULL) OR ((last_failure_category)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text)))),
     CONSTRAINT crawl_urls_lifecycle_shape CHECK (((((state)::text = 'pending'::text) AND (leased_by IS NULL) AND (lease_token_digest IS NULL) AND (leased_at IS NULL) AND (lease_expires_at IS NULL) AND (completed_at IS NULL) AND (next_attempt_at IS NOT NULL)) OR (((state)::text = 'leased'::text) AND ((leased_by)::text ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'::text) AND ((lease_token_digest)::text ~ '^[0-9a-f]{64}$'::text) AND (leased_at IS NOT NULL) AND (lease_expires_at > leased_at) AND (completed_at IS NULL) AND (next_attempt_at IS NULL)) OR (((state)::text = ANY ((ARRAY['succeeded'::character varying, 'rejected'::character varying, 'failed'::character varying, 'exhausted'::character varying])::text[])) AND (leased_by IS NULL) AND (lease_token_digest IS NULL) AND (leased_at IS NULL) AND (lease_expires_at IS NULL) AND (next_attempt_at IS NULL) AND (completed_at IS NOT NULL) AND (last_lease_token_digest IS NOT NULL) AND ((last_lease_outcome)::text = (state)::text)))),
     CONSTRAINT crawl_urls_normalized_identity_shape CHECK (((normalization_version > 0) AND ((normalized_url_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((host_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((octet_length(normalized_url) >= 1) AND (octet_length(normalized_url) <= 8192)))),
@@ -6029,6 +6035,7 @@ ALTER TABLE ONLY public.website_property_configs
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904150000'),
 ('20260904149000'),
 ('20260904148000'),
 ('20260904147000'),

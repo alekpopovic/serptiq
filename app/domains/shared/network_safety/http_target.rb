@@ -48,6 +48,10 @@ module Shared
 
       def reject_ambiguous!(raw)
         raise ArgumentError, "URL is invalid" if raw.blank? || raw != raw.strip || raw.match?(/[\u0000-\u0020\\]/)
+
+        authority = raw.split("#", 2).first.to_s.split("?", 2).first.to_s
+          .split("://", 2).last.to_s.split("/", 2).first.to_s
+        raise ArgumentError, "URL port is invalid" if authority.end_with?(":")
       end
 
       def normalize_host(value)
@@ -59,6 +63,7 @@ module Shared
         valid = ascii.bytesize <= 253 && labels.length >= 2 && labels.all? do |label|
           label.bytesize.between?(1, 63) && LABEL_PATTERN.match?(label)
         end
+        valid &&= !labels.last.match?(/\A(?:\d+|0x[0-9a-f]+)\z/i)
         raise ArgumentError, "URL host is invalid" unless valid
 
         ascii

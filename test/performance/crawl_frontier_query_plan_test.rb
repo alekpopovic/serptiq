@@ -43,6 +43,7 @@ class CrawlFrontierQueryPlanTest < ActiveSupport::TestCase
         property_id: @scan.property_id,
         environment_id: @scan.environment_id,
         scan_id: @scan.id,
+        fetch_url: url,
         normalized_url_digest: digest,
         normalization_version: 1,
         normalized_url: url,

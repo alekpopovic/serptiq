@@ -11,6 +11,8 @@ module Crawling
         max_urls: limits.max_urls,
         max_depth: [ 5, limits.max_depth ].min,
         query_handling: "tracking_only",
+        query_parameter_allowlist: [],
+        query_parameter_denylist: [],
         user_agent_suffix: nil,
         request_rate_per_second: [ BigDecimal("2.0"), limits.max_request_rate ].min,
         max_concurrency: [ 1, limits.max_concurrency ].min,

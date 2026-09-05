@@ -105,6 +105,8 @@ Do not pre-populate these reports with fictional implementation or test results.
   preflight requirements, weighted quota/capacity transactions and recoverable post-commit dispatch.
 - [`CRAWL_FRONTIER.md`](./CRAWL_FRONTIER.md) defines durable URL identity, fair PostgreSQL row leasing,
   owner-token completion/retry, stale recovery, incremental progress and scale/partition operations.
+- [`URL_NORMALIZATION_AND_SCOPE.md`](./URL_NORMALIZATION_AND_SCOPE.md) defines versioned fetch/identity URL
+  normalization, query identity filtering, explicit scope reason codes and the HTML-canonical trust boundary.
 - [`RESOURCE_DELETION.md`](./RESOURCE_DELETION.md) defines exact-target deletion requests, the 30-day hold,
   cooperative cancellation, durable ordered cleanup, object reconciliation and retained tombstones.
 - [`BILLING_PROVIDER_CONTRACT.md`](./BILLING_PROVIDER_CONTRACT.md) defines normalized billing values,

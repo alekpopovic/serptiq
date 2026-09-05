@@ -26,6 +26,8 @@ class CrawlPoliciesRequestTest < ActionDispatch::IntegrationTest
     assert_select "h1", text: "Crawl policy"
     assert_includes response.body, "Public crawl only"
     assert_includes response.body, "Plan default"
+    assert_select "textarea[name='crawl_policy[query_parameter_allowlist]']"
+    assert_select "textarea[name='crawl_policy[query_parameter_denylist]']"
 
     assert_difference("Crawling::PolicyVersion.count", 1) do
       patch policy_path, params: {
@@ -34,6 +36,7 @@ class CrawlPoliciesRequestTest < ActionDispatch::IntegrationTest
     end
     assert_redirected_to policy_path
     assert_equal 1, environment_policy_set.current_version
+    assert_equal [ "session_id" ], environment_policy_set.current.query_parameter_denylist
 
     assert_difference("Crawling::PolicyVersion.count", 1) do
       post reset_policy_path

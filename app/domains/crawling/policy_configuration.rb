@@ -3,7 +3,8 @@
 module Crawling
   PolicyConfiguration = Data.define(
     :start_urls, :sitemap_urls, :include_patterns, :exclude_patterns,
-    :max_urls, :max_depth, :query_handling, :user_agent_suffix,
+    :max_urls, :max_depth, :query_handling, :query_parameter_allowlist,
+    :query_parameter_denylist, :user_agent_suffix,
     :request_rate_per_second, :max_concurrency, :robots_behavior,
     :rendering_sample_percent, :max_rendered_pages, :artifact_retention_days
   ) do
@@ -16,7 +17,10 @@ module Crawling
     end
 
     def initialize(**attributes)
-      %i[start_urls sitemap_urls include_patterns exclude_patterns].each do |key|
+      %i[
+        start_urls sitemap_urls include_patterns exclude_patterns
+        query_parameter_allowlist query_parameter_denylist
+      ].each do |key|
         attributes[key] = Array(attributes.fetch(key)).map { |value| value.to_s.freeze }.freeze
       end
       attributes[:query_handling] = attributes.fetch(:query_handling).to_s.freeze
@@ -43,6 +47,8 @@ module Crawling
         "max_urls" => max_urls,
         "max_depth" => max_depth,
         "query_handling" => query_handling,
+        "query_parameter_allowlist" => query_parameter_allowlist,
+        "query_parameter_denylist" => query_parameter_denylist,
         "user_agent" => effective_user_agent,
         "request_rate_per_second" => request_rate_per_second.to_s("F"),
         "max_concurrency" => max_concurrency,

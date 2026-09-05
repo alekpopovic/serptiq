@@ -51,6 +51,29 @@ class CrawlingFrontierTest < ActiveSupport::TestCase
     end
   end
 
+  test "frontier deduplicates identity variants while preserving the first fetch URL" do
+    first = Crawling::Public.frontier_entry(
+      url: "https://example.com/product?id=7&utm_source=first",
+      depth: 0,
+      discovery_source: "seed",
+      query_handling: "tracking_only"
+    )
+    second = Crawling::Public.frontier_entry(
+      url: "https://example.com/product?utm_source=second&id=7",
+      depth: 1,
+      discovery_source: "link",
+      query_handling: "tracking_only"
+    )
+
+    result = discover(first, second)
+
+    assert_equal 1, result.inserted_count
+    item = result.items.sole
+    assert_equal "https://example.com/product?id=7&utm_source=first", item.fetch_url
+    assert_equal "https://example.com/product?id=7", item.normalized_url
+    assert_equal 2, item.normalization_version
+  end
+
   test "a digest collision rolls back discovery instead of merging different URLs" do
     digestor = ->(_value) { "a" * 64 }
     entries = %w[one two].map do |path|

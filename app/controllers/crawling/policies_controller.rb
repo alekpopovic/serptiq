@@ -77,7 +77,8 @@ module Crawling
     def policy_params
       params.expect(crawl_policy: [
         :start_urls, :sitemap_urls, :include_patterns, :exclude_patterns,
-        :max_urls, :max_depth, :query_handling, :user_agent_suffix,
+        :max_urls, :max_depth, :query_handling, :query_parameter_allowlist,
+        :query_parameter_denylist, :user_agent_suffix,
         :request_rate_per_second, :max_concurrency, :robots_behavior,
         :rendering_sample_percent, :max_rendered_pages, :artifact_retention_days
       ]).to_h.symbolize_keys

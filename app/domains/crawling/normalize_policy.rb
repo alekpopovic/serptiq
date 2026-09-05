@@ -22,6 +22,13 @@ module Crawling
       max_depth = bounded_integer(values[:max_depth], :max_depth, 0, limits.max_depth, errors)
       query = values[:query_handling].to_s
       errors[:query_handling] = "Choose a supported query handling policy." unless QUERY_HANDLING.include?(query)
+      query_allowlist = normalize_query_parameters(
+        values[:query_parameter_allowlist], :query_parameter_allowlist, errors
+      )
+      query_denylist = normalize_query_parameters(
+        values[:query_parameter_denylist], :query_parameter_denylist, errors
+      )
+      validate_query_parameter_policy(query, query_allowlist, query_denylist, errors)
       suffix = normalize_user_agent(values[:user_agent_suffix], limits, errors)
       rate = bounded_decimal(
         values[:request_rate_per_second], :request_rate_per_second,
@@ -51,6 +58,8 @@ module Crawling
         max_urls: max_urls,
         max_depth: max_depth,
         query_handling: query,
+        query_parameter_allowlist: query_allowlist,
+        query_parameter_denylist: query_denylist,
         user_agent_suffix: suffix,
         request_rate_per_second: rate,
         max_concurrency: concurrency,
@@ -111,6 +120,28 @@ module Crawling
         errors[:user_agent_suffix] = "Use a short product token that does not impersonate another crawler."
       end
       suffix
+    end
+
+    def normalize_query_parameters(value, field, errors)
+      rows = list(value).uniq
+      if rows.length > PATTERN_LIST_LIMIT
+        errors[field] = "Provide no more than #{PATTERN_LIST_LIMIT} parameter names."
+        return rows
+      end
+
+      rows.map { |name| UrlQueryPolicy.normalize_parameter_name(name) }.uniq.sort
+    rescue ArgumentError => error
+      errors[field] = error.message
+      rows
+    end
+
+    def validate_query_parameter_policy(query, allowlist, denylist, errors)
+      if (allowlist & denylist).any?
+        errors[:query_parameter_denylist] = "A parameter cannot appear in both query lists."
+      end
+      if query == "ignore" && (allowlist.any? || denylist.any?)
+        errors[:query_handling] = "Query parameter lists cannot be used when all query parameters are ignored."
+      end
     end
 
     def bounded_integer(value, field, minimum, maximum, errors)

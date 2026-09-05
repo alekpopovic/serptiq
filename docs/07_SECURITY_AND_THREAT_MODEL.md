@@ -262,6 +262,11 @@ dot-delimited suffix, so `notexample.com` is never a subdomain of `example.com`.
 not claim that a syntactically public hostname resolves to a public address: the crawler boundary must resolve
 and validate every A/AAAA answer and every redirect before connecting.
 
+Crawl URL identity version 2 separately retains a normalized fetch URL and a deterministic deduplication URL.
+Fragments are removed; dot segments and percent encoding are canonicalized; query filtering changes identity
+only and never rewrites semantic fetch values. Exact host/port/path/depth scope is evaluated before frontier
+admission. An HTML canonical recommendation is untrusted content and never expands that scope.
+
 ### T-08 Denial of service and resource exhaustion
 
 Attack examples:

@@ -53,6 +53,12 @@ class CrawlPolicyConstraintsTest < ActiveSupport::TestCase
     assert_database_rejects do
       Crawling::PolicyVersion.insert!(attributes)
     end
+
+    attributes = @version.attributes.except("id")
+      .merge("version" => 2, "query_parameter_allowlist" => Array.new(51, "id"))
+    assert_database_rejects do
+      Crawling::PolicyVersion.insert!(attributes)
+    end
   end
 
   private

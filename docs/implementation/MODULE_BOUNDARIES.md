@@ -187,6 +187,9 @@ The PostgreSQL crawl frontier is also Crawling-owned. Its public worker boundary
 values, leases globally with fair tenant/host/scan rounds, and requires the exact worker plus per-lease opaque
 token for mutation. Frontier batches maintain Scan aggregate counters; other modules do not query or mutate
 `crawl_urls` directly.
+Canonical URL identity and scope decisions are pure Crawling values. Exact scan-policy resolution reloads the
+tenant-bound environment; DNS classification and connection pinning remain exclusively Shared network-safety
+responsibilities.
 
 Administration owns the durable cross-domain deletion workflow and calls only narrow owning-module cleanup
 APIs. It does not delete another module's rows directly. Each owner validates explicit tenant/resource IDs;

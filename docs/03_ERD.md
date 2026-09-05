@@ -851,6 +851,7 @@ High-volume frontier rows.
 | id | bigint |
 | organization_id | uuid |
 | scan_id | uuid |
+| fetch_url | text, first normalized network request target |
 | normalized_url_digest | SHA-256 hex string |
 | normalization_version | integer |
 | normalized_url | text |
@@ -873,8 +874,9 @@ High-volume frontier rows.
 | http_status_code | integer nullable |
 | completed_at | timestamptz nullable |
 
-Unique `(scan_id, normalized_url_digest)` with collision verification against the stored URL and normalization
-version. The exact scan hierarchy is repeated and protected by a composite foreign key; a self-reference permits
+Unique `(scan_id, normalized_url_digest)` with collision verification against the stored identity URL and
+normalization version. `fetch_url` remains distinct and immutable when query identity policy merges variants.
+The exact scan hierarchy is repeated and protected by a composite foreign key; a self-reference permits
 only a discovery parent from the same scan. Mutable lease state is database-checked, while a trigger protects URL,
 tenant and first-discovery provenance. The bigint row ID is also the monotonic discovery sequence used after
 priority and depth. Scan aggregate counters are updated transactionally by frontier batches so dashboard reads do

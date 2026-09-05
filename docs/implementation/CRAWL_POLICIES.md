@@ -25,7 +25,7 @@ A policy stores:
 - ordered start and sitemap URL lists;
 - include and exclude path globs;
 - maximum URLs and traversal depth;
-- query handling (`ignore`, `tracking_only` or `all`);
+- query identity handling (`ignore`, `tracking_only` or `all`) plus optional exact parameter allow/deny lists;
 - a fixed SearchOps crawler identity with an optional product-token suffix;
 - request rate and per-scan concurrency;
 - the required `respect` robots behavior;
@@ -56,6 +56,10 @@ are rejected. The normalized ASCII origin must exactly equal the environment's
 canonical origin; a sibling subdomain or port is not accepted. This syntactic
 binding is not an SSRF decision. Scan execution must still resolve and validate
 every destination and redirect through the global public-network policy.
+
+Query lists affect only frontier identity, never the actual fetch query. Names are exact, percent-normalized,
+bounded and non-overlapping; deny rules win over ordinary retention, while `ignore` cannot be combined with a
+custom list. The versioned scan snapshot carries these rules to workers.
 
 Rules are path globs, not arbitrary regular expressions. Each begins with `/`,
 is at most 256 bytes and 32 path segments, and is limited to 12 wildcard stars

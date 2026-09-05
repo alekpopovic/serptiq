@@ -44,6 +44,18 @@ module Crawling
       FrontierEntry.new(**attributes)
     end
 
+    def normalize_url(**attributes)
+      UrlNormalizer.new.call(**attributes)
+    end
+
+    def url_scope_policy(**attributes)
+      UrlScopePolicy.new(**attributes)
+    end
+
+    def url_scope_for_scan(**attributes)
+      ResolveUrlScopePolicy.new.call(**attributes)
+    end
+
     def discover_frontier(clock: -> { Time.current }, **attributes)
       DiscoverFrontier.new(clock: clock).call(**attributes)
     end

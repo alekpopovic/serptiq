@@ -19,6 +19,9 @@ class CrawlFrontierConstraintsTest < ActiveSupport::TestCase
     assert_database_rejects do
       Crawling::CrawlUrl.where(id: @item.id).update_all(normalized_url: "https://example.com/changed")
     end
+    assert_database_rejects do
+      Crawling::CrawlUrl.where(id: @item.id).update_all(fetch_url: "https://example.com/changed")
+    end
     assert_equal "https://example.com/first", @item.reload.normalized_url
 
     duplicate = @item.attributes.except("id", "created_at", "updated_at")

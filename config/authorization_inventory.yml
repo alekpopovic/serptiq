@@ -415,6 +415,15 @@ domain_operations:
   Crawling::Public.frontier_entry:
     kind: context
     reason: pure_bounded_normalized_frontier_input
+  Crawling::Public.normalize_url:
+    kind: context
+    reason: pure_versioned_canonical_url_identity
+  Crawling::Public.url_scope_policy:
+    kind: context
+    reason: pure_bounded_origin_host_path_depth_policy
+  Crawling::Public.url_scope_for_scan:
+    kind: system
+    reason: exact_tenant_scan_settings_scope_resolution_for_workers
   Crawling::Public.discover_frontier:
     kind: system
     reason: exact_tenant_scan_frontier_discovery

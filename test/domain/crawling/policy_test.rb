@@ -32,6 +32,8 @@ class CrawlingPolicyTest < ActiveSupport::TestCase
     assert_equal [ 1, 2 ], [ first.version, second.version ]
     assert_equal "https://www.example.com/docs?utm_source=test", first.start_urls.second
     assert_equal "SearchOpsBot/1.0 AcmeAudit", first.configuration.effective_user_agent
+    assert_empty first.query_parameter_allowlist
+    assert_equal [ "session_id" ], first.query_parameter_denylist
     assert_equal 5, first.max_depth
     assert_equal 8, second.max_depth
     assert first.readonly?
@@ -71,6 +73,29 @@ class CrawlingPolicyTest < ActiveSupport::TestCase
       configure(max_concurrency: 2)
     end
     assert_equal [ "Enter a value between 1 and 1." ], error.field_errors[:max_concurrency]
+  end
+
+  test "query parameter identity lists are exact bounded and non-overlapping" do
+    configured = configure(
+      query_parameter_allowlist: "id\nfilters[]",
+      query_parameter_denylist: "session_id"
+    )
+
+    assert_equal %w[filters%5B%5D id], configured.query_parameter_allowlist
+    assert_equal [ "session_id" ], configured.query_parameter_denylist
+
+    overlap = assert_raises(Crawling::Invalid) do
+      configure(
+        query_parameter_allowlist: "id",
+        query_parameter_denylist: "id"
+      )
+    end
+    assert overlap.field_errors.key?(:query_parameter_denylist)
+
+    ignored = assert_raises(Crawling::Invalid) do
+      configure(query_handling: "ignore", query_parameter_denylist: "session_id")
+    end
+    assert ignored.field_errors.key?(:query_handling)
   end
 
   test "gates rendering custom patterns and user-agent suffix by effective plan" do
