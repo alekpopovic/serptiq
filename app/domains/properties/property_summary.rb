@@ -3,13 +3,13 @@
 module Properties
   PropertySummary = Data.define(
     :id, :project_id, :display_name, :kind, :status, :verification_status,
-    :verified_at, :archived_at, :deletion_requested_at, :configuration
+    :verified_at, :archived_at, :deletion_requested_at, :configuration, :environments
   ) do
-    def initialize(**attributes)
+    def initialize(environments: [], **attributes)
       %i[id project_id display_name kind status verification_status].each do |name|
         attributes[name] = attributes.fetch(name).to_s.freeze
       end
-      super(**attributes)
+      super(**attributes, environments: environments.freeze)
       freeze
     end
 

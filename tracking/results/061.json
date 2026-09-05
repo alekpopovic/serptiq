@@ -1,0 +1,63 @@
+{
+  "prompt_id": "061",
+  "title": "Build project dashboard and baseline readiness views",
+  "status": "completed",
+  "started_at": "2026-09-05T01:29:17Z",
+  "finished_at": "2026-09-05T01:57:47Z",
+  "summary": "Built the authorized project operational dashboard with persisted property and environment readiness; explicit scan and finding observation states; quota and provider readiness; paginated audit activity; stable Turbo targets; and accessible responsive controls with exact denial explanations.",
+  "tests": [
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test test/domain/projects/project_dashboard_test.rb test/domain/properties/property_directory_test.rb test/requests/projects_test.rb",
+      "outcome": "passed",
+      "notes": "20 runs; 188 assertions; 0 failures; 0 errors; 0 skips"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test test/system/project_dashboard_test.rb test/system/projects_test.rb test/system/authorization_visibility_test.rb test/system/plan_catalog_admin_test.rb",
+      "outcome": "passed",
+      "notes": "7 runs; 56 assertions; 0 failures; 0 errors"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test",
+      "outcome": "passed",
+      "notes": "809 runs; 6248 assertions; 0 failures; 0 errors; 0 skips"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test:system",
+      "outcome": "passed",
+      "notes": "42 runs; 223 assertions; 0 failures; 0 errors; 0 skips"
+    },
+    {
+      "command": "./bin/quality",
+      "outcome": "passed",
+      "notes": "14 checks passed; RuboCop clean; Brakeman 0 warnings; gem audit clean"
+    }
+  ],
+  "files_changed": [
+    "app/controllers/projects/projects_controller.rb",
+    "app/domains/auditing",
+    "app/domains/integrations",
+    "app/domains/projects",
+    "app/domains/properties",
+    "app/domains/usage",
+    "app/views/projects/projects",
+    "docs/implementation/PROJECT_DASHBOARD.md",
+    "docs/implementation/PROJECTS.md",
+    "docs/implementation/README.md",
+    "test/domain/projects/project_dashboard_test.rb",
+    "test/domain/properties/property_directory_test.rb",
+    "test/requests/projects_test.rb",
+    "test/system/project_dashboard_test.rb",
+    "tracking"
+  ],
+  "migrations": [],
+  "decisions": [
+    "Dashboard GET composes independently authorized bounded read models and never reserves quota or inspects queue internals; stable Turbo IDs use the public project slug; scan and finding surfaces remain explicit no-data observations until their owning aggregates exist"
+  ],
+  "risks": [
+    "The baseline scan action intentionally remains disabled until Prompt 062 introduces a real scan aggregate and later prompts introduce admission and execution; provider readiness is informational and does not imply crawl or ranking evidence"
+  ],
+  "next_steps": [
+    "Proceed to Prompt 062 and replace the scan placeholder through the documented aggregate boundary."
+  ],
+  "commit": null
+}

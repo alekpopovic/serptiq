@@ -50,6 +50,10 @@ module Properties
       PropertyDirectory.new.find(**attributes)
     end
 
+    def project_readiness(**attributes)
+      ProjectReadinessQuery.new.call(**attributes)
+    end
+
     def project_rollup_reader
       ProjectRollupReader.new
     end

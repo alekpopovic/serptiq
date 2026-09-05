@@ -182,6 +182,66 @@ class ProjectsRequestTest < ActionDispatch::IntegrationTest
     assert_select "input[name='q'][value='Paged']"
   end
 
+  test "project dashboard exposes honest empty observations and stable Turbo targets" do
+    project = create_project_for(@owner, slug: "empty-dashboard")
+
+    get organization_project_path(@owner.organization.slug, project.slug)
+
+    assert_response :success
+    assert_select "h2", text: "Baseline readiness"
+    assert_select "turbo-frame#project_scan_status_empty-dashboard [data-observation-state='no_data']"
+    assert_select "turbo-frame#project_findings_status_empty-dashboard [data-observation-state='no_data']"
+    assert_select "button[disabled][aria-disabled='true']", text: "Run baseline scan"
+    assert_select "[data-readiness-state='action_required']", minimum: 1
+    assert_includes response.body, "Recent project activity"
+    assert_includes response.body, "Project created"
+  end
+
+  test "ready dashboard links exact property environment and verification without fake scan metrics" do
+    enable_property_limits(@owner, website: 40, mobile: 40)
+    set_onboarding_entitlement(@owner, "crawl.manual", true, at: Time.current)
+    set_onboarding_entitlement(@owner, "crawl.credits_monthly", 500, at: Time.current)
+    project = create_project_for(@owner, slug: "ready-dashboard")
+    property = create_property_for(
+      @owner,
+      project: project,
+      display_name: "Ready Website",
+      configuration: { origin: "https://ready-dashboard.example.com" }
+    )
+    environment = property.environments.sole
+    property.update!(verification_status: "verified", verified_at: Time.current)
+
+    get organization_project_path(@owner.organization.slug, project.slug)
+
+    assert_response :success
+    assert_select "[data-readiness-state='ready']", count: 6
+    assert_select "a[href=?]", organization_project_property_path(
+      @owner.organization.slug, project.slug, property.id
+    ), text: "Ready Website"
+    assert_select "a[href=?]", organization_project_property_environment_path(
+      @owner.organization.slug, project.slug, property.id, environment.id
+    ), text: "Production"
+    assert_select "button[disabled]", text: "Run baseline scan"
+    assert_includes response.body, "does not enqueue placeholder work"
+  end
+
+  test "restricted project reader receives explanations without organization usage or integration data" do
+    project = create_project_for(@owner, slug: "restricted-dashboard")
+    member = add_member("Restricted Dashboard Viewer")
+    assign_role(member: member, role_key: "viewer", scope_type: "Project", scope_id: project.id)
+    reset!
+    authenticate_request(issue_identity_session(user: member.user))
+
+    get organization_project_path(@owner.organization.slug, project.slug)
+
+    assert_response :success
+    assert_select "h2", text: "Crawl usage"
+    assert_select "p", text: "Restricted", minimum: 2
+    assert_includes response.body, "does not include permission to run scans"
+    assert_select "a", text: "Edit project", count: 0
+    assert_select "a", text: "Request deletion", count: 0
+  end
+
   private
 
   def add_member(name)

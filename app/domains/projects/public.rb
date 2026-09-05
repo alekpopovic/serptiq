@@ -28,6 +28,10 @@ module Projects
       ProjectDirectory.new(read_models: read_models).find(**attributes)
     end
 
+    def build_dashboard(**attributes)
+      BuildProjectDashboard.new.call(**attributes)
+    end
+
     def reference(organization_id:, project_id:)
       project = Project.find_by(id: project_id, organization_id: organization_id)
       return unless project

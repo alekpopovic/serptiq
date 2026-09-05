@@ -1,5 +1,11 @@
 # Project aggregate and lifecycle
 
+The project detail route is also the baseline-readiness dashboard described in
+[`PROJECT_DASHBOARD.md`](./PROJECT_DASHBOARD.md). It composes independently authorized Properties, Usage,
+Integrations, and Auditing read models while leaving scan and finding values as explicit no-data observations
+until their owning aggregates exist. Property and activity collections paginate independently and the stable
+Turbo targets use the public project slug rather than an internal UUID.
+
 Projects are organization-owned authorization and reporting roots. The immutable, normalized
 `(organization_id, slug)` is the customer route identity. `external_release_key` is a random globally unique
 public lookup identifier for future deployment integrations; it is deliberately not an authentication secret.

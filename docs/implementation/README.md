@@ -79,6 +79,8 @@ Do not pre-populate these reports with fictional implementation or test results.
   evaluation order, integration APIs, reservation cleanup and feature-operation key registry.
 - [`PROJECTS.md`](./PROJECTS.md) defines stable project identity, tenant/scope linkage, lifecycle,
   active-project capacity, audit/outbox history and bulk placeholder read models.
+- [`PROJECT_DASHBOARD.md`](./PROJECT_DASHBOARD.md) defines the authorized baseline-readiness composition,
+  observation states, independent pagination and stable Turbo update targets.
 - [`SCOPED_RESOURCE_ACCESS.md`](./SCOPED_RESOURCE_ACCESS.md) maps the complete project/property/environment/
   verification surface to compatible scopes and defines collection, nested-route, lifecycle, UI and audit enforcement.
 - [`PROPERTIES.md`](./PROPERTIES.md) defines versioned typed property configuration, tenant/project scope

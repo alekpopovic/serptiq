@@ -1,21 +1,22 @@
 <% content_for :title, @project_summary.name %>
 
-<div class="mx-auto max-w-6xl">
+<div class="mx-auto max-w-7xl">
   <%= render "shared/breadcrumbs", items: [
     { label: "Projects", path: organization_projects_path(Current.organization.slug) },
     { label: @project_summary.name, path: nil }
   ] %>
-  <div class="mt-6 flex flex-wrap items-start justify-between gap-4">
+
+  <header class="mt-6 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
     <div>
-      <p class="so-eyebrow">Project</p>
+      <p class="so-eyebrow">Project overview</p>
       <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950"><%= @project_summary.name %></h1>
       <% if @project_summary.description.present? %><p class="mt-2 max-w-3xl text-sm leading-6 text-slate-600"><%= @project_summary.description %></p><% end %>
     </div>
     <span class="so-badge <%= @project_summary.active? ? "so-badge-success" : "so-badge-neutral" %>"><%= @project_summary.status.humanize %></span>
-  </div>
+  </header>
 
   <% unless @project_summary.active? %>
-    <div class="so-alert so-alert-warning mt-7">
+    <div class="so-alert so-alert-warning mt-7" role="status">
       <p>This project is read-only. New scans and schedules are disabled while it is <%= @project_summary.status.humanize.downcase %>.</p>
       <% if @project_summary.pending_deletion? && @deletion_status %>
         <p class="mt-2">Retained history remains reviewable until approximately <%= l(@deletion_status.hold_until, format: :long) %>. Export anything you need before asynchronous cleanup begins.</p>
@@ -23,12 +24,169 @@
     </div>
   <% end %>
 
-  <div class="mt-8 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-    <section class="so-card p-5"><p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Health</p><p class="mt-2 font-bold text-slate-950">Not observed</p><p class="mt-1 text-xs text-slate-500">No scan evidence exists yet.</p></section>
-    <section class="so-card p-5"><p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Properties</p><p class="mt-2 text-2xl font-black text-slate-950"><%= @project_summary.property_count %></p></section>
-    <section class="so-card p-5"><p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Latest scan</p><p class="mt-2 font-bold text-slate-950"><%= @project_summary.latest_scan_at ? l(@project_summary.latest_scan_at) : "No observation" %></p></section>
-    <section class="so-card p-5"><p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Defaults</p><p class="mt-2 font-bold text-slate-950"><%= @project_summary.default_locale %></p><p class="mt-1 text-xs text-slate-500"><%= @project_summary.time_zone %></p></section>
+  <div class="mt-8 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
+    <%= render "dashboard_observation", title: "Properties", observation: @project_dashboard.property_observation,
+      target_id: "project_properties_status_#{@project_summary.slug}" %>
+    <%= render "dashboard_observation", title: "Latest scan", observation: @project_dashboard.scan_observation,
+      target_id: "project_scan_status_#{@project_summary.slug}" %>
+    <%= render "dashboard_observation", title: "Findings", observation: @project_dashboard.findings_observation,
+      target_id: "project_findings_status_#{@project_summary.slug}" %>
+
+    <section class="so-card p-5" aria-labelledby="project-usage-title">
+      <h2 id="project-usage-title" class="text-xs font-semibold uppercase tracking-wide text-slate-500">Crawl usage</h2>
+      <% if @project_dashboard.usage %>
+        <p class="mt-2 font-bold text-slate-950"><%= @project_dashboard.usage.state.humanize %></p>
+        <p class="mt-1 text-xs leading-5 text-slate-500">
+          <% if @project_dashboard.usage.remaining.nil? %>
+            Concrete quota unavailable.
+          <% else %>
+            <%= number_with_delimiter(@project_dashboard.usage.remaining) %> credits remaining
+            <% if @project_dashboard.usage.reset_at %>until <%= l(@project_dashboard.usage.reset_at, format: :long) %><% end %>.
+          <% end %>
+        </p>
+      <% else %>
+        <p class="mt-2 font-bold text-slate-950">Restricted</p>
+        <p class="mt-1 text-xs leading-5 text-slate-500">Your role cannot inspect organization usage for this project.</p>
+      <% end %>
+    </section>
   </div>
+
+  <div class="mt-8 grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(18rem,1fr)]">
+    <section class="so-card p-6" aria-labelledby="readiness-title">
+      <div class="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <p class="so-eyebrow">Persisted readiness signals</p>
+          <h2 id="readiness-title" class="mt-1 text-xl font-black text-slate-950">Baseline readiness</h2>
+        </div>
+        <span class="so-badge <%= @project_dashboard.scan_action.allowed? ? "so-badge-success" : "so-badge-warning" %>">
+          <%= @project_dashboard.scan_action.allowed? ? "Admission ready" : "Action required" %>
+        </span>
+      </div>
+
+      <ol class="mt-5 grid gap-3 sm:grid-cols-2">
+        <% @project_dashboard.checklist.each do |item| %>
+          <li class="rounded-xl border border-slate-200 p-4" data-readiness-state="<%= item.state %>">
+            <div class="flex items-start gap-3">
+              <span class="so-badge <%= item.ready? ? "so-badge-success" : "so-badge-neutral" %>"><%= item.state.humanize %></span>
+              <div><h3 class="font-bold text-slate-950"><%= item.title %></h3><p class="mt-1 text-sm leading-5 text-slate-600"><%= item.detail %></p></div>
+            </div>
+          </li>
+        <% end %>
+      </ol>
+
+      <div class="mt-6 border-t border-slate-200 pt-5">
+        <button type="button" class="so-button so-button-primary" disabled aria-disabled="true">Run baseline scan</button>
+        <p class="mt-2 text-sm leading-6 text-slate-600" id="scan-action-explanation">
+          <%= @project_dashboard.scan_action.explanation %>
+          <% if @project_dashboard.scan_action.allowed? %>The scan request workflow is enabled in the next implementation phase; this dashboard does not enqueue placeholder work.<% end %>
+        </p>
+      </div>
+    </section>
+
+    <section class="so-card p-6" aria-labelledby="integration-readiness-title">
+      <p class="so-eyebrow">Provider observation</p>
+      <h2 id="integration-readiness-title" class="mt-1 text-xl font-black text-slate-950">Integration readiness</h2>
+      <% if @project_dashboard.integration %>
+        <p class="mt-4 font-bold text-slate-950"><%= @project_dashboard.integration.label %></p>
+        <p class="mt-1 text-sm leading-6 text-slate-600"><%= @project_dashboard.integration.detail %></p>
+      <% else %>
+        <p class="mt-4 font-bold text-slate-950">Restricted</p>
+        <p class="mt-1 text-sm leading-6 text-slate-600">Your role cannot inspect organization-wide provider connections.</p>
+      <% end %>
+      <p class="mt-4 text-xs leading-5 text-slate-500">Provider data is separate from live crawl evidence and never implies indexing or ranking.</p>
+    </section>
+  </div>
+
+  <section class="so-card mt-8 p-6" aria-labelledby="dashboard-properties-title">
+    <div class="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+      <div>
+        <p class="so-eyebrow">Discovery surfaces</p>
+        <h2 id="dashboard-properties-title" class="mt-1 text-xl font-black text-slate-950">Properties and environments</h2>
+      </div>
+      <% if @can_manage_properties && @project_summary.active? %>
+        <%= link_to "Add property", new_organization_project_property_path(Current.organization.slug, @project_summary.slug), class: "so-button so-button-primary" %>
+      <% end %>
+    </div>
+
+    <% if @project_dashboard.property_page.nil? %>
+      <div class="so-alert so-alert-warning mt-5" role="status">Property details are restricted for your current role.</div>
+    <% elsif @project_dashboard.property_page.entries.empty? %>
+      <div class="so-empty-state mt-5">
+        <h3 class="font-bold text-slate-950">No properties configured</h3>
+        <p class="mt-2 text-sm text-slate-600">Add a website property to begin the verification and baseline-readiness flow.</p>
+      </div>
+    <% else %>
+      <div class="so-table-wrap mt-5" role="region" aria-label="Dashboard properties" tabindex="0">
+        <table class="so-table">
+          <thead><tr><th scope="col">Property</th><th scope="col">Verification</th><th scope="col">Environments</th><th scope="col"><span class="sr-only">Actions</span></th></tr></thead>
+          <tbody>
+            <% @project_dashboard.property_page.entries.each do |property| %>
+              <tr>
+                <th scope="row">
+                  <%= link_to property.display_name, organization_project_property_path(Current.organization.slug, @project_summary.slug, property.id), class: "font-semibold text-slate-950 hover:underline" %>
+                  <span class="mt-1 block text-xs font-normal text-slate-500"><%= property.kind.humanize %></span>
+                </th>
+                <td><span class="so-badge <%= property.verified? ? "so-badge-success" : "so-badge-neutral" %>"><%= property.verification_status.humanize %></span></td>
+                <td>
+                  <% if property.environments.any? %>
+                    <ul class="space-y-1">
+                      <% property.environments.each do |environment| %>
+                        <li><%= link_to environment.display_name, organization_project_property_environment_path(Current.organization.slug, @project_summary.slug, property.id, environment.id), class: "font-semibold hover:underline" %><% if environment.primary? %> <span class="text-xs text-slate-500">Primary</span><% end %></li>
+                      <% end %>
+                    </ul>
+                  <% else %>
+                    <span class="text-slate-500"><%= property.kind.in?(%w[android_app ios_app]) ? "Not applicable" : "No environments" %></span>
+                  <% end %>
+                </td>
+                <td class="text-right">
+                  <% primary_environment = property.environments.find { |environment| environment.primary? && environment.active? } %>
+                  <% if !property.verified? && primary_environment && @can_verify_properties && property.active? %>
+                    <%= link_to "Verify", organization_project_property_environment_verification_path(Current.organization.slug, @project_summary.slug, property.id, primary_environment.id), class: "so-button so-button-secondary so-button-small" %>
+                  <% end %>
+                </td>
+              </tr>
+            <% end %>
+          </tbody>
+        </table>
+      </div>
+
+      <nav class="so-pagination mt-5" aria-label="Dashboard property pages">
+        <% if @project_dashboard.property_page.previous_page %>
+          <%= link_to "Previous", organization_project_path(Current.organization.slug, @project_summary.slug, properties_page: @project_dashboard.property_page.previous_page, activity_page: @project_dashboard.activity_page.page) %>
+        <% end %>
+        <span aria-current="page"><%= @project_dashboard.property_page.page %></span>
+        <% if @project_dashboard.property_page.next_page %>
+          <%= link_to "Next", organization_project_path(Current.organization.slug, @project_summary.slug, properties_page: @project_dashboard.property_page.next_page, activity_page: @project_dashboard.activity_page.page) %>
+        <% end %>
+      </nav>
+    <% end %>
+  </section>
+
+  <section class="so-card mt-8 p-6" aria-labelledby="recent-activity-title">
+    <p class="so-eyebrow">Append-only audit records</p>
+    <h2 id="recent-activity-title" class="mt-1 text-xl font-black text-slate-950">Recent project activity</h2>
+    <% if @project_dashboard.activity_page.entries.any? %>
+      <ul class="mt-5 divide-y divide-slate-200">
+        <% @project_dashboard.activity_page.entries.each do |entry| %>
+          <li class="flex flex-col gap-1 py-3 sm:flex-row sm:items-center sm:justify-between">
+            <span class="font-semibold text-slate-900"><%= entry.action.tr(".", " ").humanize %> <span class="so-badge so-badge-neutral"><%= entry.result %></span></span>
+            <time class="text-xs text-slate-500" datetime="<%= entry.occurred_at.iso8601 %>"><%= l(entry.occurred_at, format: :long) %></time>
+          </li>
+        <% end %>
+      </ul>
+      <nav class="so-pagination mt-5" aria-label="Project activity pages">
+        <% if @project_dashboard.activity_page.previous_page %>
+          <%= link_to "Previous", organization_project_path(Current.organization.slug, @project_summary.slug, activity_page: @project_dashboard.activity_page.previous_page, properties_page: @project_dashboard.property_page&.page) %>
+        <% end %>
+        <span aria-current="page"><%= @project_dashboard.activity_page.page %></span>
+        <% if @project_dashboard.activity_page.next_page %>
+          <%= link_to "Next", organization_project_path(Current.organization.slug, @project_summary.slug, activity_page: @project_dashboard.activity_page.next_page, properties_page: @project_dashboard.property_page&.page) %>
+        <% end %>
+      </nav>
+    <% else %>
+      <p class="mt-4 text-sm text-slate-600">No project-level audit activity is available.</p>
+    <% end %>
+  </section>
 
   <section class="so-card mt-8 p-6" aria-labelledby="project-identifiers-title">
     <h2 id="project-identifiers-title" class="font-bold text-slate-950">Stable identifiers</h2>
@@ -53,10 +211,8 @@
     <% end %>
     <% if @project_summary.pending_deletion? && @deletion_status&.cancelable && allowed_to?("projects.delete", project: @project) %>
       <%= button_to "Cancel deletion", cancel_deletion_organization_project_path(Current.organization.slug, @project_summary.slug), method: :patch, class: "so-button so-button-secondary" %>
-    <% elsif !@project_summary.pending_deletion? %>
-      <% if allowed_to?("projects.delete", project: @project) %>
-        <%= link_to "Request deletion", deletion_organization_project_path(Current.organization.slug, @project_summary.slug), class: "so-button so-button-danger" %>
-      <% end %>
+    <% elsif !@project_summary.pending_deletion? && allowed_to?("projects.delete", project: @project) %>
+      <%= link_to "Request deletion", deletion_organization_project_path(Current.organization.slug, @project_summary.slug), class: "so-button so-button-danger" %>
     <% end %>
   </div>
 </div>

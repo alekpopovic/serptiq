@@ -26,6 +26,13 @@ module Projects
     permission_hint "projects.archive", only: :show, scope: -> { { project: @project } }
     permission_hint "projects.delete", only: :show, scope: -> { { project: @project } }
     permission_hint "properties.read", only: :show, scope: -> { { project: @project } }
+    permission_hint "properties.manage", only: :show, scope: -> { { project: @project } }
+    permission_hint "properties.verify", only: :show, scope: -> { { project: @project } }
+    permission_hint "scans.read", only: :show, scope: -> { { project: @project } }
+    permission_hint "scans.run", only: :show, scope: -> { { project: @project } }
+    permission_hint "findings.read", only: :show, scope: -> { { project: @project } }
+    permission_hint "usage.read", only: :show, scope: -> { { project: @project } }
+    permission_hint "integrations.read", only: :show
 
     def index
       @project_page = Public.project_page(
@@ -62,6 +69,57 @@ module Projects
         actor_membership: Current.membership,
         project_id: @project.id,
         read_models: Properties::Public.project_rollup_reader
+      )
+      project_read = authorization_decision!("projects.read", project: @project)
+      property_read = authorization_decision!("properties.read", project: @project)
+      usage_read = authorization_decision!("usage.read", project: @project)
+      integration_read = authorization_decision!("integrations.read")
+      @can_manage_properties = authorization_decision!("properties.manage", project: @project).allow?
+      @can_verify_properties = authorization_decision!("properties.verify", project: @project).allow?
+
+      property_page, property_readiness = property_dashboard_data(property_read)
+      scan_access = access_decision(
+        "scans.run",
+        project: @project,
+        entitlement_key: "crawl.manual",
+        resource: Authorization::ResourceContext.new(
+          id: @project.id,
+          type: "project",
+          organization_id: @project.organization_id,
+          scope_type: "Project",
+          scope_id: @project.id,
+          available: @project.scan_available?
+        )
+      )
+      usage = if usage_read.allow?
+        Usage::Public.project_readiness(
+          organization_id: Current.organization.id,
+          project_id: @project.id,
+          authorization: usage_read
+        )
+      end
+      integration = if integration_read.allow?
+        Integrations::Public.dashboard_readiness(
+          organization_id: Current.organization.id,
+          authorization: integration_read
+        )
+      end
+      activity_page = Auditing::Public.project_activity(
+        organization_id: Current.organization.id,
+        project_id: @project.id,
+        authorization: project_read,
+        page: params[:activity_page]
+      )
+      @project_dashboard = Public.build_dashboard(
+        project: @project_summary,
+        property_page: property_page,
+        property_readiness: property_readiness,
+        scan_read: authorization_decision!("scans.read", project: @project),
+        findings_read: authorization_decision!("findings.read", project: @project),
+        scan_access: scan_access,
+        usage: usage,
+        integration: integration,
+        activity_page: activity_page
       )
       @deletion_status = Administration::Public.deletion_status(
         organization_id: Current.organization.id,
@@ -137,6 +195,22 @@ module Projects
     end
 
     private
+
+    def property_dashboard_data(property_read)
+      return [ nil, nil ] unless property_read.allow?
+
+      [
+        Properties::Public.property_page(
+          actor_membership: Current.membership,
+          project_id: @project.id,
+          number: params[:properties_page]
+        ),
+        Properties::Public.project_readiness(
+          actor_membership: Current.membership,
+          project_id: @project.id
+        )
+      ]
+    end
 
     def load_project!
       @project = Project.find_by(

@@ -33,6 +33,10 @@ module Integrations
       )
     end
 
+    def dashboard_readiness(**attributes)
+      DashboardReadinessQuery.new.call(**attributes)
+    end
+
     def unconfigured_search_console_client
       SearchConsole::UnconfiguredClient.new
     end

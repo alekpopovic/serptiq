@@ -57,5 +57,9 @@ module Usage
     def organization_dashboard(**attributes)
       OrganizationUsageQuery.new.call(**attributes)
     end
+
+    def project_readiness(**attributes)
+      ProjectUsageReadinessQuery.new.call(**attributes)
+    end
   end
 end

@@ -21,6 +21,10 @@ module Auditing
       AuditQuery.new.call(organization_id: organization_id, filters: filters, page: page)
     end
 
+    def project_activity(**attributes)
+      ProjectActivityQuery.new.call(**attributes)
+    end
+
     def export!(organization_id:, authorization:)
       AuthorizeAccess.new.call(
         organization_id: organization_id,

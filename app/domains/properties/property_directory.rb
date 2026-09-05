@@ -5,7 +5,7 @@ module Properties
     PER_PAGE = 25
     QUERY_LIMIT = 80
     CONFIGURATION_INCLUDES = %i[
-      website_property_config android_property_config ios_property_config
+      website_property_config android_property_config ios_property_config environments
     ].freeze
 
     def initialize(read_access: PropertyReadAccess.new, authorization: PropertyAuthorization.new)
@@ -92,7 +92,24 @@ module Properties
         verified_at: property.verified_at,
         archived_at: property.archived_at,
         deletion_requested_at: property.deletion_requested_at,
-        configuration: configuration.value
+        configuration: configuration.value,
+        environments: property.environments.sort_by do |environment|
+          [ environment.primary? ? 0 : 1, environment.kind, environment.display_name, environment.id ]
+        end.map { |environment| summarize_environment(environment) }
+      )
+    end
+
+    def summarize_environment(environment)
+      EnvironmentSummary.new(
+        id: environment.id,
+        property_id: environment.property_id,
+        key: environment.key,
+        kind: environment.kind,
+        display_name: environment.display_name,
+        primary: environment.primary?,
+        status: environment.status,
+        archived_at: environment.archived_at,
+        origin: environment.origin_value
       )
     end
   end

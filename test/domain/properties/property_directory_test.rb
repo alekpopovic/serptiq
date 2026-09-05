@@ -31,6 +31,8 @@ class PropertiesPropertyDirectoryTest < ActiveSupport::TestCase
     assert_equal one_count, many_count
     assert_equal 3, page.entries.length
     assert page.entries.all? { |entry| entry.identifier.present? }
+    assert_equal [ "Production" ], page.entries.find { |entry| entry.kind == "website" }.environments.map(&:display_name)
+    assert_empty page.entries.find { |entry| entry.kind == "android_app" }.environments
   end
 
   test "project rollups count active properties in one grouped query" do

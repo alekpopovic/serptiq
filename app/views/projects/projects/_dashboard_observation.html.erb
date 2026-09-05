@@ -1,0 +1,9 @@
+<%= turbo_frame_tag target_id do %>
+  <section class="so-card h-full p-5" aria-labelledby="<%= target_id %>_title" aria-live="polite" data-observation-state="<%= observation.state %>">
+    <h2 id="<%= target_id %>_title" class="text-xs font-semibold uppercase tracking-wide text-slate-500"><%= title %></h2>
+    <p class="mt-2 font-bold text-slate-950"><%= observation.label %></p>
+    <% if observation.count %><p class="mt-1 text-2xl font-black text-slate-950"><%= number_with_delimiter(observation.count) %></p><% end %>
+    <p class="mt-1 text-xs leading-5 text-slate-500"><%= observation.detail %></p>
+    <% if observation.observed_at %><time class="mt-2 block text-xs text-slate-500" datetime="<%= observation.observed_at.iso8601 %>"><%= l(observation.observed_at, format: :long) %></time><% end %>
+  </section>
+<% end %>
