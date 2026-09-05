@@ -40,6 +40,8 @@ module Crawling
       dependent: :restrict_with_exception
     has_many :fetch_permits, class_name: "Crawling::FetchPermit", inverse_of: :scan,
       dependent: :restrict_with_exception
+    has_many :usage_operations, class_name: "Crawling::ScanUsageOperation", inverse_of: :scan,
+      dependent: :restrict_with_exception
     has_one :policy_snapshot, class_name: "Crawling::PolicySnapshot", inverse_of: false,
       dependent: :restrict_with_exception
     belongs_to :baseline_scan, class_name: "Crawling::Scan", optional: true

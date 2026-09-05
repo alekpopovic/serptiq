@@ -50,8 +50,10 @@ module Usage
         )
         next false if existing
 
+        release_allocations!(reservation, cutoff)
+        released = reservation.held_quantity - reservation.consumed_quantity
         reservation.update!(
-          released_quantity: reservation.held_quantity,
+          released_quantity: released,
           expired_at: cutoff,
           state: "expired"
         )
@@ -60,11 +62,31 @@ module Usage
           kind: "expire",
           digest: digest,
           checksum: checksum,
-          quantity: reservation.held_quantity,
+          quantity: released,
           requested_expires_at: reservation.expires_at,
           at: cutoff
         )
         true
+      end
+    end
+
+    def release_allocations!(reservation, cutoff)
+      reservation.allocations.held.lock.order(:id).each do |allocation|
+        raw_key = "quota-allocation-expire:#{allocation.id}:#{reservation.expires_at.utc.iso8601(6)}"
+        digest = @idempotency.digest(raw_key)
+        checksum = @idempotency.checksum(
+          organization_id: reservation.organization_id.to_s,
+          allocation_id: allocation.id.to_s,
+          disposition: "release",
+          occurred_at: cutoff,
+          metadata: { "reason" => "reservation_expired" }
+        )
+        allocation.update!(
+          state: "released",
+          completion_key_digest: digest,
+          completion_checksum: checksum,
+          completed_at: cutoff
+        )
       end
     end
   end

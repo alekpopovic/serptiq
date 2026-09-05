@@ -12,8 +12,9 @@ module Crawling
       "fail" => "scan.failed"
     }.freeze
 
-    def initialize(clock: -> { Time.current })
+    def initialize(clock: -> { Time.current }, usage_finalizer: nil)
       @clock = clock
+      @usage_finalizer = usage_finalizer || FinalizeScanUsage.new(clock: clock)
     end
 
     def call(organization_id:, scan_id:, command:, failure_category: nil)
@@ -34,6 +35,7 @@ module Crawling
         scan.assign_attributes(transition_attributes(action, target, now, failure_category))
         scan.progress_sequence += 1
         scan.save!
+        @usage_finalizer.call_locked(scan: scan, at: now) if scan.terminal?
         _event, outbox = ScanLifecycleRecord.record!(
           scan: scan,
           event_type: EVENT_TYPES.fetch(action),

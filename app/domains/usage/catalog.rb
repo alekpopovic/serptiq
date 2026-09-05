@@ -24,7 +24,7 @@ module Usage
     UNIT_PATTERN = /\A[a-z][a-z0-9_]{1,31}\z/
     WINDOW_POLICIES = %w[utc_calendar_month provider_billing_period].freeze
 
-    attr_reader :meters, :checksum
+    attr_reader :meters, :checksum, :version
 
     def self.load(path: DEFAULT_PATH)
       new(path: path).tap(&:validate!)
@@ -34,6 +34,7 @@ module Usage
       contents = Pathname(path).binread
       @checksum = Digest::SHA256.hexdigest(contents)
       @document = YAML.safe_load(contents, permitted_classes: [], permitted_symbols: [], aliases: false)
+      @version = @document.is_a?(Hash) ? @document["version"] : nil
       @meters = parse_meters.freeze
     rescue Errno::ENOENT, Psych::Exception, EncodingError => error
       raise CatalogInvalid.new(issues: [ "catalog could not be loaded: #{error.class}" ]), cause: nil

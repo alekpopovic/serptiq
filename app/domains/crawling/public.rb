@@ -148,12 +148,36 @@ module Crawling
       RecordScanProgress.new(clock: clock).call(**attributes)
     end
 
+    def start_usage_operation(clock: -> { Time.current }, **attributes)
+      StartScanUsageOperation.new(clock: clock).call(**attributes)
+    end
+
+    def finish_usage_operation(clock: -> { Time.current }, **attributes)
+      FinishScanUsageOperation.new(clock: clock).call(**attributes)
+    end
+
+    def finalize_scan_usage(clock: -> { Time.current }, **attributes)
+      FinalizeScanUsage.new(clock: clock).call(**attributes)
+    end
+
+    def recover_terminal_scan_usage(clock: -> { Time.current })
+      RecoverTerminalScanUsage.new(finalizer: FinalizeScanUsage.new(clock: clock)).call
+    end
+
     def scan_page(**attributes)
       ScanDirectory.new.page(**attributes)
     end
 
     def scan_details(**attributes)
       ScanDirectory.new.find(**attributes)
+    end
+
+    def scan_cost_breakdown(**attributes)
+      ScanCostQuery.new.call(**attributes)
+    end
+
+    def adjust_scan_usage(**attributes)
+      AdjustScanUsage.new.call(**attributes)
     end
 
     def latest_scan_observation(**attributes)

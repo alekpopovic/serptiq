@@ -61,6 +61,10 @@ module Authorization
       end
     end
 
+    def finalize_metered_access(**attributes)
+      Usage::Public.finalize_reservation(**attributes)
+    end
+
     private
 
     def validate_request!(request)

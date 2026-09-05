@@ -1,0 +1,117 @@
+{
+  "prompt_id": "072",
+  "title": "Integrate weighted credit reservation with scan execution",
+  "status": "completed",
+  "started_at": "2026-09-05T09:45:37Z",
+  "finished_at": "2026-09-05T10:49:56Z",
+  "summary": "Integrated exact versioned meter snapshots and weighted per-operation quota allocations into scan admission/execution; accepted fetch/render/Lighthouse work now emits one idempotent ledger event, failures release capacity, over-estimate work reserves atomically before execution, terminal/crash paths release unused holds, scan cost UI and organization aggregation expose usage, and platform-authorized corrections append audited compensating events.",
+  "tests": [
+    {
+      "command": "docker compose --profile test run --rm test bin/rails test:all",
+      "outcome": "passed",
+      "notes": "1050 runs, 8964 assertions, 0 failures, 0 errors, 0 skips on PostgreSQL"
+    },
+    {
+      "command": "docker compose --profile test run --rm test bin/rails test test/domain/crawling/scan_usage_accounting_test.rb test/database/scan_usage_concurrency_test.rb",
+      "outcome": "passed",
+      "notes": "8 runs, 73 assertions; includes INSERT trigger substitution guard and near-boundary race"
+    },
+    {
+      "command": "docker compose --profile test run --rm test bin/rails test test/database/resource_deletion_constraints_test.rb test/domain/administration/resource_deletion_workflow_test.rb test/domain/crawling/artifact_lifecycle_test.rb test/jobs/crawling/artifact_lifecycle_jobs_test.rb",
+      "outcome": "passed",
+      "notes": "20 runs, 144 assertions"
+    },
+    {
+      "command": "docker compose --profile test run --rm test bin/rails db:rollback:primary STEP=1 then db:migrate:primary",
+      "outcome": "passed",
+      "notes": "rollback and clean reapply succeeded with INSERT/UPDATE/DELETE lifecycle triggers"
+    },
+    {
+      "command": "env -u DEBUG RUBOCOP_CACHE_ROOT=tmp/rubocop bin/quality",
+      "outcome": "passed",
+      "notes": "15 checks; 1297 Ruby files clean, architecture/access/authorization/security/advisory checks passed"
+    }
+  ],
+  "files_changed": [
+    "app/domains/authorization/access_boundary.rb",
+    "app/domains/authorization/public.rb",
+    "app/domains/crawling/admit_scan.rb",
+    "app/domains/crawling/build_credit_estimate.rb",
+    "app/domains/crawling/credit_estimate.rb",
+    "app/domains/crawling/delete_for_lifecycle.rb",
+    "app/domains/crawling/public.rb",
+    "app/domains/crawling/request_scan_cancellation.rb",
+    "app/domains/crawling/scan.rb",
+    "app/domains/crawling/scan_detail.rb",
+    "app/domains/crawling/scan_directory.rb",
+    "app/domains/crawling/transition_scan.rb",
+    "app/domains/usage/catalog.rb",
+    "app/domains/usage/expire_quota_reservations.rb",
+    "app/domains/usage/finalize_quota_reservation.rb",
+    "app/domains/usage/public.rb",
+    "app/domains/usage/quota_pool.rb",
+    "app/domains/usage/quota_reservation.rb",
+    "app/domains/usage/reconcile_quota_reservations.rb",
+    "app/domains/usage/record_event.rb",
+    "app/domains/usage/release_quota_reservation.rb",
+    "app/domains/usage/reservation_mutation.rb",
+    "app/domains/usage/reservation_operation.rb",
+    "app/views/crawling/scans/show.html.erb",
+    "config/authorization_inventory.yml",
+    "config/recurring.yml",
+    "db/structure.sql",
+    "docs/02_ARCHITECTURE.md",
+    "docs/03_ERD.md",
+    "docs/05_PLAN_ENTITLEMENT_MATRIX.md",
+    "docs/09_TEST_STRATEGY.md",
+    "docs/10_DEPLOYMENT_AND_OPERATIONS.md",
+    "docs/implementation/SCAN_ADMISSION.md",
+    "docs/implementation/USAGE_QUOTAS.md",
+    "test/jobs/solid_stack_topology_test.rb",
+    "tracking/EXECUTION_LOG.md",
+    "tracking/execution_log.jsonl",
+    "tracking/state.json",
+    "app/domains/crawling/adjust_scan_usage.rb",
+    "app/domains/crawling/finalize_scan_usage.rb",
+    "app/domains/crawling/finish_scan_usage_operation.rb",
+    "app/domains/crawling/meter_rate_snapshot.rb",
+    "app/domains/crawling/recover_terminal_scan_usage.rb",
+    "app/domains/crawling/resolve_scan_meter_context.rb",
+    "app/domains/crawling/scan_cost_breakdown.rb",
+    "app/domains/crawling/scan_cost_query.rb",
+    "app/domains/crawling/scan_meter_cost.rb",
+    "app/domains/crawling/scan_usage_identity.rb",
+    "app/domains/crawling/scan_usage_operation.rb",
+    "app/domains/crawling/start_scan_usage_operation.rb",
+    "app/domains/usage/allocate_quota_reservation.rb",
+    "app/domains/usage/complete_quota_allocation.rb",
+    "app/domains/usage/find_source_event.rb",
+    "app/domains/usage/meter_context.rb",
+    "app/domains/usage/quota_allocation.rb",
+    "app/domains/usage/record_authorized_correction.rb",
+    "app/domains/usage/resolve_exact_meter_rate.rb",
+    "app/domains/usage/resolve_meter_snapshot.rb",
+    "app/domains/usage/source_aggregate_query.rb",
+    "app/jobs/crawling/scan_usage_recovery_job.rb",
+    "db/migrate/20260904155000_integrate_scan_usage_accounting.rb",
+    "docs/implementation/SCAN_USAGE_ACCOUNTING.md",
+    "test/database/scan_usage_concurrency_test.rb",
+    "test/domain/crawling/scan_usage_accounting_test.rb",
+    "test/jobs/crawling/scan_usage_recovery_job_test.rb"
+  ],
+  "migrations": [
+    "db/migrate/20260904155000_integrate_scan_usage_accounting.rb"
+  ],
+  "decisions": [
+    "operation allocations divide the admission hold and extend only the locked deficit",
+    "artifact observations are included in parent meter cost rather than charged separately",
+    "terminal finalization is routed through the unified access boundary and append-only ledger corrections"
+  ],
+  "risks": [
+    "Adding the tenant usage_events index and validated foreign keys can lock mature production ledgers; deploy the index concurrently/prevalidate constraints when table volume warrants it. Rollback requires no active partial allocations."
+  ],
+  "next_steps": [
+    "Prompt 073: implement static crawl orchestration using these pre-work accounting APIs"
+  ],
+  "commit": null
+}

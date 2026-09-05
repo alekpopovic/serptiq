@@ -24,7 +24,8 @@ module Usage
         state: "held"
       ).where("expires_at > ?", at)
       reservations = reservations.where.not(id: excluding_reservation_id) if excluding_reservation_id
-      Balance.new(used || ZERO, reservations.sum(:held_quantity) || ZERO)
+      reserved = reservations.sum("held_quantity - consumed_quantity")
+      Balance.new(used || ZERO, reserved || ZERO)
     end
 
     def window_ids(window)

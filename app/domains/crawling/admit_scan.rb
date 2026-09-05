@@ -167,15 +167,15 @@ module Crawling
           limits: attributes.fetch(:concurrency)
         )
 
-        window = Usage::Public.resolve_window(
-          organization_id: attributes.fetch(:context).project.organization_id,
-          meter_key: "crawl.http_fetch",
-          at: attributes.fetch(:now),
-          billing_period: attributes.fetch(:billing_period)
-        )
+        usage_contexts = resolve_usage_contexts(**attributes)
+        window = usage_contexts.fetch("crawl.http_fetch").fetch(:window)
         access_request = metered_access_request(window: window, **attributes)
         result = Authorization::Public.with_access(access_request) do |decision|
-          create_admitted_scan(reservation: decision.reservation, **attributes)
+          create_admitted_scan(
+            reservation: decision.reservation,
+            usage_contexts: usage_contexts,
+            **attributes
+          )
         end
       end
       result
@@ -212,6 +212,28 @@ module Crawling
       )
     end
 
+    def resolve_usage_contexts(**attributes)
+      organization_id = attributes.fetch(:context).project.organization_id
+      estimate = attributes.fetch(:policy).estimate
+      estimate.meter_rates.to_h do |key, snapshot|
+        window = Usage::Public.resolve_window(
+          organization_id: organization_id,
+          meter_key: key,
+          at: attributes.fetch(:now),
+          billing_period: attributes.fetch(:billing_period)
+        )
+        unless window.meter_definition.catalog_checksum == snapshot.definition_checksum
+          raise Usage::Public::Invalid.new(reason_code: "usage_meter_definition_snapshot_unavailable")
+        end
+        rate = Usage::Public.resolve_exact_meter_rate(
+          window: window,
+          version: snapshot.version,
+          catalog_checksum: snapshot.rate_checksum
+        )
+        [ key, { window: window, rate: rate, snapshot: snapshot }.freeze ]
+      end.freeze
+    end
+
     def reservation_expiry(window, now)
       [ window.ends_at, now.beginning_of_hour + 2.hours ].min
     end
@@ -221,6 +243,10 @@ module Crawling
       request = attributes.fetch(:request)
       now = attributes.fetch(:now)
       policy = attributes.fetch(:policy)
+      anchor_rate = attributes.fetch(:usage_contexts).fetch("crawl.http_fetch").fetch(:rate)
+      unless reservation.usage_meter_rate_id == anchor_rate.id
+        raise Usage::Public::Invalid.new(reason_code: "usage_meter_rate_snapshot_unavailable")
+      end
       verification = attributes.fetch(:verification)
       preflight = attributes.fetch(:preflight)
       actor_id = context.actor_membership_id
@@ -230,6 +256,7 @@ module Crawling
         initial_access: attributes.fetch(:initial_access),
         concurrency: attributes.fetch(:concurrency),
         policy: policy,
+        usage_contexts: attributes.fetch(:usage_contexts),
         verification: verification,
         workload: attributes.fetch(:workload)
       ))
@@ -292,7 +319,7 @@ module Crawling
       [ scan, outboxes, true ]
     end
 
-    def entitlement_snapshot(initial_access:, concurrency:, policy:, verification:, workload:)
+    def entitlement_snapshot(initial_access:, concurrency:, policy:, usage_contexts:, verification:, workload:)
       {
         "crawl.manual" => {
           "state" => initial_access.entitlement.state,
@@ -305,11 +332,20 @@ module Crawling
           "provenance" => concurrency.provenance
         },
         "credit_estimate" => {
+          "catalog_version" => policy.estimate.catalog_version,
+          "catalog_checksum" => policy.estimate.catalog_checksum,
           "http_pages" => policy.estimate.http_pages,
           "rendered_pages" => policy.estimate.rendered_pages,
           "http_weight" => policy.estimate.http_weight.to_s("F"),
           "rendered_weight" => policy.estimate.rendered_weight.to_s("F"),
-          "maximum_credits" => policy.estimate.maximum_credits.to_s("F")
+          "maximum_credits" => policy.estimate.maximum_credits.to_s("F"),
+          "meters" => usage_contexts.transform_values do |context|
+            context.fetch(:snapshot).as_json.merge(
+              "window_id" => context.fetch(:window).id,
+              "meter_definition_id" => context.fetch(:window).usage_meter_definition_id,
+              "meter_rate_id" => context.fetch(:rate).id
+            )
+          end
         },
         "verification" => {
           "method" => verification.method,

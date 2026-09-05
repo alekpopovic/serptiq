@@ -392,6 +392,12 @@ against their linked usage events. Admission ignores already elapsed holds even 
 delayed scheduler cannot permanently deny work. Alert on `usage.quota_reconciliation_failed`; investigate the
 primary database and immutable ledger rather than rewriting counters or reservations.
 
+Terminal scan usage recovery runs every minute on `maintenance`. It selects at most 100 terminal scans whose
+quota reservation is still held, releases unfinished operation allocations as non-billable crash observations,
+then finalizes already-consumed ledger usage and unused hold capacity idempotently. Monitor repeated
+`quota_exhausted` scan throttle observations and the age/count of held `usage_quota_allocations`; never repair
+either by editing rows. Use the platform-authorized compensating-event path for a confirmed billing error.
+
 The scoped-role migration creates two new empty authorization tables, adds one small unique index to the
 role catalog, and adds validated foreign keys/checks. It does not rewrite organization, membership, team,
 role, or permission rows. On a catalog large enough for index construction to threaten the deployment

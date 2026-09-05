@@ -59,6 +59,75 @@ $$;
 
 
 --
+-- Name: enforce_crawl_scan_usage_operation_lifecycle(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.enforce_crawl_scan_usage_operation_lifecycle() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    IF resource_deletion_stage_authorized(
+      OLD.organization_id, OLD.project_id, OLD.property_id, 'scans_and_findings'
+    ) THEN
+      RETURN OLD;
+    END IF;
+    RAISE EXCEPTION 'scan usage operations require lifecycle deletion' USING ERRCODE = '23514';
+  END IF;
+  IF TG_OP = 'INSERT' THEN
+    IF NEW.operation_kind <> 'artifact' AND NOT EXISTS (
+      SELECT 1
+      FROM usage_quota_allocations allocation
+      JOIN usage_meter_definitions meter
+        ON meter.id = allocation.usage_meter_definition_id
+      JOIN usage_meter_rates rate ON rate.id = allocation.usage_meter_rate_id
+      WHERE allocation.id = NEW.usage_quota_allocation_id
+        AND allocation.organization_id = NEW.organization_id
+        AND allocation.source_type = 'Scan' AND allocation.source_id = NEW.scan_id
+        AND allocation.state = 'held' AND meter.key = NEW.meter_key
+        AND rate.version = NEW.meter_rate_version
+        AND allocation.applied_weight = NEW.applied_weight
+        AND allocation.billed_quantity = NEW.reserved_credits
+    ) THEN
+      RAISE EXCEPTION 'scan usage operation allocation is inconsistent' USING ERRCODE = '23514';
+    END IF;
+    RETURN NEW;
+  END IF;
+  IF OLD.organization_id IS DISTINCT FROM NEW.organization_id OR
+    OLD.project_id IS DISTINCT FROM NEW.project_id OR OLD.property_id IS DISTINCT FROM NEW.property_id OR
+    OLD.environment_id IS DISTINCT FROM NEW.environment_id OR OLD.scan_id IS DISTINCT FROM NEW.scan_id OR
+    OLD.usage_quota_allocation_id IS DISTINCT FROM NEW.usage_quota_allocation_id OR
+    OLD.operation_kind IS DISTINCT FROM NEW.operation_kind OR OLD.meter_key IS DISTINCT FROM NEW.meter_key OR
+    OLD.meter_rate_version IS DISTINCT FROM NEW.meter_rate_version OR
+    OLD.applied_weight IS DISTINCT FROM NEW.applied_weight OR
+    OLD.reserved_credits IS DISTINCT FROM NEW.reserved_credits OR
+    OLD.source_key_digest IS DISTINCT FROM NEW.source_key_digest OR
+    OLD.request_checksum IS DISTINCT FROM NEW.request_checksum OR
+    OLD.attempted_at IS DISTINCT FROM NEW.attempted_at OR OLD.created_at IS DISTINCT FROM NEW.created_at OR
+    OLD.state <> 'reserved' OR NEW.state NOT IN ('billed', 'not_billable') THEN
+    RAISE EXCEPTION 'scan usage operation transition is invalid' USING ERRCODE = '23514';
+  END IF;
+  IF NEW.state = 'billed' AND NOT EXISTS (
+    SELECT 1 FROM usage_quota_allocations allocation
+    WHERE allocation.id = NEW.usage_quota_allocation_id
+      AND allocation.organization_id = NEW.organization_id
+      AND allocation.state = 'consumed' AND allocation.usage_event_id = NEW.usage_event_id
+  ) THEN
+    RAISE EXCEPTION 'scan usage operation event is inconsistent' USING ERRCODE = '23514';
+  END IF;
+  IF NEW.state = 'not_billable' AND NEW.usage_quota_allocation_id IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM usage_quota_allocations allocation
+    WHERE allocation.id = NEW.usage_quota_allocation_id
+      AND allocation.organization_id = NEW.organization_id AND allocation.state = 'released'
+  ) THEN
+    RAISE EXCEPTION 'scan usage operation release is inconsistent' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: enforce_entitlement_definition_stability(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -266,6 +335,81 @@ $$;
 
 
 --
+-- Name: enforce_usage_quota_allocation_lifecycle(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.enforce_usage_quota_allocation_lifecycle() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+DECLARE
+  reservation usage_quota_reservations%ROWTYPE;
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'usage quota allocations cannot be deleted' USING ERRCODE = '23514';
+  END IF;
+
+  SELECT * INTO reservation FROM usage_quota_reservations
+    WHERE id = CASE WHEN TG_OP = 'INSERT' THEN NEW.usage_quota_reservation_id ELSE OLD.usage_quota_reservation_id END;
+  PERFORM lock_usage_quota_pool(reservation.usage_window_id);
+
+  IF TG_OP = 'INSERT' THEN
+    IF reservation.id IS NULL OR reservation.organization_id <> NEW.organization_id OR
+      reservation.source_type <> NEW.source_type OR reservation.source_id <> NEW.source_id OR
+      NOT EXISTS (
+        SELECT 1
+        FROM usage_windows target_window
+        JOIN usage_meter_definitions target_meter
+          ON target_meter.id = target_window.usage_meter_definition_id
+        JOIN usage_windows anchor_window ON anchor_window.id = reservation.usage_window_id
+        JOIN usage_meter_definitions anchor_meter
+          ON anchor_meter.id = anchor_window.usage_meter_definition_id
+        WHERE target_window.id = NEW.usage_window_id
+          AND target_window.organization_id = reservation.organization_id
+          AND target_window.starts_at = anchor_window.starts_at
+          AND target_window.ends_at = anchor_window.ends_at
+          AND target_meter.pool_key = anchor_meter.pool_key
+          AND target_meter.billing_unit = anchor_meter.billing_unit
+          AND target_meter.quota_entitlement_key IS NOT DISTINCT FROM anchor_meter.quota_entitlement_key
+          AND target_meter.window_policy = anchor_meter.window_policy
+      ) THEN
+      RAISE EXCEPTION 'usage quota allocation reservation context is invalid' USING ERRCODE = '23514';
+    END IF;
+    RETURN NEW;
+  END IF;
+
+  IF OLD.organization_id IS DISTINCT FROM NEW.organization_id OR
+    OLD.usage_quota_reservation_id IS DISTINCT FROM NEW.usage_quota_reservation_id OR
+    OLD.usage_window_id IS DISTINCT FROM NEW.usage_window_id OR
+    OLD.usage_meter_definition_id IS DISTINCT FROM NEW.usage_meter_definition_id OR
+    OLD.usage_meter_rate_id IS DISTINCT FROM NEW.usage_meter_rate_id OR
+    OLD.idempotency_key_digest IS DISTINCT FROM NEW.idempotency_key_digest OR
+    OLD.request_checksum IS DISTINCT FROM NEW.request_checksum OR
+    OLD.quantity IS DISTINCT FROM NEW.quantity OR OLD.applied_weight IS DISTINCT FROM NEW.applied_weight OR
+    OLD.billed_quantity IS DISTINCT FROM NEW.billed_quantity OR
+    OLD.source_type IS DISTINCT FROM NEW.source_type OR OLD.source_id IS DISTINCT FROM NEW.source_id OR
+    OLD.allocated_at IS DISTINCT FROM NEW.allocated_at OR OLD.created_at IS DISTINCT FROM NEW.created_at OR
+    OLD.state <> 'held' OR NEW.state NOT IN ('consumed', 'released') THEN
+    RAISE EXCEPTION 'usage quota allocation transition is invalid' USING ERRCODE = '23514';
+  END IF;
+
+  IF NEW.state = 'consumed' AND NOT EXISTS (
+    SELECT 1 FROM usage_events event
+    WHERE event.id = NEW.usage_event_id AND event.organization_id = NEW.organization_id
+      AND event.usage_window_id = NEW.usage_window_id
+      AND event.usage_meter_definition_id = NEW.usage_meter_definition_id
+      AND event.usage_meter_rate_id = NEW.usage_meter_rate_id
+      AND event.source_type = NEW.source_type AND event.source_id = NEW.source_id
+      AND event.quantity = NEW.quantity AND event.applied_weight = NEW.applied_weight
+      AND event.billed_quantity = NEW.billed_quantity
+  ) THEN
+    RAISE EXCEPTION 'usage quota allocation event is inconsistent' USING ERRCODE = '23514';
+  END IF;
+  RETURN NEW;
+END;
+$$;
+
+
+--
 -- Name: enforce_usage_quota_reservation_lifecycle(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -305,21 +449,11 @@ BEGIN
 
   IF OLD.state <> 'held' OR NEW.state NOT IN ('held', 'finalized', 'released', 'expired') OR
     NEW.requested_quantity < OLD.requested_quantity OR NEW.held_quantity < OLD.held_quantity OR
+    NEW.consumed_quantity < OLD.consumed_quantity OR
     NEW.expires_at < OLD.expires_at THEN
     RAISE EXCEPTION 'usage quota reservation transition is invalid' USING ERRCODE = '23514';
   END IF;
-  IF NEW.state = 'finalized' AND NEW.consumed_quantity > 0 AND NOT EXISTS (
-    SELECT 1 FROM usage_events event
-    WHERE event.id = NEW.finalized_usage_event_id
-      AND event.organization_id = NEW.organization_id
-      AND event.usage_window_id = NEW.usage_window_id
-      AND event.usage_meter_definition_id = NEW.usage_meter_definition_id
-      AND event.usage_meter_rate_id = NEW.usage_meter_rate_id
-      AND event.source_type = NEW.source_type AND event.source_id = NEW.source_id
-      AND event.billed_quantity = NEW.consumed_quantity
-  ) THEN
-    RAISE EXCEPTION 'usage quota finalization event is inconsistent' USING ERRCODE = '23514';
-  END IF;
+  IF NEW.state = 'finalized' AND NEW.finalized_usage_event_id IS NOT NULL AND NOT EXISTS ( SELECT 1 FROM usage_events event WHERE event.id = NEW.finalized_usage_event_id AND event.organization_id = NEW.organization_id AND event.source_type = NEW.source_type AND event.source_id = NEW.source_id AND event.billed_quantity <= NEW.consumed_quantity ) THEN RAISE EXCEPTION 'usage quota finalization event is inconsistent' USING ERRCODE = '23514'; END IF;
   RETURN NEW;
 END;
 $$;
@@ -1060,9 +1194,9 @@ CREATE TABLE public.artifact_blobs (
     lock_version integer DEFAULT 0 NOT NULL,
     created_at timestamp(6) with time zone NOT NULL,
     updated_at timestamp(6) with time zone NOT NULL,
-    CONSTRAINT artifact_blobs_lifecycle CHECK ((((state)::text = ANY ((ARRAY['uploading'::character varying, 'active'::character varying, 'missing'::character varying, 'deleting'::character varying, 'deleted'::character varying])::text[])) AND (((state)::text <> 'uploading'::text) OR ((stored_at IS NULL) AND (missing_at IS NULL) AND (deleted_at IS NULL))) AND (((state)::text <> 'active'::text) OR ((stored_at IS NOT NULL) AND (missing_at IS NULL) AND (deleted_at IS NULL))) AND (((state)::text <> 'missing'::text) OR ((stored_at IS NOT NULL) AND (missing_at IS NOT NULL) AND (deleted_at IS NULL))) AND (((state)::text <> 'deleted'::text) OR (deleted_at IS NOT NULL)))),
-    CONSTRAINT artifact_blobs_metadata_shape CHECK ((((storage_service)::text ~ '^[a-z][a-z0-9_]{0,23}$'::text) AND (byte_count >= 0) AND ((content_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND ((encryption_mode)::text = ANY ((ARRAY['provider_managed'::character varying, 'sse_s3'::character varying, 'local_private'::character varying])::text[])) AND ((encryption_key_version)::text ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$'::text))),
-    CONSTRAINT artifact_blobs_opaque_scoped_key CHECK ((((octet_length((object_key)::text) >= 32) AND (octet_length((object_key)::text) <= 512)) AND ((object_key)::text !~ '[[:cntrl:]]'::text) AND ((object_key)::text ~~ (((((('organizations/'::text || (organization_id)::text) || '/projects/'::text) || (project_id)::text) || '/properties/'::text) || (property_id)::text) || '/objects/%'::text))))
+    CONSTRAINT artifact_blobs_lifecycle CHECK ((((state)::text = ANY (ARRAY[('uploading'::character varying)::text, ('active'::character varying)::text, ('missing'::character varying)::text, ('deleting'::character varying)::text, ('deleted'::character varying)::text])) AND (((state)::text <> 'uploading'::text) OR ((stored_at IS NULL) AND (missing_at IS NULL) AND (deleted_at IS NULL))) AND (((state)::text <> 'active'::text) OR ((stored_at IS NOT NULL) AND (missing_at IS NULL) AND (deleted_at IS NULL))) AND (((state)::text <> 'missing'::text) OR ((stored_at IS NOT NULL) AND (missing_at IS NOT NULL) AND (deleted_at IS NULL))) AND (((state)::text <> 'deleted'::text) OR (deleted_at IS NOT NULL)))),
+    CONSTRAINT artifact_blobs_metadata_shape CHECK ((((storage_service)::text ~ '^[a-z][a-z0-9_]{0,23}$'::text) AND (byte_count >= 0) AND ((content_sha256)::text ~ '^[0-9a-f]{64}$'::text) AND ((encryption_mode)::text = ANY (ARRAY[('provider_managed'::character varying)::text, ('sse_s3'::character varying)::text, ('local_private'::character varying)::text])) AND ((encryption_key_version)::text ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,63}$'::text))),
+    CONSTRAINT artifact_blobs_opaque_scoped_key CHECK (((octet_length((object_key)::text) >= 32) AND (octet_length((object_key)::text) <= 512) AND ((object_key)::text !~ '[[:cntrl:]]'::text) AND ((object_key)::text ~~ (((((('organizations/'::text || (organization_id)::text) || '/projects/'::text) || (project_id)::text) || '/properties/'::text) || (property_id)::text) || '/objects/%'::text))))
 );
 
 
@@ -1094,7 +1228,7 @@ CREATE TABLE public.artifacts (
     created_at timestamp(6) with time zone NOT NULL,
     updated_at timestamp(6) with time zone NOT NULL,
     CONSTRAINT artifacts_metadata_shape CHECK ((((source_type)::text ~ '^[a-z][a-z0-9_]{0,47}$'::text) AND ((octet_length((source_id)::text) >= 1) AND (octet_length((source_id)::text) <= 128)) AND ((source_id)::text !~ '[[:cntrl:]]'::text) AND ((kind)::text ~ '^[a-z][a-z0-9_]{0,47}$'::text) AND ((media_type)::text ~ '^[a-z0-9!#$&^_.+-]+/[a-z0-9!#$&^_.+-]+$'::text) AND ((octet_length((download_filename)::text) >= 1) AND (octet_length((download_filename)::text) <= 160)) AND ((download_filename)::text !~ '[[:cntrl:]/\\]'::text) AND ((retention_class)::text ~ '^[a-z][a-z0-9_]{0,47}$'::text))),
-    CONSTRAINT artifacts_retention_lifecycle CHECK ((((retention_state)::text = ANY ((ARRAY['retained'::character varying, 'deletion_pending'::character varying, 'missing'::character varying, 'deleted'::character varying])::text[])) AND ((legal_hold AND (legal_hold_set_at IS NOT NULL)) OR ((NOT legal_hold) AND (legal_hold_set_at IS NULL))) AND (((retention_state)::text = 'retained'::text) OR (deletion_requested_at IS NOT NULL)) AND (((retention_state)::text <> 'deleted'::text) OR (deleted_at IS NOT NULL))))
+    CONSTRAINT artifacts_retention_lifecycle CHECK ((((retention_state)::text = ANY (ARRAY[('retained'::character varying)::text, ('deletion_pending'::character varying)::text, ('missing'::character varying)::text, ('deleted'::character varying)::text])) AND ((legal_hold AND (legal_hold_set_at IS NOT NULL)) OR ((NOT legal_hold) AND (legal_hold_set_at IS NULL))) AND (((retention_state)::text = 'retained'::text) OR (deletion_requested_at IS NOT NULL)) AND (((retention_state)::text <> 'deleted'::text) OR (deleted_at IS NOT NULL))))
 );
 
 
@@ -1494,7 +1628,7 @@ CREATE TABLE public.crawl_fetch_permits (
     created_at timestamp(6) with time zone NOT NULL,
     updated_at timestamp(6) with time zone NOT NULL,
     CONSTRAINT crawl_fetch_permits_identity_shape CHECK ((((host_key_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((worker_id)::text ~ '^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$'::text) AND ((permit_token_digest)::text ~ '^[0-9a-f]{64}$'::text))),
-    CONSTRAINT crawl_fetch_permits_lifecycle_shape CHECK ((((state)::text = ANY ((ARRAY['active'::character varying, 'released'::character varying, 'expired'::character varying])::text[])) AND (expires_at > acquired_at) AND ((((state)::text = 'active'::text) AND (released_at IS NULL) AND (release_outcome IS NULL) AND (failure_category IS NULL) AND (http_status_code IS NULL)) OR (((state)::text = ANY ((ARRAY['released'::character varying, 'expired'::character varying])::text[])) AND (released_at IS NOT NULL) AND (released_at >= acquired_at) AND ((release_outcome)::text = ANY ((ARRAY['succeeded'::character varying, 'http_error'::character varying, 'failed'::character varying, 'canceled'::character varying, 'expired'::character varying])::text[])) AND ((((state)::text = 'released'::text) AND ((release_outcome)::text <> 'expired'::text)) OR (((state)::text = 'expired'::text) AND ((release_outcome)::text = 'expired'::text))))))),
+    CONSTRAINT crawl_fetch_permits_lifecycle_shape CHECK ((((state)::text = ANY (ARRAY[('active'::character varying)::text, ('released'::character varying)::text, ('expired'::character varying)::text])) AND (expires_at > acquired_at) AND ((((state)::text = 'active'::text) AND (released_at IS NULL) AND (release_outcome IS NULL) AND (failure_category IS NULL) AND (http_status_code IS NULL)) OR (((state)::text = ANY (ARRAY[('released'::character varying)::text, ('expired'::character varying)::text])) AND (released_at IS NOT NULL) AND (released_at >= acquired_at) AND ((release_outcome)::text = ANY (ARRAY[('succeeded'::character varying)::text, ('http_error'::character varying)::text, ('failed'::character varying)::text, ('canceled'::character varying)::text, ('expired'::character varying)::text])) AND ((((state)::text = 'released'::text) AND ((release_outcome)::text <> 'expired'::text)) OR (((state)::text = 'expired'::text) AND ((release_outcome)::text = 'expired'::text))))))),
     CONSTRAINT crawl_fetch_permits_result_shape CHECK ((((failure_category IS NULL) OR ((failure_category)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text)) AND ((http_status_code IS NULL) OR ((http_status_code >= 100) AND (http_status_code <= 599))) AND (((state)::text <> 'expired'::text) OR (((release_outcome)::text = 'expired'::text) AND ((failure_category)::text = 'permit_expired'::text) AND (http_status_code IS NULL)))))
 );
 
@@ -1603,9 +1737,9 @@ CREATE TABLE public.crawl_pressure_states (
     disabled_reason character varying(64),
     created_at timestamp(6) with time zone NOT NULL,
     updated_at timestamp(6) with time zone NOT NULL,
-    CONSTRAINT crawl_pressure_states_backoff_shape CHECK ((((failure_streak >= 0) AND (failure_streak <= 20)) AND ((backoff_until IS NULL) OR ((scope_type)::text = 'host'::text)))),
-    CONSTRAINT crawl_pressure_states_emergency_control_shape CHECK ((((disabled_at IS NULL) AND (disabled_by_user_id IS NULL) AND (disabled_reason IS NULL)) OR (((scope_type)::text = ANY ((ARRAY['global'::character varying, 'host'::character varying])::text[])) AND (disabled_at IS NOT NULL) AND (disabled_by_user_id IS NOT NULL) AND ((disabled_reason)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text)))),
-    CONSTRAINT crawl_pressure_states_identity_shape CHECK ((((scope_type)::text = ANY ((ARRAY['global'::character varying, 'organization'::character varying, 'scan'::character varying, 'host'::character varying])::text[])) AND ((scope_key_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((host_key_digest IS NULL) OR ((host_key_digest)::text ~ '^[0-9a-f]{64}$'::text)))),
+    CONSTRAINT crawl_pressure_states_backoff_shape CHECK (((failure_streak >= 0) AND (failure_streak <= 20) AND ((backoff_until IS NULL) OR ((scope_type)::text = 'host'::text)))),
+    CONSTRAINT crawl_pressure_states_emergency_control_shape CHECK ((((disabled_at IS NULL) AND (disabled_by_user_id IS NULL) AND (disabled_reason IS NULL)) OR (((scope_type)::text = ANY (ARRAY[('global'::character varying)::text, ('host'::character varying)::text])) AND (disabled_at IS NOT NULL) AND (disabled_by_user_id IS NOT NULL) AND ((disabled_reason)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text)))),
+    CONSTRAINT crawl_pressure_states_identity_shape CHECK ((((scope_type)::text = ANY (ARRAY[('global'::character varying)::text, ('organization'::character varying)::text, ('scan'::character varying)::text, ('host'::character varying)::text])) AND ((scope_key_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((host_key_digest IS NULL) OR ((host_key_digest)::text ~ '^[0-9a-f]{64}$'::text)))),
     CONSTRAINT crawl_pressure_states_scope_shape CHECK (((((scope_type)::text = 'global'::text) AND (organization_id IS NULL) AND (project_id IS NULL) AND (property_id IS NULL) AND (environment_id IS NULL) AND (scan_id IS NULL) AND (host_key_digest IS NULL)) OR (((scope_type)::text = 'organization'::text) AND (organization_id IS NOT NULL) AND (project_id IS NULL) AND (property_id IS NULL) AND (environment_id IS NULL) AND (scan_id IS NULL) AND (host_key_digest IS NULL)) OR (((scope_type)::text = 'scan'::text) AND (organization_id IS NOT NULL) AND (project_id IS NOT NULL) AND (property_id IS NOT NULL) AND (environment_id IS NOT NULL) AND (scan_id IS NOT NULL) AND (host_key_digest IS NULL)) OR (((scope_type)::text = 'host'::text) AND (organization_id IS NULL) AND (project_id IS NULL) AND (property_id IS NULL) AND (environment_id IS NULL) AND (scan_id IS NULL) AND (host_key_digest IS NOT NULL))))
 );
 
@@ -1642,6 +1776,62 @@ CREATE TABLE public.crawl_robots_snapshots (
     CONSTRAINT crawl_robots_snapshots_payload_shape CHECK (((jsonb_typeof(groups) = 'array'::text) AND (pg_column_size(groups) <= 1048576) AND (jsonb_typeof(warnings) = 'array'::text) AND (pg_column_size(warnings) <= 1048576) AND (cardinality(sitemap_urls) <= 100) AND (array_position(sitemap_urls, NULL::text) IS NULL) AND (octet_length(array_to_string(sitemap_urls, ''::text)) <= 204800))),
     CONSTRAINT crawl_robots_snapshots_result_shape CHECK ((((retrieval_status)::text = ANY (ARRAY[('fetched'::character varying)::text, ('unavailable'::character varying)::text, ('unreachable'::character varying)::text, ('oversized'::character varying)::text, ('malformed'::character varying)::text])) AND (parser_version > 0) AND ((redirect_count >= 0) AND (redirect_count <= 5)) AND ((http_status IS NULL) OR ((http_status >= 100) AND (http_status <= 599))) AND ((error_code IS NULL) OR ((error_code)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text))))
 );
+
+
+--
+-- Name: crawl_scan_usage_operations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.crawl_scan_usage_operations (
+    id bigint NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_id uuid NOT NULL,
+    environment_id uuid NOT NULL,
+    scan_id uuid NOT NULL,
+    usage_quota_allocation_id uuid,
+    usage_event_id bigint,
+    operation_kind character varying(32) NOT NULL,
+    meter_key character varying(96),
+    meter_rate_version integer,
+    applied_weight numeric(18,6),
+    reserved_credits numeric(30,6) DEFAULT 0.0 NOT NULL,
+    source_key_digest character varying(64) NOT NULL,
+    request_checksum character varying(64) NOT NULL,
+    completion_checksum character varying(64),
+    state character varying(24) NOT NULL,
+    outcome character varying(24),
+    metadata jsonb DEFAULT '{}'::jsonb NOT NULL,
+    attempted_at timestamp(6) with time zone NOT NULL,
+    finished_at timestamp(6) with time zone,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT crawl_scan_usage_operations_digest_shape CHECK ((((source_key_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((request_checksum)::text ~ '^[0-9a-f]{64}$'::text) AND ((completion_checksum IS NULL) OR ((completion_checksum)::text ~ '^[0-9a-f]{64}$'::text)))),
+    CONSTRAINT crawl_scan_usage_operations_kind_allowlist CHECK (((operation_kind)::text = ANY ((ARRAY['http_fetch'::character varying, 'rendered_page'::character varying, 'lighthouse_page'::character varying, 'artifact'::character varying])::text[]))),
+    CONSTRAINT crawl_scan_usage_operations_lifecycle_shape CHECK (((((state)::text = 'reserved'::text) AND (outcome IS NULL) AND (completion_checksum IS NULL) AND (usage_event_id IS NULL) AND (finished_at IS NULL)) OR (((state)::text = 'billed'::text) AND ((operation_kind)::text <> 'artifact'::text) AND ((outcome)::text = 'accepted'::text) AND (completion_checksum IS NOT NULL) AND (usage_event_id IS NOT NULL) AND (finished_at IS NOT NULL)) OR (((state)::text = 'not_billable'::text) AND (completion_checksum IS NOT NULL) AND (usage_event_id IS NULL) AND (outcome IS NOT NULL) AND (finished_at IS NOT NULL) AND (((operation_kind)::text = 'artifact'::text) OR ((outcome)::text <> 'accepted'::text))))),
+    CONSTRAINT crawl_scan_usage_operations_metadata_shape CHECK (((jsonb_typeof(metadata) = 'object'::text) AND (pg_column_size(metadata) <= 4096))),
+    CONSTRAINT crawl_scan_usage_operations_meter_shape CHECK (((((operation_kind)::text = 'artifact'::text) AND (meter_key IS NULL) AND (meter_rate_version IS NULL) AND (applied_weight IS NULL) AND (reserved_credits = (0)::numeric) AND (usage_quota_allocation_id IS NULL)) OR (((operation_kind)::text <> 'artifact'::text) AND (meter_key IS NOT NULL) AND (meter_rate_version > 0) AND (applied_weight > (0)::numeric) AND (reserved_credits = applied_weight) AND (usage_quota_allocation_id IS NOT NULL)))),
+    CONSTRAINT crawl_scan_usage_operations_state_allowlist CHECK ((((state)::text = ANY ((ARRAY['reserved'::character varying, 'billed'::character varying, 'not_billable'::character varying])::text[])) AND ((outcome IS NULL) OR ((outcome)::text = ANY ((ARRAY['accepted'::character varying, 'failed'::character varying, 'canceled'::character varying, 'rejected'::character varying, 'abandoned'::character varying])::text[])))))
+);
+
+
+--
+-- Name: crawl_scan_usage_operations_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.crawl_scan_usage_operations_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: crawl_scan_usage_operations_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.crawl_scan_usage_operations_id_seq OWNED BY public.crawl_scan_usage_operations.id;
 
 
 --
@@ -3058,6 +3248,41 @@ CREATE TABLE public.usage_meter_rates (
 
 
 --
+-- Name: usage_quota_allocations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.usage_quota_allocations (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    usage_quota_reservation_id uuid NOT NULL,
+    usage_window_id uuid NOT NULL,
+    usage_meter_definition_id uuid NOT NULL,
+    usage_meter_rate_id uuid NOT NULL,
+    idempotency_key_digest character varying(64) NOT NULL,
+    request_checksum character varying(64) NOT NULL,
+    completion_key_digest character varying(64),
+    completion_checksum character varying(64),
+    state character varying(16) NOT NULL,
+    quantity numeric(24,6) NOT NULL,
+    applied_weight numeric(18,6) NOT NULL,
+    billed_quantity numeric(30,6) NOT NULL,
+    source_type character varying(48) NOT NULL,
+    source_id uuid NOT NULL,
+    usage_event_id bigint,
+    allocated_at timestamp(6) with time zone NOT NULL,
+    completed_at timestamp(6) with time zone,
+    lock_version integer DEFAULT 0 NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT usage_quota_allocations_digest_shape CHECK ((((idempotency_key_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((request_checksum)::text ~ '^[0-9a-f]{64}$'::text) AND ((completion_key_digest IS NULL) OR ((completion_key_digest)::text ~ '^[0-9a-f]{64}$'::text)) AND ((completion_checksum IS NULL) OR ((completion_checksum)::text ~ '^[0-9a-f]{64}$'::text)))),
+    CONSTRAINT usage_quota_allocations_lifecycle_shape CHECK (((((state)::text = 'held'::text) AND (completion_key_digest IS NULL) AND (completion_checksum IS NULL) AND (usage_event_id IS NULL) AND (completed_at IS NULL)) OR (((state)::text = 'consumed'::text) AND (completion_key_digest IS NOT NULL) AND (completion_checksum IS NOT NULL) AND (usage_event_id IS NOT NULL) AND (completed_at IS NOT NULL)) OR (((state)::text = 'released'::text) AND (completion_key_digest IS NOT NULL) AND (completion_checksum IS NOT NULL) AND (usage_event_id IS NULL) AND (completed_at IS NOT NULL)))),
+    CONSTRAINT usage_quota_allocations_source_type_format CHECK (((source_type)::text ~ '^[A-Z][A-Za-z0-9]{0,47}$'::text)),
+    CONSTRAINT usage_quota_allocations_state_allowlist CHECK (((state)::text = ANY ((ARRAY['held'::character varying, 'consumed'::character varying, 'released'::character varying])::text[]))),
+    CONSTRAINT usage_quota_allocations_weighted_quantity CHECK (((quantity > (0)::numeric) AND (applied_weight > (0)::numeric) AND (billed_quantity = (quantity * applied_weight))))
+);
+
+
+--
 -- Name: usage_quota_reservation_operations; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -3071,8 +3296,10 @@ CREATE TABLE public.usage_quota_reservation_operations (
     quantity numeric(30,6) DEFAULT 0.0 NOT NULL,
     requested_expires_at timestamp(6) with time zone,
     created_at timestamp(6) with time zone NOT NULL,
+    usage_event_id bigint,
     CONSTRAINT usage_quota_operations_digest_format CHECK ((((idempotency_key_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((request_checksum)::text ~ '^[0-9a-f]{64}$'::text))),
-    CONSTRAINT usage_quota_operations_kind_allowlist CHECK (((operation_kind)::text = ANY (ARRAY[('extend'::character varying)::text, ('finalize'::character varying)::text, ('release'::character varying)::text, ('expire'::character varying)::text]))),
+    CONSTRAINT usage_quota_operations_event_shape CHECK ((((operation_kind)::text = 'finalize'::text) OR (usage_event_id IS NULL))),
+    CONSTRAINT usage_quota_operations_kind_allowlist CHECK (((operation_kind)::text = ANY ((ARRAY['extend'::character varying, 'finalize'::character varying, 'release'::character varying, 'expire'::character varying])::text[]))),
     CONSTRAINT usage_quota_operations_quantity_nonnegative CHECK ((quantity >= (0)::numeric))
 );
 
@@ -3138,9 +3365,9 @@ CREATE TABLE public.usage_quota_reservations (
     CONSTRAINT usage_quota_reservations_digest_format CHECK ((((idempotency_key_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((request_checksum)::text ~ '^[0-9a-f]{64}$'::text))),
     CONSTRAINT usage_quota_reservations_entitlement_provenance_format CHECK (((entitlement_provenance)::text ~ '^[a-z][a-z0-9_]{1,31}$'::text)),
     CONSTRAINT usage_quota_reservations_expiry_order CHECK ((expires_at > admitted_at)),
-    CONSTRAINT usage_quota_reservations_lifecycle_shape CHECK (((((state)::text = 'held'::text) AND (consumed_quantity = (0)::numeric) AND (released_quantity = (0)::numeric) AND (finalized_usage_event_id IS NULL) AND (finalized_at IS NULL) AND (released_at IS NULL) AND (expired_at IS NULL)) OR (((state)::text = 'finalized'::text) AND ((consumed_quantity + released_quantity) = held_quantity) AND (((consumed_quantity = (0)::numeric) AND (finalized_usage_event_id IS NULL)) OR ((consumed_quantity > (0)::numeric) AND (finalized_usage_event_id IS NOT NULL))) AND (finalized_at IS NOT NULL) AND (released_at IS NULL) AND (expired_at IS NULL)) OR (((state)::text = 'released'::text) AND (consumed_quantity = (0)::numeric) AND (released_quantity = held_quantity) AND (finalized_usage_event_id IS NULL) AND (finalized_at IS NULL) AND (released_at IS NOT NULL) AND (expired_at IS NULL)) OR (((state)::text = 'expired'::text) AND (consumed_quantity = (0)::numeric) AND (released_quantity = held_quantity) AND (finalized_usage_event_id IS NULL) AND (finalized_at IS NULL) AND (released_at IS NULL) AND (expired_at IS NOT NULL)))),
+    CONSTRAINT usage_quota_reservations_lifecycle_shape CHECK (((((state)::text = 'held'::text) AND (released_quantity = (0)::numeric) AND (finalized_usage_event_id IS NULL) AND (finalized_at IS NULL) AND (released_at IS NULL) AND (expired_at IS NULL)) OR (((state)::text = 'finalized'::text) AND ((consumed_quantity + released_quantity) = held_quantity) AND (finalized_at IS NOT NULL) AND (released_at IS NULL) AND (expired_at IS NULL)) OR (((state)::text = 'released'::text) AND (consumed_quantity = (0)::numeric) AND (released_quantity = held_quantity) AND (finalized_usage_event_id IS NULL) AND (finalized_at IS NULL) AND (released_at IS NOT NULL) AND (expired_at IS NULL)) OR (((state)::text = 'expired'::text) AND ((consumed_quantity + released_quantity) = held_quantity) AND (finalized_usage_event_id IS NULL) AND (finalized_at IS NULL) AND (released_at IS NULL) AND (expired_at IS NOT NULL)))),
     CONSTRAINT usage_quota_reservations_limit_snapshot_shape CHECK (((((limit_kind)::text = 'unlimited'::text) AND (limit_quantity IS NULL) AND (entitlement_key IS NULL) AND ((entitlement_state)::text = 'unlimited'::text) AND (entitlement_definition_checksum IS NULL)) OR (((limit_kind)::text = 'capped'::text) AND (limit_quantity >= (0)::numeric) AND ((entitlement_key)::text ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$'::text) AND ((entitlement_state)::text = ANY (ARRAY[('enabled'::character varying)::text, ('disabled'::character varying)::text])) AND ((entitlement_definition_checksum)::text ~ '^[0-9a-f]{64}$'::text)))),
-    CONSTRAINT usage_quota_reservations_quantities_nonnegative CHECK (((requested_quantity > (0)::numeric) AND (held_quantity > (0)::numeric) AND (requested_quantity = held_quantity) AND (consumed_quantity >= (0)::numeric) AND (released_quantity >= (0)::numeric))),
+    CONSTRAINT usage_quota_reservations_quantities_nonnegative CHECK (((requested_quantity > (0)::numeric) AND (held_quantity > (0)::numeric) AND (requested_quantity = held_quantity) AND (consumed_quantity >= (0)::numeric) AND (consumed_quantity <= held_quantity) AND (released_quantity >= (0)::numeric) AND (released_quantity <= held_quantity))),
     CONSTRAINT usage_quota_reservations_source_tenant_match CHECK ((organization_id = source_organization_id)),
     CONSTRAINT usage_quota_reservations_source_type_format CHECK (((source_type)::text ~ '^[A-Z][A-Za-z0-9]{0,47}$'::text)),
     CONSTRAINT usage_quota_reservations_state_allowlist CHECK (((state)::text = ANY (ARRAY[('held'::character varying)::text, ('finalized'::character varying)::text, ('released'::character varying)::text, ('expired'::character varying)::text]))),
@@ -3227,6 +3454,13 @@ END)))),
 --
 
 ALTER TABLE ONLY public.authentication_rate_limit_buckets ALTER COLUMN id SET DEFAULT nextval('public.authentication_rate_limit_buckets_id_seq'::regclass);
+
+
+--
+-- Name: crawl_scan_usage_operations id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_scan_usage_operations ALTER COLUMN id SET DEFAULT nextval('public.crawl_scan_usage_operations_id_seq'::regclass);
 
 
 --
@@ -3446,6 +3680,14 @@ ALTER TABLE ONLY public.crawl_pressure_states
 
 ALTER TABLE ONLY public.crawl_robots_snapshots
     ADD CONSTRAINT crawl_robots_snapshots_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: crawl_scan_usage_operations crawl_scan_usage_operations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_scan_usage_operations
+    ADD CONSTRAINT crawl_scan_usage_operations_pkey PRIMARY KEY (id);
 
 
 --
@@ -3806,6 +4048,14 @@ ALTER TABLE ONLY public.usage_meter_definitions
 
 ALTER TABLE ONLY public.usage_meter_rates
     ADD CONSTRAINT usage_meter_rates_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: usage_quota_allocations usage_quota_allocations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_quota_allocations
+    ADD CONSTRAINT usage_quota_allocations_pkey PRIMARY KEY (id);
 
 
 --
@@ -4294,6 +4544,41 @@ CREATE UNIQUE INDEX index_crawl_robots_snapshots_on_scan_origin ON public.crawl_
 --
 
 CREATE INDEX index_crawl_robots_snapshots_on_tenant_scan ON public.crawl_robots_snapshots USING btree (organization_id, project_id, property_id, scan_id);
+
+
+--
+-- Name: index_crawl_scan_usage_operations_on_allocation; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_scan_usage_operations_on_allocation ON public.crawl_scan_usage_operations USING btree (usage_quota_allocation_id) WHERE (usage_quota_allocation_id IS NOT NULL);
+
+
+--
+-- Name: index_crawl_scan_usage_operations_on_breakdown; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_scan_usage_operations_on_breakdown ON public.crawl_scan_usage_operations USING btree (organization_id, scan_id, operation_kind, state, attempted_at, id);
+
+
+--
+-- Name: index_crawl_scan_usage_operations_on_event; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_scan_usage_operations_on_event ON public.crawl_scan_usage_operations USING btree (usage_event_id) WHERE (usage_event_id IS NOT NULL);
+
+
+--
+-- Name: index_crawl_scan_usage_operations_on_recovery; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_crawl_scan_usage_operations_on_recovery ON public.crawl_scan_usage_operations USING btree (state, attempted_at, id) WHERE ((state)::text = 'reserved'::text);
+
+
+--
+-- Name: index_crawl_scan_usage_operations_on_source; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_scan_usage_operations_on_source ON public.crawl_scan_usage_operations USING btree (organization_id, scan_id, source_key_digest);
 
 
 --
@@ -5354,6 +5639,13 @@ CREATE UNIQUE INDEX index_usage_events_on_tenant_idempotency ON public.usage_eve
 
 
 --
+-- Name: index_usage_events_on_tenant_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_usage_events_on_tenant_identity ON public.usage_events USING btree (organization_id, id);
+
+
+--
 -- Name: index_usage_events_on_tenant_source; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5400,6 +5692,41 @@ CREATE UNIQUE INDEX index_usage_meter_rates_on_definition_and_id ON public.usage
 --
 
 CREATE UNIQUE INDEX index_usage_meter_rates_on_definition_and_version ON public.usage_meter_rates USING btree (usage_meter_definition_id, version);
+
+
+--
+-- Name: index_usage_quota_allocations_on_event; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_usage_quota_allocations_on_event ON public.usage_quota_allocations USING btree (usage_event_id) WHERE (usage_event_id IS NOT NULL);
+
+
+--
+-- Name: index_usage_quota_allocations_on_reservation; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_usage_quota_allocations_on_reservation ON public.usage_quota_allocations USING btree (organization_id, usage_quota_reservation_id, state, allocated_at, id);
+
+
+--
+-- Name: index_usage_quota_allocations_on_tenant_idempotency; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_usage_quota_allocations_on_tenant_idempotency ON public.usage_quota_allocations USING btree (organization_id, idempotency_key_digest);
+
+
+--
+-- Name: index_usage_quota_allocations_on_tenant_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_usage_quota_allocations_on_tenant_identity ON public.usage_quota_allocations USING btree (organization_id, id);
+
+
+--
+-- Name: index_usage_quota_operations_on_event; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_usage_quota_operations_on_event ON public.usage_quota_reservation_operations USING btree (usage_event_id) WHERE (usage_event_id IS NOT NULL);
 
 
 --
@@ -5568,6 +5895,13 @@ CREATE TRIGGER crawl_policy_versions_immutable BEFORE DELETE OR UPDATE ON public
 --
 
 CREATE TRIGGER crawl_robots_snapshots_immutable BEFORE DELETE OR UPDATE ON public.crawl_robots_snapshots FOR EACH ROW EXECUTE FUNCTION public.protect_crawl_robots_snapshot();
+
+
+--
+-- Name: crawl_scan_usage_operations crawl_scan_usage_operations_lifecycle; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER crawl_scan_usage_operations_lifecycle BEFORE INSERT OR DELETE OR UPDATE ON public.crawl_scan_usage_operations FOR EACH ROW EXECUTE FUNCTION public.enforce_crawl_scan_usage_operation_lifecycle();
 
 
 --
@@ -5757,6 +6091,13 @@ CREATE TRIGGER usage_meter_definitions_immutable BEFORE DELETE OR UPDATE ON publ
 --
 
 CREATE TRIGGER usage_meter_rates_immutable BEFORE DELETE OR UPDATE ON public.usage_meter_rates FOR EACH ROW EXECUTE FUNCTION public.enforce_usage_catalog_immutability();
+
+
+--
+-- Name: usage_quota_allocations usage_quota_allocations_lifecycle; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER usage_quota_allocations_lifecycle BEFORE INSERT OR DELETE OR UPDATE ON public.usage_quota_allocations FOR EACH ROW EXECUTE FUNCTION public.enforce_usage_quota_allocation_lifecycle();
 
 
 --
@@ -5970,6 +6311,30 @@ ALTER TABLE ONLY public.crawl_pressure_states
 
 ALTER TABLE ONLY public.crawl_robots_snapshots
     ADD CONSTRAINT fk_crawl_robots_snapshots_exact_scan FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id) REFERENCES public.scans(organization_id, project_id, property_id, environment_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_scan_usage_operations fk_crawl_scan_usage_operations_exact_scan; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_scan_usage_operations
+    ADD CONSTRAINT fk_crawl_scan_usage_operations_exact_scan FOREIGN KEY (organization_id, project_id, property_id, environment_id, scan_id) REFERENCES public.scans(organization_id, project_id, property_id, environment_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_scan_usage_operations fk_crawl_scan_usage_operations_tenant_allocation; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_scan_usage_operations
+    ADD CONSTRAINT fk_crawl_scan_usage_operations_tenant_allocation FOREIGN KEY (organization_id, usage_quota_allocation_id) REFERENCES public.usage_quota_allocations(organization_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_scan_usage_operations fk_crawl_scan_usage_operations_tenant_event; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_scan_usage_operations
+    ADD CONSTRAINT fk_crawl_scan_usage_operations_tenant_event FOREIGN KEY (organization_id, usage_event_id) REFERENCES public.usage_events(organization_id, id) ON DELETE RESTRICT;
 
 
 --
@@ -6541,6 +6906,14 @@ ALTER TABLE ONLY public.plan_versions
 
 
 --
+-- Name: usage_quota_allocations fk_rails_b15c403238; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_quota_allocations
+    ADD CONSTRAINT fk_rails_b15c403238 FOREIGN KEY (organization_id) REFERENCES public.organizations(id) ON DELETE RESTRICT;
+
+
+--
 -- Name: plan_entitlements fk_rails_b2e4cbe7bf; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6877,6 +7250,46 @@ ALTER TABLE ONLY public.usage_events
 
 
 --
+-- Name: usage_quota_allocations fk_usage_quota_allocations_meter_rate; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_quota_allocations
+    ADD CONSTRAINT fk_usage_quota_allocations_meter_rate FOREIGN KEY (usage_meter_definition_id, usage_meter_rate_id) REFERENCES public.usage_meter_rates(usage_meter_definition_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: usage_quota_allocations fk_usage_quota_allocations_tenant_event; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_quota_allocations
+    ADD CONSTRAINT fk_usage_quota_allocations_tenant_event FOREIGN KEY (organization_id, usage_event_id) REFERENCES public.usage_events(organization_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: usage_quota_allocations fk_usage_quota_allocations_tenant_reservation; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_quota_allocations
+    ADD CONSTRAINT fk_usage_quota_allocations_tenant_reservation FOREIGN KEY (organization_id, usage_quota_reservation_id) REFERENCES public.usage_quota_reservations(organization_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: usage_quota_allocations fk_usage_quota_allocations_tenant_window; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_quota_allocations
+    ADD CONSTRAINT fk_usage_quota_allocations_tenant_window FOREIGN KEY (organization_id, usage_window_id, usage_meter_definition_id) REFERENCES public.usage_windows(organization_id, id, usage_meter_definition_id) ON DELETE RESTRICT;
+
+
+--
+-- Name: usage_quota_reservation_operations fk_usage_quota_operations_tenant_event; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.usage_quota_reservation_operations
+    ADD CONSTRAINT fk_usage_quota_operations_tenant_event FOREIGN KEY (organization_id, usage_event_id) REFERENCES public.usage_events(organization_id, id) ON DELETE RESTRICT;
+
+
+--
 -- Name: usage_quota_reservation_operations fk_usage_quota_operations_tenant_reservation; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -6971,6 +7384,7 @@ ALTER TABLE ONLY public.website_property_configs
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904155000'),
 ('20260904154000'),
 ('20260904153000'),
 ('20260904152000'),

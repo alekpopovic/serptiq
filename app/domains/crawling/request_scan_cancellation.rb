@@ -2,9 +2,10 @@
 
 module Crawling
   class RequestScanCancellation
-    def initialize(clock: -> { Time.current }, access: ScanAccess.new)
+    def initialize(clock: -> { Time.current }, access: ScanAccess.new, usage_finalizer: nil)
       @clock = clock
       @access = access
+      @usage_finalizer = usage_finalizer || FinalizeScanUsage.new(clock: clock)
     end
 
     def call(actor_membership:, project_id:, scan_id:)
@@ -42,6 +43,7 @@ module Crawling
         )
         scan.progress_sequence += 1
         scan.save!
+        @usage_finalizer.call_locked(scan: scan, at: now) if scan.terminal?
         event_type = target == "canceled" ? "scan.canceled" : "scan.cancel_requested"
         _event, outbox = ScanLifecycleRecord.record!(
           scan: scan,

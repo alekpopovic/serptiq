@@ -100,7 +100,7 @@ module Usage
     end
 
     def create_operation!(reservation:, kind:, digest:, checksum:, quantity:, requested_expires_at: nil,
-      at: @clock.call)
+      usage_event_id: nil, at: @clock.call)
       ReservationOperation.create!(
         organization_id: reservation.organization_id,
         usage_quota_reservation_id: reservation.id,
@@ -109,6 +109,7 @@ module Usage
         request_checksum: checksum,
         quantity: quantity,
         requested_expires_at: requested_expires_at,
+        usage_event_id: usage_event_id,
         created_at: at
       )
     end

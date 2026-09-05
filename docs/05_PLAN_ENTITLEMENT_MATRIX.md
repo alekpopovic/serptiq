@@ -80,6 +80,9 @@ One monthly credit pool keeps pricing understandable while still reflecting infr
 | `url_inspection.import` | 2 | One bounded URL Inspection import in addition to provider quota |
 
 Weights are configuration data with effective dates. Historical usage events retain the applied weight/version.
+Each admitted scan also freezes the catalog checksum and exact definition/rate checksum, version, effective
+instant, weight and usage window. Artifact storage is not an extra meter: it is bundled into the HTTP/render
+operation, while Lighthouse's weight includes its bounded artifact processing.
 
 ## 4. Access algorithm
 
@@ -164,6 +167,14 @@ outbox events share the canonical transaction, while existing quota reservations
 - Provider outage does not reset or grant unlimited quota.
 - Administrative credits use audited adjustment events, never counter mutation.
 - Usage counters are derived or transactionally maintained from immutable events and reservations.
+
+Prompt 072 assigns estimated holds to operation allocations before a worker performs HTTP, render or Lighthouse
+work. Accepted HTTP responses and completed render/Lighthouse operations consume their allocation; transport,
+policy, cancellation and worker failures release it. A stable attempt source key produces at most one event.
+When an operation would exceed the unused estimate, only the incremental deficit is reserved under the shared
+pool lock before work; denial pauses the scan with a quota observation and creates no attempt or charge. Terminal
+transitions release unfinished allocations and unused hold capacity. Support changes target an original event
+with an audited compensating event only.
 
 Prompt 039 materializes the six weighted credit operations plus report generation as stable usage meters.
 Weights have immutable effective versions, and each event retains its raw quantity, applied weight and billed

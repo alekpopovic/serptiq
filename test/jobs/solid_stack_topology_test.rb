@@ -152,6 +152,7 @@ class SolidStackTopologyTest < ActiveSupport::TestCase
       recover_crawl_fetch_permits
       recover_crawl_frontier_leases
       recover_scan_dispatches
+      recover_terminal_scan_usage
     ], tasks.keys.sort
     maintenance = tasks.except("reconcile_billing_subscriptions")
     assert maintenance.values.all? { |task| task.fetch("queue") == "maintenance" }
@@ -174,6 +175,8 @@ class SolidStackTopologyTest < ActiveSupport::TestCase
       tasks.fetch("recover_crawl_frontier_leases").fetch("command")
     assert_equal "Crawling::FetchPermitRecoveryJob.perform_later",
       tasks.fetch("recover_crawl_fetch_permits").fetch("command")
+    assert_equal "Crawling::ScanUsageRecoveryJob.perform_later",
+      tasks.fetch("recover_terminal_scan_usage").fetch("command")
     assert_equal "Crawling::ArtifactRetentionSweepJob.perform_later",
       tasks.fetch("expire_private_artifacts").fetch("command")
     assert_equal "Crawling::ArtifactReconciliationJob.perform_later",

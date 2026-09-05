@@ -306,12 +306,16 @@ Long work uses reservation semantics:
 estimate
 → atomically reserve
 → enqueue
-→ record granular immutable usage events
-→ finalize actual amount
+→ allocate exact snapshotted operation weight before work
+→ consume accepted/completed work into granular immutable usage events
+→ release failed or abandoned operation allocations
+→ finalize already-consumed actual amount
 → release unused amount
 ```
 
-If work never starts or reaches a terminal infrastructure failure, reservation recovery releases eligible credits. Idempotency keys prevent duplicate charging.
+If work never starts or reaches a terminal infrastructure failure, reservation recovery releases eligible credits.
+The ledger and remaining hold share one PostgreSQL pool lock; operation allocations divide the hold without
+double-counting it. Idempotent scan/attempt keys prevent duplicate charging.
 
 The check for a scan is:
 

@@ -603,15 +603,21 @@ occurred/recorded instants. Corrections reference an original in the same tenant
 rate/source, have the opposite sign and cannot cumulatively overcompensate it. Unique
 `(organization_id, idempotency_key_digest)`.
 
-### `usage_quota_reservations` / `usage_quota_reservation_operations`
+### `usage_quota_reservations` / `usage_quota_reservation_operations` / `usage_quota_allocations`
 
 Tenant-owned UUID reservations retain the window and exact meter rate, SHA-256 idempotency/request digests,
 source aggregate, requested/held/consumed/released billing quantities, expiry, terminal timestamps and the
 final usage event. Admission snapshots use explicit `capped` or `unlimited` state and retain the numeric
 limit, entitlement provenance/checksum/override plus subscription, immutable plan version and revision when
-present. `custom` is not unlimited. Reservations cannot be deleted; only a held row can be extended or move
-once to finalized, released or expired. Append-only bigint operation rows make extend, finalize, release and
-expiry retries deterministic.
+present. `custom` is not unlimited. A held reservation may be partially consumed; only its
+`held_quantity - consumed_quantity` remainder still occupies pool capacity. It can be extended or move once to
+finalized, released or expired. Append-only bigint operation rows make extend, finalize, release and expiry
+retries deterministic.
+
+Tenant-owned UUID allocations assign a positive raw quantity and exact snapshotted meter rate from the same
+pool/window to work before execution. Their one-way `held -> consumed|released` lifecycle either links exactly
+one immutable usage event or returns the allocation without a charge. Composite tenant/window/rate/event foreign
+keys, weighted-quantity checks and triggers prevent cross-pool, cross-source and event substitution.
 
 Every reservation mutation and usage-event insert acquires the same transaction-scoped PostgreSQL advisory
 lock derived from organization, pool, billing unit and exact half-open period. Tenant/window/meter/rate and
@@ -837,6 +843,15 @@ Append-only bigint lifecycle/progress checkpoints repeat the exact scan hierarch
 event/from/to status, optional same-tenant actor, idempotency/payload digests, complete counter snapshot, bounded
 failure category and occurrence time. Workers write absolute idempotent batch checkpoints rather than one row per
 URL. The aggregate remains the customer-facing business outcome; individual URL failures are explicit counters.
+
+### `crawl_scan_usage_operations`
+
+High-volume bigint attempt observations repeat the exact tenant/project/property/environment/scan hierarchy and
+store operation kind, SHA-256 source/request/completion identities, immutable meter version/weight, reserved
+credits, optional exact quota allocation and ledger event, bounded metadata, outcome and timestamps. A unique
+per-scan source digest makes worker/provider replay idempotent. One-way lifecycle/database guards require
+metered attempts to reference a matching scan-owned allocation and require billed/non-billable completion to
+match its consumed/released state. Artifact attempts have zero standalone credits.
 
 ### `scan_targets`
 

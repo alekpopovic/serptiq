@@ -5,8 +5,8 @@ module Usage
     MAXIMUM_CHECKED = 10_000
 
     def call
-      reservations = QuotaReservation.where(state: "finalized")
-        .includes(:finalized_usage_event)
+      reservations = QuotaReservation.where(state: %w[finalized expired])
+        .includes(:finalized_usage_event, allocations: :usage_event)
         .order(:id)
         .limit(MAXIMUM_CHECKED)
         .to_a
@@ -32,17 +32,16 @@ module Usage
     private
 
     def inconsistent?(reservation)
-      event = reservation.finalized_usage_event
-      return !event.nil? unless reservation.consumed_quantity.positive?
-      return true unless event
+      allocation_events = reservation.allocations.select(&:consumed?).map(&:usage_event)
+      return true if allocation_events.any?(&:nil?)
 
-      event.organization_id != reservation.organization_id ||
-        event.usage_window_id != reservation.usage_window_id ||
-        event.usage_meter_definition_id != reservation.usage_meter_definition_id ||
-        event.usage_meter_rate_id != reservation.usage_meter_rate_id ||
-        event.source_type != reservation.source_type ||
-        event.source_id != reservation.source_id ||
-        event.billed_quantity != reservation.consumed_quantity
+      events = allocation_events.compact
+      events << reservation.finalized_usage_event if reservation.finalized_usage_event
+      valid_context = events.all? do |event|
+        event.organization_id == reservation.organization_id &&
+          event.source_type == reservation.source_type && event.source_id == reservation.source_id
+      end
+      !valid_context || events.sum(&:billed_quantity) != reservation.consumed_quantity
     end
   end
 end

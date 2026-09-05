@@ -216,6 +216,12 @@ Run multi-thread/process tests against PostgreSQL for:
 - cancellation and refund of unused reserved credits;
 - append-only usage ledger;
 - repair/reconciliation.
+- exact scan meter snapshots and operation-level source-key replay;
+- accepted HTTP responses versus rejected/transport/canceled non-billable attempts;
+- pre-work incremental allocation denial and customer-visible quota pause;
+- parallel scans assigning the final shared credit under the real advisory lock;
+- terminal/crash recovery releasing pending allocations and unused hold capacity;
+- authorized scan corrections remaining append-only and cross-tenant denied.
 
 Do not mock the database for concurrency behavior.
 

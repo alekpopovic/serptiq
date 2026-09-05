@@ -36,6 +36,12 @@ module Usage
         next existing if existing
 
         ensure_held!(locked)
+        if QuotaAllocation.held.where(
+          organization_id: organization_id,
+          usage_quota_reservation_id: reservation_id
+        ).exists?
+          raise Conflict.new(reason_code: "usage_reservation_allocations_pending")
+        end
         locked.update!(
           released_quantity: locked.held_quantity,
           released_at: now,

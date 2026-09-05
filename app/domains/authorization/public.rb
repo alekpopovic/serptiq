@@ -74,6 +74,13 @@ module Authorization
       AccessBoundary.new.with_access(request, &block)
     end
 
+    # Finalizes work admitted through the unified access boundary. Individual
+    # operations have already consumed their pre-authorized allocations; this
+    # terminal step only closes the hold and releases unused capacity.
+    def finalize_metered_access(**attributes)
+      AccessBoundary.new.finalize_metered_access(**attributes)
+    end
+
     def authorize_job_access!(**attributes, &block)
       JobAuthorizer.new.access(**attributes, &block)
     end

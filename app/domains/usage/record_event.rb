@@ -106,6 +106,7 @@ module Usage
       UsageEvent.transaction(requires_new: true) do
         event = UsageEvent.create!(attributes)
         audit_manual_adjustment(event) if event.event_kind == "manual_adjustment"
+        audit_correction(event) if event.event_kind == "correction" && event.actor_membership_id
         event
       end
     rescue ActiveRecord::RecordNotUnique
@@ -135,6 +136,24 @@ module Usage
         metadata: {
           operation: "manual_adjustment",
           meter: event.meter_definition.key,
+          reason_code: event.reason_code
+        },
+        occurred_at: event.recorded_at
+      )
+    end
+
+    def audit_correction(event)
+      Auditing::Public.record!(
+        organization_id: event.organization_id,
+        actor_membership_id: event.actor_membership_id,
+        action: "usage.corrected",
+        target_type: event.source_type,
+        target_id: event.source_id,
+        result: "succeeded",
+        metadata: {
+          operation: "compensating_correction",
+          meter: event.meter_definition.key,
+          original_usage_event_id: event.correction_of_event_id,
           reason_code: event.reason_code
         },
         occurred_at: event.recorded_at

@@ -14,6 +14,9 @@ module Usage
     belongs_to :finalized_usage_event, class_name: "Usage::UsageEvent", optional: true
     has_many :operations, class_name: "Usage::ReservationOperation",
       foreign_key: :usage_quota_reservation_id, dependent: :restrict_with_exception
+    has_many :allocations, class_name: "Usage::QuotaAllocation",
+      foreign_key: :usage_quota_reservation_id, inverse_of: :reservation,
+      dependent: :restrict_with_exception
 
     validates :organization_id, :source_organization_id, :usage_window_id,
       :usage_meter_definition_id, :usage_meter_rate_id, :source_id, presence: true
@@ -99,17 +102,17 @@ module Usage
       valid = requested_quantity == held_quantity && expires_at && admitted_at && expires_at > admitted_at
       valid &&= case state
       when "held"
-        consumed_quantity&.zero? && released_quantity&.zero? && finalized_usage_event_id.nil? &&
+        consumed_quantity && consumed_quantity >= 0 && consumed_quantity <= held_quantity &&
+          released_quantity&.zero? && finalized_usage_event_id.nil? &&
           finalized_at.nil? && released_at.nil? && expired_at.nil?
       when "finalized"
         consumed_quantity && released_quantity && consumed_quantity + released_quantity == held_quantity &&
-          (consumed_quantity.zero? ? finalized_usage_event_id.nil? : finalized_usage_event_id.present?) &&
           finalized_at.present? && released_at.nil? && expired_at.nil?
       when "released"
         consumed_quantity&.zero? && released_quantity == held_quantity &&
           finalized_usage_event_id.nil? && finalized_at.nil? && released_at.present? && expired_at.nil?
       when "expired"
-        consumed_quantity&.zero? && released_quantity == held_quantity &&
+        consumed_quantity && released_quantity && consumed_quantity + released_quantity == held_quantity &&
           finalized_usage_event_id.nil? && finalized_at.nil? && released_at.nil? && expired_at.present?
       else
         false

@@ -230,6 +230,9 @@ jobs:
   Crawling::FetchPermitRecoveryJob:
     kind: system
     name: fetch_permit_recovery
+  Crawling::ScanUsageRecoveryJob:
+    kind: system
+    name: scan_usage_recovery
   Crawling::ArtifactDeletionJob:
     kind: system
     name: artifact_deletion
@@ -297,6 +300,9 @@ domain_operations:
   Authorization::Public.access_decision: { kind: context, reason: unified_permission_entitlement_resource_quota_decision }
   Authorization::Public.authorize_access!: { kind: context, reason: enforced_unified_access_decision }
   Authorization::Public.with_access: { kind: context, reason: enforced_access_with_pre_enqueue_release }
+  Authorization::Public.finalize_metered_access:
+    kind: context
+    reason: closes_a_previously_authorized_metered_hold_and_releases_unused_capacity
   Authorization::Public.authorize_job_access!: { kind: context, reason: reauthorized_user_tenant_job_access }
   Projects::Public.create_project: { kind: permission, permission: projects.create }
   Projects::Public.update_project: { kind: permission, permission: projects.update }
@@ -503,8 +509,24 @@ domain_operations:
   Crawling::Public.record_scan_progress:
     kind: system
     reason: explicit_tenant_batch_checkpoint_from_scan_workers
+  Crawling::Public.start_usage_operation:
+    kind: system
+    reason: exact_tenant_preauthorized_scan_operation_accounting
+  Crawling::Public.finish_usage_operation:
+    kind: system
+    reason: exact_tenant_idempotent_scan_operation_outcome_accounting
+  Crawling::Public.finalize_scan_usage:
+    kind: system
+    reason: exact_tenant_terminal_scan_reservation_finalization
+  Crawling::Public.recover_terminal_scan_usage:
+    kind: system
+    reason: bounded_terminal_scan_usage_recovery
   Crawling::Public.scan_page: { kind: permission, permission: scans.read }
   Crawling::Public.scan_details: { kind: permission, permission: scans.read }
+  Crawling::Public.scan_cost_breakdown: { kind: permission, permission: scans.read }
+  Crawling::Public.adjust_scan_usage:
+    kind: context
+    reason: platform_authorized_append_only_scan_usage_correction
   Crawling::Public.latest_scan_observation: { kind: permission, permission: scans.read }
   Crawling::Public.compile_glob:
     kind: context
@@ -621,12 +643,20 @@ domain_operations:
   Usage::Public.validate_catalog: { kind: system, reason: governed_usage_catalog_validation }
   Usage::Public.sync_catalog: { kind: system, reason: operator_usage_catalog_synchronization }
   Usage::Public.resolve_window: { kind: context, reason: explicit_tenant_meter_period_resolution }
+  Usage::Public.resolve_exact_meter_rate: { kind: context, reason: immutable_meter_rate_snapshot_lookup }
+  Usage::Public.resolve_meter_snapshot: { kind: context, reason: exact_immutable_meter_snapshot_projection }
+  Usage::Public.source_event: { kind: context, reason: exact_tenant_source_event_projection }
   Usage::Public.record: { kind: context, reason: append_only_usage_observation }
   Usage::Public.correct: { kind: context, reason: append_only_same_tenant_compensation }
+  Usage::Public.correct_with_authority: { kind: context, reason: platform_authorized_compensation }
   Usage::Public.record_manual_adjustment: { kind: context, reason: platform_authorized_usage_adjustment }
   Usage::Public.summary: { kind: context, reason: explicit_tenant_usage_projection }
+  Usage::Public.source_summary: { kind: context, reason: exact_tenant_source_usage_projection }
   Usage::Public.reserve: { kind: context, reason: atomic_tenant_quota_admission }
   Usage::Public.extend_reservation: { kind: context, reason: tenant_bound_quota_hold_extension }
+  Usage::Public.allocate_reservation: { kind: context, reason: preauthorized_weighted_quota_allocation }
+  Usage::Public.consume_allocation: { kind: context, reason: idempotent_allocation_to_ledger_conversion }
+  Usage::Public.release_allocation: { kind: context, reason: idempotent_unused_allocation_release }
   Usage::Public.finalize_reservation: { kind: context, reason: tenant_bound_usage_finalization }
   Usage::Public.release_reservation: { kind: context, reason: tenant_bound_quota_hold_release }
   Usage::Public.maintain_reservations: { kind: system, reason: bounded_quota_recovery_and_reconciliation }

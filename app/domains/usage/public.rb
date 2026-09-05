@@ -3,6 +3,8 @@
 module Usage
   module Public
     QuotaExceeded = Usage::QuotaExceeded
+    Conflict = Usage::Conflict
+    Invalid = Usage::Invalid
     BillingPeriod = Usage::BillingPeriod
     SourceReference = Usage::SourceReference
 
@@ -20,12 +22,28 @@ module Usage
       WindowResolver.new.call(**attributes)
     end
 
+    def resolve_exact_meter_rate(**attributes)
+      ResolveExactMeterRate.new.call(**attributes)
+    end
+
+    def resolve_meter_snapshot(**attributes)
+      ResolveMeterSnapshot.new.call(**attributes)
+    end
+
+    def source_event(**attributes)
+      FindSourceEvent.new.call(**attributes)
+    end
+
     def record(**attributes)
       RecordEvent.new.call(**attributes)
     end
 
     def correct(**attributes)
       RecordCorrection.new.call(**attributes)
+    end
+
+    def correct_with_authority(**attributes)
+      RecordAuthorizedCorrection.new.call(**attributes)
     end
 
     def record_manual_adjustment(**attributes)
@@ -36,12 +54,28 @@ module Usage
       AggregateQuery.new.call(**attributes)
     end
 
+    def source_summary(**attributes)
+      SourceAggregateQuery.new.call(**attributes)
+    end
+
     def reserve(**attributes)
       ReserveQuota.new.call(**attributes)
     end
 
     def extend_reservation(**attributes)
       ExtendQuotaReservation.new.call(**attributes)
+    end
+
+    def allocate_reservation(clock: -> { Time.current }, **attributes)
+      AllocateQuotaReservation.new(clock: clock).call(**attributes)
+    end
+
+    def consume_allocation(clock: -> { Time.current }, **attributes)
+      CompleteQuotaAllocation.new(clock: clock).call(**attributes, disposition: "consume")
+    end
+
+    def release_allocation(clock: -> { Time.current }, **attributes)
+      CompleteQuotaAllocation.new(clock: clock).call(**attributes, disposition: "release")
     end
 
     def finalize_reservation(**attributes)

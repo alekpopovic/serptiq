@@ -26,6 +26,11 @@ holds the policy's maximum weighted credit estimate, creates the requested scan 
 the scan to `admitted`, and appends audit/outbox evidence. The quota reservation uses the scan's deterministic ID
 as its tenant-bound source. A failure rolls back the reservation, scan and outbox together.
 
+Admission also resolves all three crawl-credit meter windows and freezes the governed catalog plus exact
+HTTP/render/Lighthouse definition and rate facts in the entitlement snapshot. The HTTP window remains the shared
+pool's anchor reservation; Prompt 072 operation allocations can consume any compatible snapshotted meter without
+re-reading a mutable current rate.
+
 The organization cap comes from the `crawl.concurrent_scans` entitlement. Project and installation caps come
 from `SEARCHOPS_CRAWLER_PROJECT_CONCURRENT_SCANS` and `SEARCHOPS_CRAWLER_GLOBAL_CONCURRENT_SCANS`. Active work is
 `admitted`, `queued`, `running` or `cancel_requested`. Duplicate requests are checked under the locks before

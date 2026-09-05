@@ -48,6 +48,7 @@ module Crawling
       SitemapFile.where(scan_id: scan_ids).order(index_depth: :desc).delete_all if scan_ids.any?
       SitemapDiscovery.where(scan_id: scan_ids).delete_all if scan_ids.any?
       CrawlUrl.where(scan_id: scan_ids).delete_all if scan_ids.any?
+      ScanUsageOperation.where(scan_id: scan_ids).delete_all if scan_ids.any?
       ScanEvent.where(scan_id: scan_ids).delete_all if scan_ids.any?
       scans.delete_all
       set_ids = set_targets.map(&:first)

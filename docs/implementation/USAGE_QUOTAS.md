@@ -25,9 +25,10 @@ backward and cannot exceed seven days from admission.
 
 ## PostgreSQL concurrency contract
 
-Reserve, extend, finalize, release, expire and every usage-event insert acquire the same transaction-scoped
+Reserve, allocate, consume, extend, finalize, release, expire and every usage-event insert acquire the same transaction-scoped
 advisory lock derived from organization, logical pool, billing unit, quota entitlement and exact half-open
-window. While holding it, admission sums immutable billed usage plus unexpired held reservations across all
+window. While holding it, admission sums immutable billed usage plus the unconsumed remainder of unexpired held
+reservations across all
 compatible meters in the pool. The comparison is exact and inclusive at the limit. A failed admission writes
 neither a reservation nor a usage event.
 
@@ -41,8 +42,11 @@ Reservation idempotency is tenant-scoped. Raw keys are never persisted; SHA-256 
 checksums distinguish a valid retry from a conflicting reuse. Extend, finalize, release and automatic expiry
 also append an immutable operation row with their own idempotency identity.
 
-Finalization records one append-only usage event at the reserved rate, stores actual billed consumption and
-releases unused held quantity in the same transaction. Zero-consumption cancellation creates no ledger event.
+An operation allocation first assigns exact snapshotted meter capacity from the reservation, extending only its
+deficit under the pool lock. Consumption appends one event at that operation's exact rate and moves the same
+quantity from held remainder to used ledger balance; release creates no event. Finalization may retain its legacy
+single-event behavior, or close an incrementally consumed reservation without another event, and releases unused
+held quantity in the same transaction. Zero-consumption cancellation creates no ledger event.
 If actual usage exceeds the estimate, finalization atomically acquires the difference against the admission
 snapshot; producers should still estimate conservatively or extend before consuming work because a denied
 late expansion leaves the original hold available for a safe retry. Explicit release returns the whole hold
@@ -60,3 +64,7 @@ triggers and one small PostgreSQL lock function. It replaces the existing usage-
 inserts join the same quota lock; it does not rewrite events or add an index to the high-volume event table.
 Function/trigger replacement takes a brief DDL lock, so deploy outside an ongoing long usage-event transaction.
 Rollback restores the pre-reservation event trigger before removing the new tables and lock function.
+
+Prompt 072 extends reconciliation to sum consumed allocation events plus any legacy finalization event, and it
+releases held allocations before generic expiry. See `docs/implementation/SCAN_USAGE_ACCOUNTING.md` for the
+crawl-specific two-phase protocol and deployment impact.

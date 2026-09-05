@@ -6,8 +6,9 @@ module Crawling
     EVENT_LIMIT = 50
     MAX_PAGE = 10_000
 
-    def initialize(access: ScanAccess.new)
+    def initialize(access: ScanAccess.new, cost_query: nil)
       @access = access
+      @cost_query = cost_query || ScanCostQuery.new(access: access)
     end
 
     def page(actor_membership:, project_id:, number: nil)
@@ -53,6 +54,7 @@ module Crawling
         release_id: scan.release_id,
         baseline_scan_id: scan.baseline_scan_id,
         progress_sequence: scan.progress_sequence,
+        cost_breakdown: @cost_query.build(scan),
         events: events
       )
     rescue ActiveRecord::RecordNotFound
