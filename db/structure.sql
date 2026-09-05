@@ -735,7 +735,18 @@ BEGIN
     OR NEW.configuration_version IS DISTINCT FROM OLD.configuration_version
     OR NEW.release_id IS DISTINCT FROM OLD.release_id
     OR NEW.baseline_scan_id IS DISTINCT FROM OLD.baseline_scan_id
-    OR NEW.requested_at IS DISTINCT FROM OLD.requested_at THEN
+    OR NEW.requested_at IS DISTINCT FROM OLD.requested_at
+    OR NEW.request_source IS DISTINCT FROM OLD.request_source
+OR NEW.request_idempotency_digest IS DISTINCT FROM OLD.request_idempotency_digest
+OR NEW.request_checksum IS DISTINCT FROM OLD.request_checksum
+OR NEW.admission_version IS DISTINCT FROM OLD.admission_version
+OR NEW.usage_quota_reservation_id IS DISTINCT FROM OLD.usage_quota_reservation_id
+OR NEW.domain_verification_id IS DISTINCT FROM OLD.domain_verification_id
+OR NEW.preflight_checked_at IS DISTINCT FROM OLD.preflight_checked_at
+OR NEW.preflight_status_code IS DISTINCT FROM OLD.preflight_status_code
+OR NEW.preflight_destination_digest IS DISTINCT FROM OLD.preflight_destination_digest
+OR NEW.credit_estimate IS DISTINCT FROM OLD.credit_estimate
+ THEN
     RAISE EXCEPTION 'scan input and provenance are immutable';
   END IF;
   RETURN NEW;
@@ -2232,8 +2243,24 @@ CREATE TABLE public.scans (
     lock_version integer DEFAULT 0 NOT NULL,
     created_at timestamp(6) with time zone NOT NULL,
     updated_at timestamp(6) with time zone NOT NULL,
+    request_source character varying(24),
+    request_idempotency_digest character varying(64),
+    request_checksum character varying(64),
+    admission_version integer,
+    usage_quota_reservation_id uuid,
+    domain_verification_id uuid,
+    preflight_checked_at timestamp(6) with time zone,
+    preflight_status_code integer,
+    preflight_destination_digest character varying(64),
+    credit_estimate numeric(30,6),
+    dispatch_attempted_at timestamp(6) with time zone,
+    dispatch_enqueued_at timestamp(6) with time zone,
+    dispatch_attempt_count integer DEFAULT 0 NOT NULL,
+    dispatch_last_error_category character varying(64),
+    CONSTRAINT scans_admission_provenance_shape CHECK ((((admission_version IS NULL) AND (request_source IS NULL) AND (request_idempotency_digest IS NULL) AND (request_checksum IS NULL) AND (usage_quota_reservation_id IS NULL) AND (domain_verification_id IS NULL) AND (preflight_checked_at IS NULL) AND (preflight_status_code IS NULL) AND (preflight_destination_digest IS NULL) AND (credit_estimate IS NULL)) OR ((admission_version = 1) AND ((request_source)::text = ANY ((ARRAY['manual'::character varying, 'schedule'::character varying, 'release'::character varying])::text[])) AND ((request_idempotency_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((request_checksum)::text ~ '^[0-9a-f]{64}$'::text) AND (usage_quota_reservation_id IS NOT NULL) AND (domain_verification_id IS NOT NULL) AND (preflight_checked_at IS NOT NULL) AND ((preflight_status_code >= 100) AND (preflight_status_code <= 499)) AND ((preflight_destination_digest)::text ~ '^[0-9a-f]{64}$'::text) AND (credit_estimate > (0)::numeric)))),
     CONSTRAINT scans_bounded_snapshots CHECK (((jsonb_typeof(settings_snapshot) = 'object'::text) AND (octet_length((settings_snapshot)::text) <= 32768) AND (jsonb_typeof(entitlement_snapshot) = 'object'::text) AND (octet_length((entitlement_snapshot)::text) <= 32768))),
     CONSTRAINT scans_counter_consistency CHECK (((targets_count >= 0) AND (urls_discovered_count >= 0) AND (urls_queued_count >= 0) AND (urls_running_count >= 0) AND (urls_processed_count >= 0) AND (urls_succeeded_count >= 0) AND (urls_failed_count >= 0) AND (urls_skipped_count >= 0) AND (findings_count >= 0) AND (progress_sequence > 0) AND (urls_processed_count = ((urls_succeeded_count + urls_failed_count) + urls_skipped_count)) AND (urls_discovered_count >= ((urls_processed_count + urls_queued_count) + urls_running_count)) AND (((status)::text <> ALL ((ARRAY['canceled'::character varying, 'completed'::character varying, 'partially_completed'::character varying, 'failed'::character varying])::text[])) OR ((urls_queued_count = 0) AND (urls_running_count = 0))))),
+    CONSTRAINT scans_dispatch_shape CHECK (((dispatch_attempt_count >= 0) AND ((dispatch_attempt_count = 0) OR (dispatch_attempted_at IS NOT NULL)) AND ((dispatch_enqueued_at IS NULL) OR ((dispatch_attempted_at IS NOT NULL) AND (dispatch_enqueued_at >= dispatch_attempted_at) AND (dispatch_last_error_category IS NULL))) AND ((dispatch_last_error_category IS NULL) OR ((dispatch_last_error_category)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text)))),
     CONSTRAINT scans_distinct_baseline CHECK (((baseline_scan_id IS NULL) OR (baseline_scan_id <> id))),
     CONSTRAINT scans_initiator_shape CHECK ((((initiator_type)::text = ANY ((ARRAY['membership'::character varying, 'schedule'::character varying, 'release'::character varying, 'system'::character varying])::text[])) AND ((((initiator_type)::text = 'membership'::text) AND (initiated_by_membership_id IS NOT NULL)) OR (((initiator_type)::text <> 'membership'::text) AND (initiated_by_membership_id IS NULL))))),
     CONSTRAINT scans_lifecycle_shape CHECK (((requested_at IS NOT NULL) AND ((admitted_at IS NULL) OR (admitted_at >= requested_at)) AND ((queued_at IS NULL) OR ((admitted_at IS NOT NULL) AND (queued_at >= admitted_at))) AND ((started_at IS NULL) OR ((queued_at IS NOT NULL) AND (started_at >= queued_at))) AND ((cancel_requested_at IS NULL) OR (cancel_requested_at >= requested_at)) AND ((canceled_at IS NULL) OR ((cancel_requested_at IS NOT NULL) AND (canceled_at >= cancel_requested_at))) AND ((completed_at IS NULL) OR ((started_at IS NOT NULL) AND (completed_at >= started_at))) AND ((failed_at IS NULL) OR (failed_at >= requested_at)) AND ((((status)::text = 'requested'::text) AND (admitted_at IS NULL) AND (queued_at IS NULL) AND (started_at IS NULL) AND (cancel_requested_at IS NULL) AND (canceled_at IS NULL) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((status)::text = 'admitted'::text) AND (admitted_at IS NOT NULL) AND (queued_at IS NULL) AND (started_at IS NULL) AND (cancel_requested_at IS NULL) AND (canceled_at IS NULL) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((status)::text = 'queued'::text) AND (admitted_at IS NOT NULL) AND (queued_at IS NOT NULL) AND (started_at IS NULL) AND (cancel_requested_at IS NULL) AND (canceled_at IS NULL) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((status)::text = 'running'::text) AND (admitted_at IS NOT NULL) AND (queued_at IS NOT NULL) AND (started_at IS NOT NULL) AND (cancel_requested_at IS NULL) AND (canceled_at IS NULL) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((status)::text = 'cancel_requested'::text) AND (admitted_at IS NOT NULL) AND (queued_at IS NOT NULL) AND (cancel_requested_at IS NOT NULL) AND (canceled_at IS NULL) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((status)::text = 'canceled'::text) AND (cancel_requested_at IS NOT NULL) AND (canceled_at IS NOT NULL) AND (completed_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((status)::text = ANY ((ARRAY['completed'::character varying, 'partially_completed'::character varying])::text[])) AND (started_at IS NOT NULL) AND (completed_at IS NOT NULL) AND (canceled_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((status)::text = 'failed'::text) AND (failed_at IS NOT NULL) AND (completed_at IS NULL) AND (canceled_at IS NULL) AND ((failure_category)::text ~ '^[a-z][a-z0-9_]{0,63}$'::text))))),
@@ -4191,6 +4218,27 @@ CREATE UNIQUE INDEX index_scan_events_on_sequence ON public.scan_events USING bt
 
 
 --
+-- Name: index_scans_on_active_global_work; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_scans_on_active_global_work ON public.scans USING btree (status) WHERE ((status)::text = ANY ((ARRAY['admitted'::character varying, 'queued'::character varying, 'running'::character varying, 'cancel_requested'::character varying])::text[]));
+
+
+--
+-- Name: index_scans_on_active_organization_work; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_scans_on_active_organization_work ON public.scans USING btree (organization_id, status) WHERE ((status)::text = ANY ((ARRAY['admitted'::character varying, 'queued'::character varying, 'running'::character varying, 'cancel_requested'::character varying])::text[]));
+
+
+--
+-- Name: index_scans_on_active_project_admissions; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_scans_on_active_project_admissions ON public.scans USING btree (organization_id, project_id, status) WHERE ((status)::text = ANY ((ARRAY['admitted'::character varying, 'queued'::character varying, 'running'::character varying, 'cancel_requested'::character varying])::text[]));
+
+
+--
 -- Name: index_scans_on_active_project_work; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4212,6 +4260,13 @@ CREATE UNIQUE INDEX index_scans_on_exact_identity ON public.scans USING btree (o
 
 
 --
+-- Name: index_scans_on_pending_dispatch; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX index_scans_on_pending_dispatch ON public.scans USING btree (status, dispatch_enqueued_at, admitted_at) WHERE (((status)::text = 'admitted'::text) AND (dispatch_enqueued_at IS NULL));
+
+
+--
 -- Name: index_scans_on_project_timeline; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4223,6 +4278,13 @@ CREATE INDEX index_scans_on_project_timeline ON public.scans USING btree (organi
 --
 
 CREATE INDEX index_scans_on_release_id ON public.scans USING btree (release_id) WHERE (release_id IS NOT NULL);
+
+
+--
+-- Name: index_scans_on_tenant_admission_idempotency; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_scans_on_tenant_admission_idempotency ON public.scans USING btree (organization_id, request_idempotency_digest) WHERE (request_idempotency_digest IS NOT NULL);
 
 
 --
@@ -5597,11 +5659,27 @@ ALTER TABLE ONLY public.scans
 
 
 --
+-- Name: scans fk_scans_exact_verification; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.scans
+    ADD CONSTRAINT fk_scans_exact_verification FOREIGN KEY (organization_id, project_id, property_id, environment_id, domain_verification_id) REFERENCES public.domain_verifications(organization_id, project_id, property_id, environment_id, id) ON DELETE RESTRICT;
+
+
+--
 -- Name: scans fk_scans_tenant_initiator; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.scans
     ADD CONSTRAINT fk_scans_tenant_initiator FOREIGN KEY (organization_id, initiated_by_membership_id) REFERENCES public.memberships(organization_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: scans fk_scans_tenant_quota_reservation; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.scans
+    ADD CONSTRAINT fk_scans_tenant_quota_reservation FOREIGN KEY (organization_id, usage_quota_reservation_id) REFERENCES public.usage_quota_reservations(organization_id, id) ON DELETE RESTRICT;
 
 
 --
@@ -5771,6 +5849,7 @@ ALTER TABLE ONLY public.website_property_configs
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904148000'),
 ('20260904147000'),
 ('20260904146000'),
 ('20260904145000'),

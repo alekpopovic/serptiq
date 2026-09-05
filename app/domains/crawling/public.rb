@@ -20,10 +20,24 @@ module Crawling
       SnapshotPolicy.new.call(**attributes)
     end
 
-    def create_scan(clock: -> { Time.current }, id_generator: nil, **attributes)
-      options = { clock: clock }
-      options[:id_generator] = id_generator if id_generator
-      CreateScan.new(**options).call(**attributes)
+    def admission_request(**attributes)
+      AdmissionRequest.new(**attributes)
+    end
+
+    def admit_scan(clock: -> { Time.current }, command: nil, **attributes)
+      request = command || AdmissionRequest.new(**attributes.extract!(
+        :idempotency_key, :source, :project_id, :property_id, :environment_id,
+        :scan_type, :baseline_scan_id, :release_id
+      ))
+      AdmitScan.new(clock: clock).call(request: request, **attributes)
+    end
+
+    def dispatch_scan(clock: -> { Time.current }, **attributes)
+      DispatchScan.new(clock: clock).call(**attributes)
+    end
+
+    def schedule_pending_dispatches
+      SchedulePendingDispatches.new.call
     end
 
     def transition_scan(clock: -> { Time.current }, **attributes)

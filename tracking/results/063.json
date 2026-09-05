@@ -1,0 +1,85 @@
+{
+  "prompt_id": "063",
+  "title": "Implement scan admission, idempotency and preflight",
+  "status": "completed",
+  "started_at": "2026-09-05T02:42:25Z",
+  "finished_at": "2026-09-05T03:20:02Z",
+  "summary": "Added a single permission-first scan admission boundary for manual, schedule and release commands with hashed idempotency, exact verification freshness, bounded SSRF-safe preflight, effective policy revalidation, weighted quota holds and PostgreSQL-serialized global/organization/project capacity. Scan, reservation, policy snapshot and outbox evidence commit atomically; Solid Queue dispatch is post-commit, quota-revalidated and recoverable by a bounded recurring sweep. Added stable HTML/JSON UI error contracts, an enabled dashboard action, immutable database provenance, public projections and operational documentation.",
+  "tests": [
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test test/domain/crawling test/database/scan_constraints_test.rb test/database/scan_admission_concurrency_test.rb test/requests/scans_test.rb",
+      "outcome": "passed",
+      "notes": "45 runs, 333 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test test/architecture test/domain/billing/reconciliation_test.rb test/domain/billing/subscription_plan_change_test.rb test/domain/usage test/domain/crawling test/database/scan_constraints_test.rb test/database/scan_admission_concurrency_test.rb test/requests/scans_test.rb",
+      "outcome": "passed",
+      "notes": "97 runs, 587 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test test/system/project_dashboard_test.rb",
+      "outcome": "passed",
+      "notes": "3 runs, 18 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "docker compose --profile test run --rm test bin/brakeman --quiet --config-file config/brakeman.yml",
+      "outcome": "passed",
+      "notes": "0 warnings"
+    },
+    {
+      "command": "docker compose --profile test run --rm test bin/rubocop [affected Ruby paths]",
+      "outcome": "passed",
+      "notes": "86 files inspected, no offenses; final 3 modified Ruby files also clean"
+    },
+    {
+      "command": "ruby tracking/scripts/prompt_tracker.rb validate",
+      "outcome": "passed",
+      "notes": "120 prompts; catalog and state consistent"
+    }
+  ],
+  "files_changed": [
+    ".env.example",
+    "app/controllers/crawling/scans_controller.rb",
+    "app/controllers/projects/projects_controller.rb",
+    "app/domains/authorization/public.rb",
+    "app/domains/billing/active_subscription_query.rb",
+    "app/domains/billing/subscription_summary.rb",
+    "app/domains/crawling/",
+    "app/domains/shared/public.rb",
+    "app/domains/usage/public.rb",
+    "app/domains/usage/reservation_reference.rb",
+    "app/jobs/crawling/",
+    "app/presenters/public_error_presentation.rb",
+    "app/views/projects/projects/show.html.erb",
+    "config/architecture.yml",
+    "config/authorization_inventory.yml",
+    "config/recurring.yml",
+    "config/routes.rb",
+    "config/searchops.yml",
+    "config/searchops/configuration.rb",
+    "db/migrate/20260904148000_add_scan_admission_provenance.rb",
+    "db/structure.sql",
+    "docs/implementation/",
+    "test/configuration/configuration_test.rb",
+    "test/database/scan_admission_concurrency_test.rb",
+    "test/domain/crawling/",
+    "test/jobs/solid_stack_topology_test.rb",
+    "test/requests/scans_test.rb",
+    "test/support/crawl_policy_helpers.rb",
+    "test/support/scan_helpers.rb",
+    "test/system/project_dashboard_test.rb"
+  ],
+  "migrations": [
+    "20260904148000_add_scan_admission_provenance.rb: nullable immutable admission/dispatch provenance, exact tenant foreign keys, database checks and admission/capacity/recovery indexes."
+  ],
+  "decisions": [],
+  "risks": [
+    "Ordinary index creation and FK validation can briefly lock a large pre-existing scans table; deploy under configured migration timeouts during low traffic.",
+    "The aggregate relies on later crawler prompts to finalize or release the admission quota hold.",
+    "Full bin/quality stopped because the test image lacks Node.js. Ruby (1,130 files), ERB (73 files), data, blueprint, architecture, access, authorization, ADR and Brakeman checks ran and passed separately."
+  ],
+  "next_steps": [
+    "Prompt 064: implement robots.txt and sitemap discovery."
+  ],
+  "commit": null
+}

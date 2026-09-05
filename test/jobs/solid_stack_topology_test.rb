@@ -147,6 +147,7 @@ class SolidStackTopologyTest < ActiveSupport::TestCase
       recheck_dns_verifications
       reconcile_billing_subscriptions
       reconcile_resource_deletions
+      recover_scan_dispatches
     ], tasks.keys.sort
     maintenance = tasks.except("reconcile_billing_subscriptions")
     assert maintenance.values.all? { |task| task.fetch("queue") == "maintenance" }
@@ -163,6 +164,8 @@ class SolidStackTopologyTest < ActiveSupport::TestCase
       tasks.fetch("recheck_dns_verifications").fetch("command")
     assert_equal "Administration::DeletionSweepJob.perform_later",
       tasks.fetch("reconcile_resource_deletions").fetch("command")
+    assert_equal "Crawling::ScanDispatchSweepJob.perform_later",
+      tasks.fetch("recover_scan_dispatches").fetch("command")
     assert_equal({
       "command" => "Billing::ReconciliationSweepJob.perform_later",
       "queue" => "billing",

@@ -3,6 +3,8 @@
 module Usage
   module Public
     QuotaExceeded = Usage::QuotaExceeded
+    BillingPeriod = Usage::BillingPeriod
+    SourceReference = Usage::SourceReference
 
     module_function
 
@@ -60,6 +62,22 @@ module Usage
 
     def project_readiness(**attributes)
       ProjectUsageReadinessQuery.new.call(**attributes)
+    end
+
+    def reservation_reference(organization_id:, reservation_id:)
+      reservation = QuotaReservation.find_by(
+        organization_id: organization_id,
+        id: reservation_id
+      )
+      return unless reservation
+
+      ReservationReference.new(
+        id: reservation.id,
+        organization_id: reservation.organization_id,
+        state: reservation.state,
+        held_quantity: reservation.held_quantity,
+        expires_at: reservation.expires_at
+      )
     end
   end
 end

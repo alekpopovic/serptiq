@@ -2,6 +2,9 @@
 
 module Authorization
   module Public
+    AccessRequest = Authorization::AccessRequest
+    ResourceContext = Authorization::ResourceContext
+
     module_function
 
     def validate_catalog(path: Catalog::DEFAULT_PATH)

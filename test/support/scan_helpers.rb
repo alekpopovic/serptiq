@@ -4,7 +4,7 @@ module TestSupport
   module ScanHelpers
     def create_scan_for(result, project:, property:, environment: property.environments.sole,
       scan_type: "full", at: Time.current, **overrides)
-      Crawling::Public.create_scan(
+      Crawling::CreateScan.new(clock: -> { at }).call(
         actor_membership: result.membership,
         project_id: project.id,
         property_id: property.id,
@@ -14,7 +14,6 @@ module TestSupport
         entitlement_snapshot: { "crawl.manual" => true, "crawl.max_urls_per_scan" => 500 },
         engine_version: "crawler-1.0.0",
         rule_set_version: "rules-1.0.0",
-        clock: -> { at },
         **overrides
       )
     end

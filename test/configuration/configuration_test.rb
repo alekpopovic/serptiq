@@ -11,6 +11,8 @@ class SearchopsConfigurationTest < ActiveSupport::TestCase
 
     assert_equal URI("https://searchops.test"), configuration.fetch(:application_origin)
     assert_equal 25, configuration.fetch(:crawler_max_urls_per_scan)
+    assert_equal 2, configuration.fetch(:crawler_project_concurrent_scans)
+    assert_equal 10, configuration.fetch(:crawler_global_concurrent_scans)
     assert_equal 5.0, configuration.fetch(:crawler_connect_timeout)
     assert_equal false, configuration.fetch(:oauth_google_enabled)
     assert_equal 2.0, configuration.fetch(:oauth_http_open_timeout)

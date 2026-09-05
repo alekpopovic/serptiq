@@ -1,7 +1,8 @@
 # Scan aggregate and lifecycle
 
-Prompt 062 introduces the Crawling-owned scan aggregate. It persists requested work and its provenance, but
-does not admit, reserve quota for, enqueue or execute that work. Prompt 063 owns those admission side effects.
+Prompt 062 introduced the Crawling-owned scan aggregate and Prompt 063 adds its production admission boundary.
+Requested work becomes admitted only after the checks and transaction documented in
+[`SCAN_ADMISSION.md`](./SCAN_ADMISSION.md); execution remains worker-owned.
 
 ## Tenant and input boundary
 
@@ -12,9 +13,9 @@ target when created through the domain API; a composite self-reference prevents 
 baseline at the database boundary. `release_id` is a UUID-only immutable correlation until Releases introduces
 its owning table and composite relationship.
 
-`Crawling::Public.create_scan` re-resolves the exact hierarchy and requires `scans.run`. It intentionally does
-not represent admission: verification freshness, the `crawl.manual` entitlement, concurrency, preflight and
-quota reservation remain mandatory in Prompt 063 before a requested scan can become admitted.
+`Crawling::Public.admit_scan` re-resolves the exact hierarchy and requires `scans.run`. It then applies the
+effective `crawl.manual` entitlement and resource-state checks before performing a network preflight or any
+persistent side effect. The lower-level requested-scan constructor remains an internal aggregate primitive.
 
 Settings and entitlement inputs are canonical bounded JSON objects with SHA-256 digests. Keys that suggest
 credentials, tokens, cookies, authorization headers or private keys are rejected. Snapshot structure, target,

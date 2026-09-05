@@ -56,6 +56,36 @@ class PublicErrorPresentation
           message: error.definition.public_message,
           action: :quota
         }
+      when Crawling::VerificationRequired
+        {
+          title: "Verify this target again",
+          message: error.definition.public_message,
+          action: :home
+        }
+      when Crawling::CapacityExceeded
+        {
+          title: "Scan capacity is in use",
+          message: error.definition.public_message,
+          action: :home
+        }
+      when Crawling::AdmissionIdempotencyConflict
+        {
+          title: "Use a new request key",
+          message: error.definition.public_message,
+          action: :home
+        }
+      when Crawling::TargetUnsafe
+        {
+          title: "Target rejected for safety",
+          message: error.definition.public_message,
+          action: :home
+        }
+      when Crawling::TargetUnavailable
+        {
+          title: "Target is temporarily unavailable",
+          message: error.definition.public_message,
+          action: :home
+        }
       else
         default_details(error)
       end

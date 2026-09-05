@@ -123,6 +123,7 @@ controllers:
     actions:
       index: &read_project_scans { kind: permission, permission: scans.read, scope: project }
       show: *read_project_scans
+      create: { kind: permission, permission: scans.run, scope: project }
       cancel: { kind: permission, permission: scans.cancel, scope: project }
   Tenancy::InvitationAcceptancesController:
     source: app/controllers/tenancy/invitation_acceptances_controller.rb
@@ -217,6 +218,12 @@ jobs:
   Usage::QuotaReservationMaintenanceJob:
     kind: system
     name: quota_reservation_maintenance
+  Crawling::ScanDispatchJob:
+    kind: system
+    name: scan_dispatch
+  Crawling::ScanDispatchSweepJob:
+    kind: system
+    name: scan_dispatch_sweep
   Verification::DnsRecheckJob:
     kind: system
     name: dns_verification_recheck
@@ -392,7 +399,16 @@ domain_operations:
   Crawling::Public.snapshot_for_scan:
     kind: context
     reason: authorized_exact_environment_policy_snapshot_for_scan_admission
-  Crawling::Public.create_scan: { kind: permission, permission: scans.run }
+  Crawling::Public.admission_request:
+    kind: context
+    reason: pure_bounded_scan_admission_command
+  Crawling::Public.admit_scan: { kind: permission, permission: scans.run }
+  Crawling::Public.dispatch_scan:
+    kind: system
+    reason: explicit_tenant_scan_dispatch_with_durable_quota_hold
+  Crawling::Public.schedule_pending_dispatches:
+    kind: system
+    reason: bounded_scan_dispatch_recovery
   Crawling::Public.transition_scan:
     kind: system
     reason: explicit_tenant_scan_lifecycle_command_from_admission_or_workers
@@ -506,4 +522,7 @@ domain_operations:
   Usage::Public.finalize_reservation: { kind: context, reason: tenant_bound_usage_finalization }
   Usage::Public.release_reservation: { kind: context, reason: tenant_bound_quota_hold_release }
   Usage::Public.maintain_reservations: { kind: system, reason: bounded_quota_recovery_and_reconciliation }
+  Usage::Public.reservation_reference:
+    kind: context
+    reason: immutable_tenant_quota_hold_projection_for_scan_workers
   Usage::Public.organization_dashboard: { kind: permission, permission: billing.read }

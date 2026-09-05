@@ -11,6 +11,7 @@ module Crawling
     TERMINAL_STATUSES = %w[canceled completed partially_completed failed].freeze
     SCAN_TYPES = %w[full targeted verification].freeze
     INITIATOR_TYPES = %w[membership schedule release system].freeze
+    REQUEST_SOURCES = %w[manual schedule release].freeze
     FAILURE_CATEGORY_PATTERN = /\A[a-z][a-z0-9_]{0,63}\z/
     VERSION_PATTERN = /\A[A-Za-z0-9][A-Za-z0-9._+-]{0,63}\z/
     IMMUTABLE_INPUTS = %i[
@@ -18,6 +19,9 @@ module Crawling
       initiated_by_membership_id settings_snapshot settings_digest entitlement_snapshot
       entitlement_digest engine_version rule_set_version configuration_version release_id
       baseline_scan_id requested_at
+      request_source request_idempotency_digest request_checksum admission_version
+      usage_quota_reservation_id domain_verification_id preflight_checked_at
+      preflight_status_code preflight_destination_digest credit_estimate
     ].freeze
 
     has_many :events, class_name: "Crawling::ScanEvent", inverse_of: :scan,
@@ -25,6 +29,10 @@ module Crawling
     has_one :policy_snapshot, class_name: "Crawling::PolicySnapshot", inverse_of: false,
       dependent: :restrict_with_exception
     belongs_to :baseline_scan, class_name: "Crawling::Scan", optional: true
+    belongs_to :quota_reservation, class_name: "Usage::QuotaReservation",
+      foreign_key: :usage_quota_reservation_id, optional: true
+    belongs_to :verification_challenge, class_name: "Verification::Challenge",
+      foreign_key: :domain_verification_id, optional: true
 
     validates :organization_id, :project_id, :property_id, :environment_id, :requested_at,
       presence: true
@@ -36,6 +44,16 @@ module Crawling
     validates :configuration_version, numericality: { only_integer: true, greater_than: 0 }
     validates :progress_sequence, numericality: { only_integer: true, greater_than: 0 }
     validates :failure_category, format: { with: FAILURE_CATEGORY_PATTERN }, allow_nil: true
+    validates :request_source, inclusion: { in: REQUEST_SOURCES }, if: :admitted_by_request?
+    validates :request_idempotency_digest, :request_checksum, :preflight_destination_digest,
+      format: { with: /\A[0-9a-f]{64}\z/ }, if: :admitted_by_request?
+    validates :admission_version, inclusion: { in: [ 1 ] }, allow_nil: true
+    validates :preflight_status_code, numericality: {
+      only_integer: true, greater_than_or_equal_to: 100, less_than: 500
+    }, if: :admitted_by_request?
+    validates :credit_estimate, numericality: { greater_than: 0 }, if: :admitted_by_request?
+    validates :dispatch_attempt_count, numericality: { only_integer: true, greater_than_or_equal_to: 0 }
+    validates :dispatch_last_error_category, format: { with: FAILURE_CATEGORY_PATTERN }, allow_nil: true
     validate :identifier_shapes
     validate :initiator_shape
     validate :snapshots_are_bounded_objects
@@ -43,6 +61,8 @@ module Crawling
     validate :counter_consistency
     validate :lifecycle_consistency
     validate :inputs_are_immutable, on: :update
+    validate :admission_provenance_consistency
+    validate :dispatch_consistency
 
     scope :terminal, -> { where(status: TERMINAL_STATUSES) }
     scope :active_work, -> { where.not(status: TERMINAL_STATUSES) }
@@ -68,6 +88,10 @@ module Crawling
     end
 
     private
+
+    def admitted_by_request?
+      admission_version.present?
+    end
 
     def identifier_shapes
       %i[organization_id project_id property_id environment_id].each do |attribute|
@@ -163,6 +187,32 @@ module Crawling
       IMMUTABLE_INPUTS.each do |attribute|
         errors.add(attribute, "cannot be changed") if will_save_change_to_attribute?(attribute)
       end
+    end
+
+    def admission_provenance_consistency
+      values = [
+        request_source, request_idempotency_digest, request_checksum,
+        usage_quota_reservation_id, domain_verification_id, preflight_checked_at,
+        preflight_status_code, preflight_destination_digest, credit_estimate
+      ]
+      valid = if admission_version.nil?
+        values.all?(&:nil?)
+      else
+        values.none?(&:nil?) && preflight_checked_at >= requested_at &&
+          (admitted_at.nil? || preflight_checked_at <= admitted_at)
+      end
+      errors.add(:admission_version, "does not match admission provenance") unless valid
+    end
+
+    def dispatch_consistency
+      attempted = dispatch_attempt_count.positive? ? dispatch_attempted_at.present? : true
+      enqueued = if dispatch_enqueued_at
+        dispatch_attempted_at.present? && dispatch_enqueued_at >= dispatch_attempted_at &&
+          dispatch_last_error_category.nil?
+      else
+        true
+      end
+      errors.add(:dispatch_attempt_count, "does not match dispatch evidence") unless attempted && enqueued
     end
   end
 end

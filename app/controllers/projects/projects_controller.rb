@@ -133,6 +133,8 @@ module Projects
         integration: integration,
         activity_page: activity_page
       )
+      @scan_target = scan_target(property_page) if @project_dashboard.scan_action.allowed?
+      @scan_idempotency_key = SecureRandom.uuid if @scan_target
       @deletion_status = Administration::Public.deletion_status(
         organization_id: Current.organization.id,
         target_type: "Project",
@@ -207,6 +209,16 @@ module Projects
     end
 
     private
+
+    def scan_target(property_page)
+      property_page&.entries&.find do |property|
+        property.active? && property.verified? && property.environments.any? do |environment|
+          environment.active? && environment.primary?
+        end
+      end&.then do |property|
+        [ property, property.environments.find { |environment| environment.active? && environment.primary? } ]
+      end
+    end
 
     def property_dashboard_data(property_read)
       return [ nil, nil ] unless property_read.allow?

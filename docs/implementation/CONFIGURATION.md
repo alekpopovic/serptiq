@@ -57,7 +57,7 @@ secret-management workflow; do not copy literal documentation values.
 | OAuth providers | enable flags, client IDs, bounded HTTP timeouts/response size, safe discovery/JWKS retries, JWKS TTL/key count, OIDC clock skew/token lifetime, transaction lifetime/retention, start/callback/session/account-security windows and per-IP/session caps | client secrets; callback tokens are transient and later persistent integration tokens use database encryption |
 | Billing | provider (`disabled`, development/test-only `fake`, or `lemon_squeezy`), store ID, bounded HTTP open/read/write timeouts and response cap | API key and webhook verification secret |
 | Encryption | active key version identifier | primary key ring, deterministic key and derivation salt |
-| Crawler limits | URL, byte, redirect, concurrency and connect/read duration bounds | none |
+| Crawler limits | URL, byte, redirect and request concurrency bounds; per-project and global concurrent scan caps; connect/read duration bounds | none |
 | Ownership verification | DNS/HTTP enable flags; DNS answer, chain, byte and timeout limits; HTTP DNS/open/read timeouts, response cap and redirect cap | proof derivation uses the application key ring; no provider credential |
 | Browser limits | wall-time, memory, request-count and concurrency bounds | none |
 | Provider integrations | Search Console, PageSpeed and CrUX enable flags | Google API key; user/provider tokens encrypted at rest |

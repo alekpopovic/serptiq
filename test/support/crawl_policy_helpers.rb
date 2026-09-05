@@ -5,6 +5,7 @@ module TestSupport
     CRAWL_ENTITLEMENTS = {
       "crawl.manual" => [ "boolean", true ],
       "crawl.max_urls_per_scan" => [ "integer", 500 ],
+      "crawl.concurrent_scans" => [ "integer", 2 ],
       "crawl.javascript_rendering" => [ "boolean", true ],
       "crawl.max_rendered_pages_per_scan" => [ "integer", 10 ],
       "crawl.custom_user_agent" => [ "boolean", true ],

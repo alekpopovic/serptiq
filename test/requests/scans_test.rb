@@ -50,6 +50,66 @@ class ScansRequestTest < ActionDispatch::IntegrationTest
     assert_select "button", text: "Request cancellation", count: 0
   end
 
+  test "manual admission accepts a bounded command and returns a stable JSON scan contract" do
+    captured = nil
+    scan = @scan
+    operation = ->(**attributes) do
+      captured = attributes
+      scan
+    end
+
+    with_admit_scan(operation) do
+      post organization_project_scans_path(
+        @owner.organization.slug, @project.slug, format: :json
+      ), params: {
+        scan_request: {
+          idempotency_key: "request-api-one",
+          property_id: @property.id,
+          environment_id: @property.environments.sole.id,
+          scan_type: "full"
+        }
+      }
+    end
+
+    assert_response :accepted
+    payload = response.parsed_body.fetch("scan")
+    assert_equal @scan.id, payload.fetch("id")
+    assert_equal @project.id, payload.fetch("project_id")
+    command = captured.fetch(:command)
+    assert_instance_of Crawling::AdmissionRequest, command
+    assert_equal "manual", command.source
+    assert_equal @owner.membership.id, captured.fetch(:actor_membership).id
+  end
+
+  test "admission exposes stable unverified capacity unsafe and quota error contracts" do
+    cases = [
+      [ Crawling::VerificationRequired.new, :conflict, "verification_required" ],
+      [ Crawling::CapacityExceeded.new(scope: "organization"), :conflict, "scan_capacity_exceeded" ],
+      [ Crawling::TargetUnsafe.new, :unprocessable_content, "unsafe_target" ],
+      [ Shared::Public::QuotaError.new(reason_code: "usage_quota_exceeded"), :too_many_requests, "quota_exceeded" ]
+    ]
+
+    cases.each_with_index do |(error, status, code), index|
+      operation = ->(**) { raise error }
+      with_admit_scan(operation) do
+        post organization_project_scans_path(
+          @owner.organization.slug, @project.slug, format: :json
+        ), params: {
+          scan_request: {
+            idempotency_key: "request-api-error-#{index}",
+            property_id: @property.id,
+            environment_id: @property.environments.sole.id,
+            scan_type: "full"
+          }
+        }
+      end
+
+      assert_response status
+      assert_equal code, response.parsed_body.dig("error", "code")
+      assert_equal code, response.headers.fetch("X-SearchOps-Error-Code")
+    end
+  end
+
   test "nested scan substitution and another tenant project fail closed without leaking scan data" do
     sibling = create_project_for(@owner, slug: "scan-project-sibling")
     get organization_project_scan_path(@owner.organization.slug, sibling.slug, @scan.id)
@@ -90,5 +150,30 @@ class ScansRequestTest < ActionDispatch::IntegrationTest
     )
     assert_response :forbidden
     assert_equal "requested", @scan.reload.status
+
+    post organization_project_scans_path(
+      @owner.organization.slug, @project.slug, format: :json
+    ), params: {
+      scan_request: {
+        idempotency_key: "viewer-forbidden",
+        property_id: @property.id,
+        environment_id: @property.environments.sole.id,
+        scan_type: "full"
+      }
+    }
+    assert_response :forbidden
+    assert_equal "authorization_denied", response.parsed_body.dig("error", "code")
+  end
+
+  private
+
+  def with_admit_scan(operation)
+    original = Crawling::Public.method(:admit_scan)
+    Crawling::Public.define_singleton_method(:admit_scan, &operation)
+    yield
+  ensure
+    Crawling::Public.define_singleton_method(:admit_scan) do |**attributes|
+      original.call(**attributes)
+    end
   end
 end

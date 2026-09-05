@@ -75,8 +75,9 @@ and PostgreSQL. Prompt 062 adds the exact scan-side composite foreign key descri
 
 The UI explains a maximum estimate using governed usage weights: one credit per
 HTTP fetch and ten per rendered page in the current catalog. It is an estimate,
-not a reservation and not a guarantee that the crawler will discover or fetch
-that many pages. Quota reservation remains part of later scan admission.
+not a guarantee that the crawler will discover or fetch that many pages. Scan
+admission revalidates the policy and atomically holds this weighted maximum in
+the usage ledger before dispatch.
 
 ## MVP exclusions
 

@@ -75,10 +75,21 @@
       </ol>
 
       <div class="mt-6 border-t border-slate-200 pt-5">
-        <button type="button" class="so-button so-button-primary" disabled aria-disabled="true">Run baseline scan</button>
+        <% if @scan_target && allowed_to?("scans.run", project: @project) %>
+          <% scan_property, scan_environment = @scan_target %>
+          <%= form_with url: organization_project_scans_path(Current.organization.slug, @project_summary.slug), method: :post do %>
+            <%= hidden_field_tag "scan_request[idempotency_key]", @scan_idempotency_key %>
+            <%= hidden_field_tag "scan_request[property_id]", scan_property.id %>
+            <%= hidden_field_tag "scan_request[environment_id]", scan_environment.id %>
+            <%= hidden_field_tag "scan_request[scan_type]", "full" %>
+            <%= submit_tag "Run baseline scan", class: "so-button so-button-primary" %>
+          <% end %>
+        <% else %>
+          <button type="button" class="so-button so-button-primary" disabled aria-disabled="true">Run baseline scan</button>
+        <% end %>
         <p class="mt-2 text-sm leading-6 text-slate-600" id="scan-action-explanation">
           <%= @project_dashboard.scan_action.explanation %>
-          <% if @project_dashboard.scan_action.allowed? %>The scan request workflow is enabled in the next implementation phase; this dashboard does not enqueue placeholder work.<% end %>
+          <% if @scan_target %>Admission performs a fresh ownership, safety, capacity and quota check before durable work is queued.<% end %>
         </p>
       </div>
     </section>

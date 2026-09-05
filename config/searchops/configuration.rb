@@ -122,6 +122,12 @@ module Searchops
         1024, 104_857_600, nil, false, nil),
       crawler_max_redirects: Definition.new("SEARCHOPS_CRAWLER_MAX_REDIRECTS", :integer, 5, 0, 20, nil, false, nil),
       crawler_concurrency: Definition.new("SEARCHOPS_CRAWLER_CONCURRENCY", :integer, 8, 1, 1000, nil, false, nil),
+      crawler_project_concurrent_scans: Definition.new(
+        "SEARCHOPS_CRAWLER_PROJECT_CONCURRENT_SCANS", :integer, 10, 1, 100_000, nil, false, nil
+      ),
+      crawler_global_concurrent_scans: Definition.new(
+        "SEARCHOPS_CRAWLER_GLOBAL_CONCURRENT_SCANS", :integer, 1000, 1, 1_000_000, nil, false, nil
+      ),
       browser_timeout: Definition.new("SEARCHOPS_BROWSER_TIMEOUT", :duration, "45s", 1, 300, nil, false, nil),
       browser_memory_mb: Definition.new("SEARCHOPS_BROWSER_MEMORY_MB", :integer, 1024, 256, 8192, nil, false, nil),
       browser_max_requests: Definition.new("SEARCHOPS_BROWSER_MAX_REQUESTS", :integer, 200, 1, 5000, nil, false, nil),

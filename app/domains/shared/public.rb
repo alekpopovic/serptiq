@@ -12,6 +12,7 @@ module Shared
     TransientInfrastructureError = Errors::TransientInfrastructureError
     ValidationError = Errors::ValidationError
     NetworkSafetyError = NetworkSafety::Error
+    UnsafeDestinationError = Errors::UnsafeDestinationError
     TransientJobError = JobErrors::TransientInfrastructure
     CanceledJobError = JobErrors::Canceled
     SecurityRejectedJobError = JobErrors::SecurityRejected

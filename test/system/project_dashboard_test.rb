@@ -28,7 +28,7 @@ class ProjectDashboardSystemTest < ApplicationSystemTestCase
     assert_text "Production Website"
     assert_link "Production"
     assert_text "No persisted scan observation exists yet"
-    assert_button "Run baseline scan", disabled: true
+    assert_button "Run baseline scan", disabled: false
 
     page.current_window.resize_to(390, 844)
     assert_selector "summary[aria-label='Open workspace navigation']", visible: true
