@@ -107,6 +107,12 @@ controllers:
       create: *verify_property_environment
       attempt: *verify_property_environment
       revoke: *verify_property_environment
+  Crawling::PoliciesController:
+    source: app/controllers/crawling/policies_controller.rb
+    actions:
+      edit: &configure_crawl_policy { kind: permission, permission: scans.configure }
+      update: *configure_crawl_policy
+      reset: *configure_crawl_policy
   Tenancy::InvitationAcceptancesController:
     source: app/controllers/tenancy/invitation_acceptances_controller.rb
     actions:
@@ -339,6 +345,15 @@ domain_operations:
   Verification::Public.fresh_verification:
     kind: context
     reason: explicit_tenant_environment_freshness_projection_for_authorized_scan_admission
+  Crawling::Public.policy: { kind: permission, permission: scans.configure }
+  Crawling::Public.configure_policy: { kind: permission, permission: scans.configure }
+  Crawling::Public.reset_policy: { kind: permission, permission: scans.configure }
+  Crawling::Public.snapshot_for_scan:
+    kind: context
+    reason: authorized_exact_environment_policy_snapshot_for_scan_admission
+  Crawling::Public.compile_glob:
+    kind: context
+    reason: pure_bounded_glob_compilation
   Verification::Public.schedule_dns_rechecks:
     kind: system
     reason: bounded_scheduled_dns_verification_refresh

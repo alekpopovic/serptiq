@@ -778,6 +778,22 @@ Encrypted access token, refresh token, expiry, token type, scopes, key version, 
 
 ## 8. Crawl and analysis tables
 
+### `crawl_policy_sets` / `crawl_policy_versions`
+
+Each active website-family environment may have one tenant/project/property/environment-bound policy head.
+The head stores only the current monotonic version and optimistic lock value. Every change appends a version
+with ordered start/sitemap URLs, bounded include/exclude path globs, URL/depth limits, query policy, fixed-base
+user-agent suffix, rate/concurrency, mandatory robots compliance, rendering sample/cap and artifact retention.
+Versions identify their same-organization creating membership and are immutable by PostgreSQL trigger.
+Composite foreign keys prevent moving a head or version across tenant/resource boundaries.
+
+### `crawl_policy_snapshots`
+
+One immutable row per globally unique future scan UUID copies the complete effective configuration as bounded
+JSON, its SHA-256 digest and exact source policy version. The tenant/project/property/environment identity is
+repeated and protected by a composite source-version foreign key. Prompt 062 adds the scan-side relationship
+when the scan aggregate is introduced; snapshot creation is already idempotent by `scan_id`.
+
 ### `scans`
 
 Aggregate root with organization, project, property, initiator, kind, state, policy snapshot, entitlement snapshot, quota reservation, counters, timestamps, cancellation, error classification, and lock version.

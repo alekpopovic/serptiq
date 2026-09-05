@@ -48,7 +48,7 @@ modules:
     allowed_dependencies: [tenancy, authorization, entitlements, projects, properties, verification, shared]
   crawling:
     namespace: Crawling
-    allowed_dependencies: [projects, properties, authorization, entitlements, usage, shared]
+    allowed_dependencies: [projects, properties, authorization, entitlements, usage, auditing, shared]
   analysis:
     namespace: Analysis
     allowed_dependencies: [crawling, shared]

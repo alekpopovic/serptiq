@@ -1,0 +1,84 @@
+<% content_for :title, "Crawl policy" %>
+<div class="mx-auto max-w-5xl">
+  <%= render "shared/breadcrumbs", items: [
+    { label: @property.display_name, path: organization_project_property_path(Current.organization.slug, @project.slug, @property.id) },
+    { label: "Environments", path: organization_project_property_environments_path(Current.organization.slug, @project.slug, @property.id) },
+    { label: @environment.display_name, path: organization_project_property_environment_path(Current.organization.slug, @project.slug, @property.id, @environment.id) },
+    { label: "Crawl policy", path: nil }
+  ] %>
+
+  <div class="mt-6">
+    <p class="so-eyebrow"><%= @environment.kind.humanize %> environment · <%= @environment.key %></p>
+    <h1 class="mt-2 text-3xl font-black tracking-tight text-slate-950">Crawl policy</h1>
+    <p class="mt-3 max-w-3xl text-sm text-slate-600">Configure a bounded crawl of <span class="font-mono"><%= @environment.origin %></span>. Saving always creates a new immutable version; scans keep the exact version they started with.</p>
+  </div>
+
+  <div class="mt-6 grid gap-4 sm:grid-cols-3">
+    <div class="so-card p-5"><p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Current version</p><p class="mt-2 text-2xl font-black"><%= @policy_view.persisted? ? "v#{@policy_view.version}" : "Plan default" %></p></div>
+    <div class="so-card p-5"><p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Maximum fetches</p><p class="mt-2 text-2xl font-black"><%= number_with_delimiter(@policy_view.estimate.http_pages) %></p></div>
+    <div class="so-card p-5"><p class="text-xs font-semibold uppercase tracking-wide text-slate-500">Estimated upper bound</p><p class="mt-2 text-2xl font-black"><%= number_with_delimiter(@policy_view.estimate.maximum_credits.to_i) %> credits</p></div>
+  </div>
+
+  <div class="so-alert so-alert-warning mt-6">
+    <p><strong>Public crawl only.</strong> Authenticated/private targets, custom credentials, ignoring robots.txt and bypassing the global SSRF policy are unavailable in the MVP. DNS and every redirect are independently revalidated when a scan runs.</p>
+  </div>
+
+  <%= form_with model: @policy_form, scope: :crawl_policy,
+    url: organization_project_property_environment_crawl_policy_path(Current.organization.slug, @project.slug, @property.id, @environment.id),
+    method: :patch, class: "mt-8 space-y-8" do |form| %>
+    <%= render "shared/error_summary", model: @policy_form, title: "Check the crawl policy", field_ids: {
+      start_urls: "crawl_policy_start_urls", sitemap_urls: "crawl_policy_sitemap_urls",
+      include_patterns: "crawl_policy_include_patterns", exclude_patterns: "crawl_policy_exclude_patterns",
+      max_urls: "crawl_policy_max_urls", max_depth: "crawl_policy_max_depth",
+      query_handling: "crawl_policy_query_handling", user_agent_suffix: "crawl_policy_user_agent_suffix",
+      request_rate_per_second: "crawl_policy_request_rate_per_second",
+      max_concurrency: "crawl_policy_max_concurrency", robots_behavior: "crawl_policy_robots_behavior",
+      rendering_sample_percent: "crawl_policy_rendering_sample_percent",
+      max_rendered_pages: "crawl_policy_max_rendered_pages",
+      artifact_retention_days: "crawl_policy_artifact_retention_days"
+    } %>
+
+    <section class="so-card p-6">
+      <h2 class="text-lg font-bold text-slate-950">Discovery boundaries</h2>
+      <div class="mt-5 grid gap-5 lg:grid-cols-2">
+        <div><%= form.label :start_urls, "Start URLs", class: "so-label" %><%= form.text_area :start_urls, rows: 5, required: true, class: "so-input font-mono text-sm" %><p class="so-help">One absolute URL per line; 1–20 URLs on the exact environment origin.</p></div>
+        <div><%= form.label :sitemap_urls, "Sitemap URLs", class: "so-label" %><%= form.text_area :sitemap_urls, rows: 5, class: "so-input font-mono text-sm" %><p class="so-help">Optional, one per line, on the exact environment origin.</p></div>
+        <div><%= form.label :include_patterns, "Include path globs", class: "so-label" %><%= form.text_area :include_patterns, rows: 4, class: "so-input font-mono text-sm", disabled: !@policy_view.limits.custom_patterns %><p class="so-help">Examples: <code>/docs/**</code> or <code>/products/*</code>. Raw regex is never accepted.</p></div>
+        <div><%= form.label :exclude_patterns, "Exclude path globs", class: "so-label" %><%= form.text_area :exclude_patterns, rows: 4, class: "so-input font-mono text-sm", disabled: !@policy_view.limits.custom_patterns %><p class="so-help">Custom patterns require an effective plan with configurable rules.</p></div>
+      </div>
+    </section>
+
+    <section class="so-card p-6">
+      <h2 class="text-lg font-bold text-slate-950">Crawl budget and behavior</h2>
+      <div class="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div><%= form.label :max_urls, "Maximum URLs", class: "so-label" %><%= form.number_field :max_urls, min: 1, max: @policy_view.limits.max_urls, required: true, class: "so-input" %><p class="so-help">Effective cap: <%= number_with_delimiter(@policy_view.limits.max_urls) %>.</p></div>
+        <div><%= form.label :max_depth, "Maximum depth", class: "so-label" %><%= form.number_field :max_depth, min: 0, max: @policy_view.limits.max_depth, required: true, class: "so-input" %></div>
+        <div><%= form.label :query_handling, "Query handling", class: "so-label" %><%= form.select :query_handling, [ [ "Ignore all query parameters", "ignore" ], [ "Ignore known tracking parameters", "tracking_only" ], [ "Keep all query parameters", "all" ] ], {}, class: "so-select" %></div>
+        <div><%= form.label :request_rate_per_second, "Requests per second", class: "so-label" %><%= form.number_field :request_rate_per_second, min: 0.1, max: @policy_view.limits.max_request_rate.to_s("F"), step: 0.1, required: true, class: "so-input" %></div>
+        <div><%= form.label :max_concurrency, "Per-scan concurrency", class: "so-label" %><%= form.number_field :max_concurrency, min: 1, max: @policy_view.limits.max_concurrency, required: true, class: "so-input" %></div>
+        <div><%= form.label :robots_behavior, "Robots behavior", class: "so-label" %><%= form.select :robots_behavior, [ [ "Respect robots.txt (required)", "respect" ] ], {}, class: "so-select" %></div>
+        <div><%= form.label :user_agent_suffix, "User-agent product suffix", class: "so-label" %><%= form.text_field :user_agent_suffix, maxlength: 32, placeholder: "AcmeAudit", disabled: !@policy_view.limits.custom_user_agent, class: "so-input" %><p class="so-help">The fixed <code>SearchOpsBot/1.0</code> identity remains visible.</p></div>
+        <div><%= form.label :artifact_retention_days, "Raw artifact retention (days)", class: "so-label" %><%= form.number_field :artifact_retention_days, min: 0, max: @policy_view.limits.artifact_retention_days, required: true, class: "so-input" %><p class="so-help">Effective plan cap: <%= @policy_view.limits.artifact_retention_days %> days.</p></div>
+      </div>
+    </section>
+
+    <section class="so-card p-6">
+      <h2 class="text-lg font-bold text-slate-950">Isolated JavaScript sample</h2>
+      <p class="mt-2 text-sm text-slate-600">Rendered pages cost <%= @policy_view.estimate.rendered_weight.to_i %> credits each; an HTTP fetch costs <%= @policy_view.estimate.http_weight.to_i %>. This estimate is an upper bound, not a quota reservation or a guarantee of pages discovered.</p>
+      <div class="mt-5 grid gap-5 sm:grid-cols-2">
+        <div><%= form.label :rendering_sample_percent, "Rendered sample (%)", class: "so-label" %><%= form.number_field :rendering_sample_percent, min: 0, max: 100, required: true, disabled: !@policy_view.limits.rendering_enabled, class: "so-input" %></div>
+        <div><%= form.label :max_rendered_pages, "Maximum rendered pages", class: "so-label" %><%= form.number_field :max_rendered_pages, min: 0, max: @policy_view.limits.max_rendered_pages, required: true, disabled: !@policy_view.limits.rendering_enabled, class: "so-input" %><p class="so-help">Plan cap: <%= number_with_delimiter(@policy_view.limits.max_rendered_pages) %>.</p></div>
+      </div>
+    </section>
+
+    <div class="flex flex-wrap gap-3"><%= form.submit "Save new policy version", class: "so-button so-button-primary" %></div>
+  <% end %>
+
+  <section class="mt-8 border-t border-slate-200 pt-6">
+    <h2 class="font-bold text-slate-950">Reset configuration</h2>
+    <p class="mt-2 text-sm text-slate-600">Reset creates another immutable version using current global and plan bounds.</p>
+    <%= button_to "Reset to plan-safe defaults",
+      reset_organization_project_property_environment_crawl_policy_path(Current.organization.slug, @project.slug, @property.id, @environment.id),
+      method: :post, class: "so-button so-button-secondary mt-4" %>
+  </section>
+</div>

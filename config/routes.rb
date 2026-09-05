@@ -203,6 +203,15 @@ Rails.application.routes.draw do
   patch "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id/environments/:environment_id/reactivate",
     to: "properties/environments#reactivate",
     as: :reactivate_organization_project_property_environment
+  get "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id/environments/:environment_id/crawl-policy",
+    to: "crawling/policies#edit",
+    as: :edit_organization_project_property_environment_crawl_policy
+  patch "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id/environments/:environment_id/crawl-policy",
+    to: "crawling/policies#update",
+    as: :organization_project_property_environment_crawl_policy
+  post "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id/environments/:environment_id/crawl-policy/reset",
+    to: "crawling/policies#reset",
+    as: :reset_organization_project_property_environment_crawl_policy
   get "dashboard/organizations/:organization_slug/projects/:project_slug/properties/:property_id/environments/:environment_id/verification",
     to: "verification/challenges#show",
     as: :organization_project_property_environment_verification

@@ -3,7 +3,7 @@
   "project": "SearchOps Rails Production MVP",
   "catalog_sha256": "79759682fd3d3fcc759bb98d814334f863f198f11079a390854809547a3b5bd8",
   "created_at": "2026-09-03T23:18:11Z",
-  "updated_at": "2026-09-04T23:22:08Z",
+  "updated_at": "2026-09-05T00:04:58Z",
   "current_prompt": null,
   "prompts": {
     "000": {
@@ -645,14 +645,14 @@
       "commit": null
     },
     "058": {
-      "status": "pending",
-      "attempts": 0,
-      "started_at": null,
-      "finished_at": null,
+      "status": "completed",
+      "attempts": 1,
+      "started_at": "2026-09-04T23:23:59Z",
+      "finished_at": "2026-09-05T00:04:58Z",
       "blocked_at": null,
       "block_reason": null,
-      "summary": null,
-      "result_file": null,
+      "summary": "Implemented tenant-safe, immutable, versioned crawl policies with entitlement/global bounds, exact-origin URL and bounded glob validation, public configuration/reset UI, governed credit estimates, audit metadata, and idempotent per-scan policy snapshots.",
+      "result_file": "tracking/results/058.json",
       "commit": null
     },
     "059": {
@@ -2080,6 +2080,19 @@
       "prompt_id": "057",
       "summary": "Implemented a persisted six-step project/property onboarding wizard with composed organization-scoped permissions, tenant- and actor-bound drafts, safe navigation/resume, PostgreSQL concurrency and idempotency controls, atomic website/mobile provisioning, ownership challenge handoff, read-only plan impact, factual readiness, cancellation, privacy-safe instrumentation, accessible no-JavaScript UI, and synchronized documentation.",
       "result_file": "tracking/results/057.json",
+      "commit": null
+    },
+    {
+      "at": "2026-09-04T23:23:59Z",
+      "event": "started",
+      "prompt_id": "058"
+    },
+    {
+      "at": "2026-09-05T00:04:58Z",
+      "event": "completed",
+      "prompt_id": "058",
+      "summary": "Implemented tenant-safe, immutable, versioned crawl policies with entitlement/global bounds, exact-origin URL and bounded glob validation, public configuration/reset UI, governed credit estimates, audit metadata, and idempotent per-scan policy snapshots.",
+      "result_file": "tracking/results/058.json",
       "commit": null
     }
   ]

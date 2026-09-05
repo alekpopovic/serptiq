@@ -1,0 +1,93 @@
+{
+  "prompt_id": "058",
+  "title": "Implement crawl settings and policy configuration",
+  "status": "completed",
+  "started_at": "2026-09-04T23:23:59Z",
+  "finished_at": "2026-09-05T00:04:58Z",
+  "summary": "Implemented tenant-safe, immutable, versioned crawl policies with entitlement/global bounds, exact-origin URL and bounded glob validation, public configuration/reset UI, governed credit estimates, audit metadata, and idempotent per-scan policy snapshots.",
+  "tests": [
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test test/domain/crawling/policy_test.rb test/domain/crawling/glob_pattern_test.rb test/database/crawl_policy_constraints_test.rb test/requests/crawl_policies_test.rb",
+      "outcome": "passed",
+      "notes": "14 runs, 97 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails db:migrate:down:primary VERSION=20260904145000",
+      "outcome": "passed",
+      "notes": "Rollback completed in 0.0204 seconds"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails db:migrate:up:primary VERSION=20260904145000",
+      "outcome": "passed",
+      "notes": "Reapply completed in 0.0379 seconds"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test test/database/dns_verification_concurrency_test.rb",
+      "outcome": "passed",
+      "notes": "1 run, 8 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test test/domain/plans/deletion_protection_test.rb",
+      "outcome": "passed",
+      "notes": "3 runs, 9 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "mise exec -- bin/quality",
+      "outcome": "passed",
+      "notes": "14 checks passed; 1030 Ruby files, 68 ERB files, architecture/access/authorization contracts, Brakeman 0 warnings, advisory audits clean"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test",
+      "outcome": "passed",
+      "notes": "777 runs, 5939 assertions, 0 failures, 0 errors, 0 skips"
+    },
+    {
+      "command": "docker compose --profile test run --rm test ./bin/rails test:system",
+      "outcome": "passed",
+      "notes": "38 runs, 184 assertions, 0 failures, 0 errors, 0 skips"
+    }
+  ],
+  "files_changed": [
+    "app/controllers/crawling",
+    "app/controllers/properties/environments_controller.rb",
+    "app/domains/crawling",
+    "app/domains/shared/public.rb",
+    "app/forms/crawling",
+    "app/views/crawling",
+    "app/views/properties/environments/show.html.erb",
+    "config/architecture.yml",
+    "config/authorization_inventory.yml",
+    "config/routes.rb",
+    "db/migrate/20260904145000_create_crawl_policies.rb",
+    "db/structure.sql",
+    "docs/03_ERD.md",
+    "docs/implementation/CRAWL_POLICIES.md",
+    "docs/implementation/MODULE_BOUNDARIES.md",
+    "docs/implementation/README.md",
+    "test/database/crawl_policy_constraints_test.rb",
+    "test/database/dns_verification_concurrency_test.rb",
+    "test/domain/crawling",
+    "test/requests/crawl_policies_test.rb",
+    "test/support/crawl_policy_helpers.rb",
+    "test/test_helper.rb",
+    "tracking"
+  ],
+  "migrations": [
+    "20260904145000_create_crawl_policies.rb"
+  ],
+  "decisions": [
+    "Bind policy rows to exact organization/project/property/environment identities",
+    "Append immutable policy versions and immutable scan snapshots",
+    "Cap stored values by current entitlements and global crawler limits",
+    "Accept only exact-origin public HTTP URLs and bounded escaped globs",
+    "Keep SearchOpsBot/1.0 fixed and require robots compliance"
+  ],
+  "risks": [
+    "Prompt 062 must add the scan-side foreign-key relationship once the scans aggregate exists;scan admission requires a persisted policy version and revalidates current limits"
+  ],
+  "next_steps": [
+    "Commit and push Prompt 058",
+    "then execute Prompt 059 according to the dependency graph"
+  ],
+  "commit": null
+}

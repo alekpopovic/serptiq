@@ -15,6 +15,7 @@ module ActiveSupport
 
     include TestSupport::AuditAndUsageAssertions
     include TestSupport::CryptoHelpers
+    include TestSupport::CrawlPolicyHelpers
     include TestSupport::DeterministicHelpers
     include TestSupport::JobAssertions
     include TestSupport::IdentitySessionHelpers

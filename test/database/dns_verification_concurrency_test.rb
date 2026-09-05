@@ -118,7 +118,8 @@ class DnsVerificationConcurrencyTest < ActiveSupport::TestCase
 
   def truncate_records
     ActiveRecord::Base.connection.execute(
-      "TRUNCATE TABLE organizations, users, audit_events, outbox_events CASCADE"
+      "TRUNCATE TABLE entitlement_definitions, plans, organizations, users, " \
+        "audit_events, outbox_events CASCADE"
     )
   end
 end

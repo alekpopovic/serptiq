@@ -173,6 +173,12 @@ authorization or persist copies of their completed aggregates. The orchestration
 of the provisioned domains depends on Onboarding. Crawl preferences saved during setup are only bounded input;
 Crawling remains the owner of durable crawl policy and quota-backed scan admission.
 
+Crawling owns per-environment policy heads, immutable policy versions and immutable scan-policy snapshots.
+It consumes only tenant-safe project/property/environment references, unified `scans.configure` access,
+effective entitlement limits, governed usage weights, the append-only audit sink and Shared HTTP target
+normalization. A stored policy is crawl intent rather than network authorization: later workers must still
+apply the Shared public-address and redirect policy to every request.
+
 ## Shared primitives
 
 `app/domains/shared/` is owned platform domain code, not a general utilities

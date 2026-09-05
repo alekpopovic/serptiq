@@ -595,6 +595,19 @@ $$;
 
 
 --
+-- Name: reject_crawl_policy_immutable_change(); Type: FUNCTION; Schema: public; Owner: -
+--
+
+CREATE FUNCTION public.reject_crawl_policy_immutable_change() RETURNS trigger
+    LANGUAGE plpgsql
+    AS $$
+BEGIN
+  RAISE EXCEPTION '% rows are immutable', TG_TABLE_NAME;
+END;
+$$;
+
+
+--
 -- Name: validate_domain_verification_origin(); Type: FUNCTION; Schema: public; Owner: -
 --
 
@@ -874,13 +887,13 @@ CREATE TABLE public.billing_reconciliation_runs (
     CONSTRAINT billing_reconciliations_attempt_range CHECK (((attempt_count >= 0) AND (attempt_count <= 5))),
     CONSTRAINT billing_reconciliations_differences_bounded CHECK (((jsonb_typeof(difference_fields) = 'array'::text) AND (pg_column_size(difference_fields) <= 2048))),
     CONSTRAINT billing_reconciliations_enqueue_order CHECK (((enqueued_at IS NULL) OR (enqueued_at >= requested_at))),
-    CONSTRAINT billing_reconciliations_environment_allowlist CHECK (((environment)::text = ANY ((ARRAY['development'::character varying, 'test'::character varying, 'staging'::character varying, 'production'::character varying])::text[]))),
-    CONSTRAINT billing_reconciliations_lifecycle_shape CHECK (((((state)::text = 'queued'::text) AND (attempt_count = 0) AND (started_at IS NULL) AND (completed_at IS NULL) AND (next_attempt_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'running'::text) AND (attempt_count > 0) AND (started_at IS NOT NULL) AND (completed_at IS NULL) AND (next_attempt_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'retryable'::text) AND (attempt_count > 0) AND (started_at IS NOT NULL) AND (completed_at IS NULL) AND (next_attempt_at IS NOT NULL) AND (failure_category IS NOT NULL)) OR (((state)::text = ANY ((ARRAY['matched'::character varying, 'repaired'::character varying, 'ambiguous'::character varying])::text[])) AND (attempt_count > 0) AND (started_at IS NOT NULL) AND (completed_at IS NOT NULL) AND (next_attempt_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = ANY ((ARRAY['missing'::character varying, 'failed'::character varying])::text[])) AND (attempt_count > 0) AND (started_at IS NOT NULL) AND (completed_at IS NOT NULL) AND (next_attempt_at IS NULL) AND (failure_category IS NOT NULL)))),
+    CONSTRAINT billing_reconciliations_environment_allowlist CHECK (((environment)::text = ANY (ARRAY[('development'::character varying)::text, ('test'::character varying)::text, ('staging'::character varying)::text, ('production'::character varying)::text]))),
+    CONSTRAINT billing_reconciliations_lifecycle_shape CHECK (((((state)::text = 'queued'::text) AND (attempt_count = 0) AND (started_at IS NULL) AND (completed_at IS NULL) AND (next_attempt_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'running'::text) AND (attempt_count > 0) AND (started_at IS NOT NULL) AND (completed_at IS NULL) AND (next_attempt_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'retryable'::text) AND (attempt_count > 0) AND (started_at IS NOT NULL) AND (completed_at IS NULL) AND (next_attempt_at IS NOT NULL) AND (failure_category IS NOT NULL)) OR (((state)::text = ANY (ARRAY[('matched'::character varying)::text, ('repaired'::character varying)::text, ('ambiguous'::character varying)::text])) AND (attempt_count > 0) AND (started_at IS NOT NULL) AND (completed_at IS NOT NULL) AND (next_attempt_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = ANY (ARRAY[('missing'::character varying)::text, ('failed'::character varying)::text])) AND (attempt_count > 0) AND (started_at IS NOT NULL) AND (completed_at IS NOT NULL) AND (next_attempt_at IS NULL) AND (failure_category IS NOT NULL)))),
     CONSTRAINT billing_reconciliations_provider_format CHECK (((provider)::text ~ '^[a-z][a-z0-9_]{1,31}$'::text)),
     CONSTRAINT billing_reconciliations_requester_shape CHECK (((((source)::text = 'scheduled'::text) AND (requested_by_user_id IS NULL)) OR (((source)::text = 'targeted'::text) AND (requested_by_user_id IS NOT NULL)))),
     CONSTRAINT billing_reconciliations_snapshot_bounded CHECK (((jsonb_typeof(provider_snapshot) = 'object'::text) AND (pg_column_size(provider_snapshot) <= 8192))),
-    CONSTRAINT billing_reconciliations_source_allowlist CHECK (((source)::text = ANY ((ARRAY['scheduled'::character varying, 'targeted'::character varying])::text[]))),
-    CONSTRAINT billing_reconciliations_state_allowlist CHECK (((state)::text = ANY ((ARRAY['queued'::character varying, 'running'::character varying, 'matched'::character varying, 'repaired'::character varying, 'ambiguous'::character varying, 'missing'::character varying, 'retryable'::character varying, 'failed'::character varying])::text[])))
+    CONSTRAINT billing_reconciliations_source_allowlist CHECK (((source)::text = ANY (ARRAY[('scheduled'::character varying)::text, ('targeted'::character varying)::text]))),
+    CONSTRAINT billing_reconciliations_state_allowlist CHECK (((state)::text = ANY (ARRAY[('queued'::character varying)::text, ('running'::character varying)::text, ('matched'::character varying)::text, ('repaired'::character varying)::text, ('ambiguous'::character varying)::text, ('missing'::character varying)::text, ('retryable'::character varying)::text, ('failed'::character varying)::text])))
 );
 
 
@@ -912,12 +925,12 @@ CREATE TABLE public.billing_subscription_changes (
     created_at timestamp(6) with time zone NOT NULL,
     updated_at timestamp(6) with time zone NOT NULL,
     CONSTRAINT billing_changes_digest_format CHECK ((((idempotency_digest)::text ~ '^[0-9a-f]{64}$'::text) AND ((request_checksum)::text ~ '^[0-9a-f]{64}$'::text))),
-    CONSTRAINT billing_changes_direction_allowlist CHECK (((direction)::text = ANY ((ARRAY['upgrade'::character varying, 'downgrade'::character varying])::text[]))),
+    CONSTRAINT billing_changes_direction_allowlist CHECK (((direction)::text = ANY (ARRAY[('upgrade'::character varying)::text, ('downgrade'::character varying)::text]))),
     CONSTRAINT billing_changes_distinct_plan_versions CHECK ((from_plan_version_id <> target_plan_version_id)),
-    CONSTRAINT billing_changes_interval_allowlist CHECK (((target_billing_interval)::text = ANY ((ARRAY['monthly'::character varying, 'annual'::character varying])::text[]))),
-    CONSTRAINT billing_changes_lifecycle_shape CHECK (((effective_at >= requested_at) AND ((dispatch_enqueued_at IS NULL) OR (dispatch_enqueued_at >= requested_at)) AND ((((direction)::text = 'upgrade'::text) AND ((effective_policy)::text = 'immediate'::text) AND ((state)::text <> 'scheduled'::text)) OR (((direction)::text = 'downgrade'::text) AND ((effective_policy)::text = 'period_end'::text) AND ((state)::text <> 'pending'::text))) AND ((((state)::text = ANY ((ARRAY['pending'::character varying, 'scheduled'::character varying])::text[])) AND (submitted_at IS NULL) AND (applied_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'submitted'::text) AND (submitted_at IS NOT NULL) AND (applied_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'applied'::text) AND (submitted_at IS NOT NULL) AND (applied_at IS NOT NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'failed'::text) AND (applied_at IS NULL) AND (failed_at IS NOT NULL) AND (failure_category IS NOT NULL)) OR (((state)::text = 'canceled'::text) AND (applied_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL))))),
-    CONSTRAINT billing_changes_policy_allowlist CHECK (((effective_policy)::text = ANY ((ARRAY['immediate'::character varying, 'period_end'::character varying])::text[]))),
-    CONSTRAINT billing_changes_state_allowlist CHECK (((state)::text = ANY ((ARRAY['pending'::character varying, 'scheduled'::character varying, 'submitted'::character varying, 'applied'::character varying, 'failed'::character varying, 'canceled'::character varying])::text[])))
+    CONSTRAINT billing_changes_interval_allowlist CHECK (((target_billing_interval)::text = ANY (ARRAY[('monthly'::character varying)::text, ('annual'::character varying)::text]))),
+    CONSTRAINT billing_changes_lifecycle_shape CHECK (((effective_at >= requested_at) AND ((dispatch_enqueued_at IS NULL) OR (dispatch_enqueued_at >= requested_at)) AND ((((direction)::text = 'upgrade'::text) AND ((effective_policy)::text = 'immediate'::text) AND ((state)::text <> 'scheduled'::text)) OR (((direction)::text = 'downgrade'::text) AND ((effective_policy)::text = 'period_end'::text) AND ((state)::text <> 'pending'::text))) AND ((((state)::text = ANY (ARRAY[('pending'::character varying)::text, ('scheduled'::character varying)::text])) AND (submitted_at IS NULL) AND (applied_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'submitted'::text) AND (submitted_at IS NOT NULL) AND (applied_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'applied'::text) AND (submitted_at IS NOT NULL) AND (applied_at IS NOT NULL) AND (failed_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'failed'::text) AND (applied_at IS NULL) AND (failed_at IS NOT NULL) AND (failure_category IS NOT NULL)) OR (((state)::text = 'canceled'::text) AND (applied_at IS NULL) AND (failed_at IS NULL) AND (failure_category IS NULL))))),
+    CONSTRAINT billing_changes_policy_allowlist CHECK (((effective_policy)::text = ANY (ARRAY[('immediate'::character varying)::text, ('period_end'::character varying)::text]))),
+    CONSTRAINT billing_changes_state_allowlist CHECK (((state)::text = ANY (ARRAY[('pending'::character varying)::text, ('scheduled'::character varying)::text, ('submitted'::character varying)::text, ('applied'::character varying)::text, ('failed'::character varying)::text, ('canceled'::character varying)::text])))
 );
 
 
@@ -933,7 +946,7 @@ CREATE TABLE public.billing_support_access_grants (
     revoked_at timestamp(6) with time zone,
     created_at timestamp(6) with time zone NOT NULL,
     updated_at timestamp(6) with time zone NOT NULL,
-    CONSTRAINT billing_support_grants_permission_allowlist CHECK (((permission)::text = ANY ((ARRAY['billing_support.read'::character varying, 'billing_support.manage'::character varying])::text[]))),
+    CONSTRAINT billing_support_grants_permission_allowlist CHECK (((permission)::text = ANY (ARRAY[('billing_support.read'::character varying)::text, ('billing_support.manage'::character varying)::text]))),
     CONSTRAINT billing_support_grants_revocation_order CHECK (((revoked_at IS NULL) OR (revoked_at >= granted_at)))
 );
 
@@ -989,6 +1002,85 @@ CREATE TABLE public.billing_webhook_events (
 
 
 --
+-- Name: crawl_policy_sets; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.crawl_policy_sets (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_id uuid NOT NULL,
+    environment_id uuid NOT NULL,
+    current_version integer DEFAULT 0 NOT NULL,
+    lock_version integer DEFAULT 0 NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    updated_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT crawl_policy_sets_current_version CHECK ((current_version >= 0))
+);
+
+
+--
+-- Name: crawl_policy_snapshots; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.crawl_policy_snapshots (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    scan_id uuid NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_id uuid NOT NULL,
+    environment_id uuid NOT NULL,
+    crawl_policy_version_id uuid NOT NULL,
+    policy_version integer NOT NULL,
+    configuration jsonb NOT NULL,
+    configuration_digest character varying(64) NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT crawl_policy_snapshots_bounded_configuration CHECK (((jsonb_typeof(configuration) = 'object'::text) AND (octet_length((configuration)::text) <= 32768))),
+    CONSTRAINT crawl_policy_snapshots_digest CHECK (((configuration_digest)::text ~ '^[0-9a-f]{64}$'::text)),
+    CONSTRAINT crawl_policy_snapshots_positive_version CHECK ((policy_version > 0))
+);
+
+
+--
+-- Name: crawl_policy_versions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.crawl_policy_versions (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    crawl_policy_set_id uuid NOT NULL,
+    organization_id uuid NOT NULL,
+    project_id uuid NOT NULL,
+    property_id uuid NOT NULL,
+    environment_id uuid NOT NULL,
+    version integer NOT NULL,
+    start_urls text[] DEFAULT '{}'::text[] NOT NULL,
+    sitemap_urls text[] DEFAULT '{}'::text[] NOT NULL,
+    include_patterns text[] DEFAULT '{}'::text[] NOT NULL,
+    exclude_patterns text[] DEFAULT '{}'::text[] NOT NULL,
+    max_urls integer NOT NULL,
+    max_depth integer NOT NULL,
+    query_handling character varying(24) NOT NULL,
+    user_agent_suffix character varying(32),
+    request_rate_per_second numeric(6,2) NOT NULL,
+    max_concurrency integer NOT NULL,
+    robots_behavior character varying(24) NOT NULL,
+    rendering_sample_percent integer NOT NULL,
+    max_rendered_pages integer NOT NULL,
+    artifact_retention_days integer NOT NULL,
+    created_by_membership_id uuid NOT NULL,
+    change_kind character varying(24) NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    CONSTRAINT crawl_policy_versions_allowlists CHECK ((((query_handling)::text = ANY ((ARRAY['ignore'::character varying, 'tracking_only'::character varying, 'all'::character varying])::text[])) AND ((robots_behavior)::text = 'respect'::text) AND ((change_kind)::text = ANY ((ARRAY['configured'::character varying, 'reset'::character varying, 'onboarding'::character varying])::text[])))),
+    CONSTRAINT crawl_policy_versions_bounded_lists CHECK ((((cardinality(start_urls) >= 1) AND (cardinality(start_urls) <= 20)) AND (cardinality(sitemap_urls) <= 20) AND (cardinality(include_patterns) <= 50) AND (cardinality(exclude_patterns) <= 50) AND (octet_length(array_to_string(start_urls, ''::text)) <= 40960) AND (octet_length(array_to_string(sitemap_urls, ''::text)) <= 40960) AND (octet_length(array_to_string(include_patterns, ''::text)) <= 12800) AND (octet_length(array_to_string(exclude_patterns, ''::text)) <= 12800))),
+    CONSTRAINT crawl_policy_versions_crawl_bounds CHECK ((((max_urls >= 1) AND (max_urls <= 1000000)) AND ((max_depth >= 0) AND (max_depth <= 20)) AND ((request_rate_per_second >= 0.10) AND (request_rate_per_second <= 10.00)) AND ((max_concurrency >= 1) AND (max_concurrency <= 1000)))),
+    CONSTRAINT crawl_policy_versions_positive_version CHECK ((version > 0)),
+    CONSTRAINT crawl_policy_versions_rendering_shape CHECK ((((rendering_sample_percent >= 0) AND (rendering_sample_percent <= 100)) AND (max_rendered_pages >= 0) AND (((rendering_sample_percent = 0) AND (max_rendered_pages = 0)) OR ((rendering_sample_percent > 0) AND (max_rendered_pages > 0))))),
+    CONSTRAINT crawl_policy_versions_retention CHECK (((artifact_retention_days >= 0) AND (artifact_retention_days <= 36500))),
+    CONSTRAINT crawl_policy_versions_user_agent_suffix CHECK (((user_agent_suffix IS NULL) OR ((user_agent_suffix)::text ~ '^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$'::text)))
+);
+
+
+--
 -- Name: domain_verification_attempts; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1006,9 +1098,9 @@ CREATE TABLE public.domain_verification_attempts (
     attempted_at timestamp(6) with time zone NOT NULL,
     created_at timestamp(6) with time zone NOT NULL,
     CONSTRAINT domain_verification_attempts_evidence_shape CHECK (((jsonb_typeof(evidence) = 'object'::text) AND (octet_length((evidence)::text) <= 4096))),
-    CONSTRAINT domain_verification_attempts_failure_category_allowlist CHECK (((failure_category IS NULL) OR ((failure_category)::text = ANY ((ARRAY['proof_missing'::character varying, 'proof_mismatch'::character varying, 'provider_unavailable'::character varying, 'provider_unauthorized'::character varying, 'unsafe_destination'::character varying, 'malformed_response'::character varying, 'attempt_limit'::character varying, 'dns_nxdomain'::character varying, 'dns_no_record'::character varying, 'dns_propagating'::character varying, 'dns_timeout'::character varying, 'dns_transient_failure'::character varying, 'dns_multiple_records'::character varying, 'dns_response_limit'::character varying, 'dns_cname_limit'::character varying, 'dns_delegation_limit'::character varying, 'http_dns_failure'::character varying, 'http_timeout'::character varying, 'http_transport_failure'::character varying, 'http_redirect_rejected'::character varying, 'http_redirect_limit'::character varying, 'http_response_too_large'::character varying, 'http_content_type_rejected'::character varying, 'duplicate_meta'::character varying, 'provider_scope_revoked'::character varying, 'provider_property_inaccessible'::character varying, 'provider_outage'::character varying, 'provider_ambiguous_match'::character varying, 'provider_no_match'::character varying, 'provider_insufficient_permission'::character varying, 'provider_connection_changed'::character varying])::text[])))),
+    CONSTRAINT domain_verification_attempts_failure_category_allowlist CHECK (((failure_category IS NULL) OR ((failure_category)::text = ANY (ARRAY[('proof_missing'::character varying)::text, ('proof_mismatch'::character varying)::text, ('provider_unavailable'::character varying)::text, ('provider_unauthorized'::character varying)::text, ('unsafe_destination'::character varying)::text, ('malformed_response'::character varying)::text, ('attempt_limit'::character varying)::text, ('dns_nxdomain'::character varying)::text, ('dns_no_record'::character varying)::text, ('dns_propagating'::character varying)::text, ('dns_timeout'::character varying)::text, ('dns_transient_failure'::character varying)::text, ('dns_multiple_records'::character varying)::text, ('dns_response_limit'::character varying)::text, ('dns_cname_limit'::character varying)::text, ('dns_delegation_limit'::character varying)::text, ('http_dns_failure'::character varying)::text, ('http_timeout'::character varying)::text, ('http_transport_failure'::character varying)::text, ('http_redirect_rejected'::character varying)::text, ('http_redirect_limit'::character varying)::text, ('http_response_too_large'::character varying)::text, ('http_content_type_rejected'::character varying)::text, ('duplicate_meta'::character varying)::text, ('provider_scope_revoked'::character varying)::text, ('provider_property_inaccessible'::character varying)::text, ('provider_outage'::character varying)::text, ('provider_ambiguous_match'::character varying)::text, ('provider_no_match'::character varying)::text, ('provider_insufficient_permission'::character varying)::text, ('provider_connection_changed'::character varying)::text])))),
     CONSTRAINT domain_verification_attempts_failure_shape CHECK (((((outcome)::text = 'verified'::text) AND (failure_category IS NULL)) OR (((outcome)::text = 'failed'::text) AND (failure_category IS NOT NULL)))),
-    CONSTRAINT domain_verification_attempts_outcome CHECK (((sequence > 0) AND ((outcome)::text = ANY ((ARRAY['verified'::character varying, 'failed'::character varying])::text[]))))
+    CONSTRAINT domain_verification_attempts_outcome CHECK (((sequence > 0) AND ((outcome)::text = ANY (ARRAY[('verified'::character varying)::text, ('failed'::character varying)::text]))))
 );
 
 
@@ -1047,15 +1139,15 @@ CREATE TABLE public.domain_verifications (
     provider_checked_at timestamp(6) with time zone,
     connection_revision integer,
     CONSTRAINT domain_verifications_attempt_shape CHECK (((attempt_count >= 0) AND (((attempt_count = 0) AND (attempted_at IS NULL)) OR ((attempt_count > 0) AND (attempted_at IS NOT NULL))))),
-    CONSTRAINT domain_verifications_bounded_binding CHECK ((((char_length(expected_location) >= 1) AND (char_length(expected_location) <= 2048)) AND ((char_length(bound_origin) >= 8) AND (char_length(bound_origin) <= 2048)))),
+    CONSTRAINT domain_verifications_bounded_binding CHECK (((char_length(expected_location) >= 1) AND (char_length(expected_location) <= 2048) AND ((char_length(bound_origin) >= 8) AND (char_length(bound_origin) <= 2048)))),
     CONSTRAINT domain_verifications_digest_format CHECK (((challenge_digest)::text ~ '^[0-9a-f]{64}$'::text)),
     CONSTRAINT domain_verifications_evidence_shape CHECK (((jsonb_typeof(evidence) = 'object'::text) AND (octet_length((evidence)::text) <= 4096))),
     CONSTRAINT domain_verifications_expiry_order CHECK ((expires_at > created_at)),
-    CONSTRAINT domain_verifications_failure_category_allowlist CHECK (((failure_category IS NULL) OR ((failure_category)::text = ANY ((ARRAY['proof_missing'::character varying, 'proof_mismatch'::character varying, 'provider_unavailable'::character varying, 'provider_unauthorized'::character varying, 'unsafe_destination'::character varying, 'malformed_response'::character varying, 'attempt_limit'::character varying, 'dns_nxdomain'::character varying, 'dns_no_record'::character varying, 'dns_propagating'::character varying, 'dns_timeout'::character varying, 'dns_transient_failure'::character varying, 'dns_multiple_records'::character varying, 'dns_response_limit'::character varying, 'dns_cname_limit'::character varying, 'dns_delegation_limit'::character varying, 'http_dns_failure'::character varying, 'http_timeout'::character varying, 'http_transport_failure'::character varying, 'http_redirect_rejected'::character varying, 'http_redirect_limit'::character varying, 'http_response_too_large'::character varying, 'http_content_type_rejected'::character varying, 'duplicate_meta'::character varying, 'provider_scope_revoked'::character varying, 'provider_property_inaccessible'::character varying, 'provider_outage'::character varying, 'provider_ambiguous_match'::character varying, 'provider_no_match'::character varying, 'provider_insufficient_permission'::character varying, 'provider_connection_changed'::character varying])::text[])))),
+    CONSTRAINT domain_verifications_failure_category_allowlist CHECK (((failure_category IS NULL) OR ((failure_category)::text = ANY (ARRAY[('proof_missing'::character varying)::text, ('proof_mismatch'::character varying)::text, ('provider_unavailable'::character varying)::text, ('provider_unauthorized'::character varying)::text, ('unsafe_destination'::character varying)::text, ('malformed_response'::character varying)::text, ('attempt_limit'::character varying)::text, ('dns_nxdomain'::character varying)::text, ('dns_no_record'::character varying)::text, ('dns_propagating'::character varying)::text, ('dns_timeout'::character varying)::text, ('dns_transient_failure'::character varying)::text, ('dns_multiple_records'::character varying)::text, ('dns_response_limit'::character varying)::text, ('dns_cname_limit'::character varying)::text, ('dns_delegation_limit'::character varying)::text, ('http_dns_failure'::character varying)::text, ('http_timeout'::character varying)::text, ('http_transport_failure'::character varying)::text, ('http_redirect_rejected'::character varying)::text, ('http_redirect_limit'::character varying)::text, ('http_response_too_large'::character varying)::text, ('http_content_type_rejected'::character varying)::text, ('duplicate_meta'::character varying)::text, ('provider_scope_revoked'::character varying)::text, ('provider_property_inaccessible'::character varying)::text, ('provider_outage'::character varying)::text, ('provider_ambiguous_match'::character varying)::text, ('provider_no_match'::character varying)::text, ('provider_insufficient_permission'::character varying)::text, ('provider_connection_changed'::character varying)::text])))),
     CONSTRAINT domain_verifications_lifecycle CHECK (((((state)::text = 'pending'::text) AND (verified_at IS NULL) AND (failed_at IS NULL) AND (expired_at IS NULL) AND (revoked_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'verified'::text) AND (verified_at IS NOT NULL) AND (failed_at IS NULL) AND (expired_at IS NULL) AND (revoked_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'failed'::text) AND (verified_at IS NULL) AND (failed_at IS NOT NULL) AND (expired_at IS NULL) AND (revoked_at IS NULL) AND (failure_category IS NOT NULL)) OR (((state)::text = 'expired'::text) AND (failed_at IS NULL) AND (expired_at IS NOT NULL) AND (revoked_at IS NULL) AND (failure_category IS NULL)) OR (((state)::text = 'revoked'::text) AND (failed_at IS NULL) AND (expired_at IS NULL) AND (revoked_at IS NOT NULL) AND (failure_category IS NULL)))),
-    CONSTRAINT domain_verifications_method_allowlist CHECK (((method)::text = ANY ((ARRAY['dns_txt'::character varying, 'html_file'::character varying, 'meta_tag'::character varying, 'search_console'::character varying])::text[]))),
-    CONSTRAINT domain_verifications_search_console_binding CHECK (((((method)::text = 'search_console'::text) AND (integration_connection_id IS NOT NULL) AND (provider_property_identifier IS NOT NULL) AND ((char_length(provider_property_identifier) >= 1) AND (char_length(provider_property_identifier) <= 2048)) AND ((provider_property_type)::text = ANY ((ARRAY['url_prefix'::character varying, 'domain'::character varying])::text[])) AND ((provider_permission_level)::text = ANY ((ARRAY['siteOwner'::character varying, 'siteFullUser'::character varying, 'siteRestrictedUser'::character varying, 'siteUnverifiedUser'::character varying])::text[])) AND (provider_checked_at IS NOT NULL) AND (connection_revision > 0)) OR (((method)::text <> 'search_console'::text) AND (integration_connection_id IS NULL) AND (provider_property_identifier IS NULL) AND (provider_property_type IS NULL) AND (provider_permission_level IS NULL) AND (provider_checked_at IS NULL) AND (connection_revision IS NULL)))),
-    CONSTRAINT domain_verifications_state_allowlist CHECK (((state)::text = ANY ((ARRAY['pending'::character varying, 'verified'::character varying, 'failed'::character varying, 'expired'::character varying, 'revoked'::character varying])::text[])))
+    CONSTRAINT domain_verifications_method_allowlist CHECK (((method)::text = ANY (ARRAY[('dns_txt'::character varying)::text, ('html_file'::character varying)::text, ('meta_tag'::character varying)::text, ('search_console'::character varying)::text]))),
+    CONSTRAINT domain_verifications_search_console_binding CHECK (((((method)::text = 'search_console'::text) AND (integration_connection_id IS NOT NULL) AND (provider_property_identifier IS NOT NULL) AND ((char_length(provider_property_identifier) >= 1) AND (char_length(provider_property_identifier) <= 2048)) AND ((provider_property_type)::text = ANY (ARRAY[('url_prefix'::character varying)::text, ('domain'::character varying)::text])) AND ((provider_permission_level)::text = ANY (ARRAY[('siteOwner'::character varying)::text, ('siteFullUser'::character varying)::text, ('siteRestrictedUser'::character varying)::text, ('siteUnverifiedUser'::character varying)::text])) AND (provider_checked_at IS NOT NULL) AND (connection_revision > 0)) OR (((method)::text <> 'search_console'::text) AND (integration_connection_id IS NULL) AND (provider_property_identifier IS NULL) AND (provider_property_type IS NULL) AND (provider_permission_level IS NULL) AND (provider_checked_at IS NULL) AND (connection_revision IS NULL)))),
+    CONSTRAINT domain_verifications_state_allowlist CHECK (((state)::text = ANY (ARRAY[('pending'::character varying)::text, ('verified'::character varying)::text, ('failed'::character varying)::text, ('expired'::character varying)::text, ('revoked'::character varying)::text])))
 );
 
 
@@ -1111,9 +1203,35 @@ CREATE TABLE public.entitlement_subscription_contexts (
     access_state character varying(24) NOT NULL,
     grace_ends_at timestamp(6) with time zone,
     access_expires_at timestamp(6) with time zone,
-    CONSTRAINT entitlement_contexts_access_state_allowlist CHECK (((access_state)::text = ANY ((ARRAY['pending'::character varying, 'full'::character varying, 'grace'::character varying, 'read_only'::character varying, 'suspended'::character varying])::text[]))),
+    CONSTRAINT entitlement_contexts_access_state_allowlist CHECK (((access_state)::text = ANY (ARRAY[('pending'::character varying)::text, ('full'::character varying)::text, ('grace'::character varying)::text, ('read_only'::character varying)::text, ('suspended'::character varying)::text]))),
     CONSTRAINT entitlement_contexts_nonnegative_revision CHECK ((subscription_revision >= 0)),
-    CONSTRAINT entitlement_contexts_subscription_status_allowlist CHECK (((subscription_status)::text = ANY ((ARRAY['pending'::character varying, 'incomplete'::character varying, 'trialing'::character varying, 'active'::character varying, 'past_due'::character varying, 'paused'::character varying, 'canceled'::character varying, 'expired'::character varying])::text[])))
+    CONSTRAINT entitlement_contexts_subscription_status_allowlist CHECK (((subscription_status)::text = ANY (ARRAY[('pending'::character varying)::text, ('incomplete'::character varying)::text, ('trialing'::character varying)::text, ('active'::character varying)::text, ('past_due'::character varying)::text, ('paused'::character varying)::text, ('canceled'::character varying)::text, ('expired'::character varying)::text])))
+);
+
+
+--
+-- Name: identities; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.identities (
+    id uuid DEFAULT gen_random_uuid() NOT NULL,
+    created_at timestamp(6) with time zone NOT NULL,
+    email public.citext,
+    email_verified boolean DEFAULT false NOT NULL,
+    last_authenticated_at timestamp(6) with time zone NOT NULL,
+    profile jsonb DEFAULT '{}'::jsonb NOT NULL,
+    provider character varying(32) NOT NULL,
+    provider_subject character varying(255) NOT NULL,
+    revoked_at timestamp(6) with time zone,
+    updated_at timestamp(6) with time zone NOT NULL,
+    user_id uuid NOT NULL,
+    CONSTRAINT identities_normalized_email CHECK (((email IS NULL) OR ((char_length((email)::text) >= 3) AND (char_length((email)::text) <= 320) AND ((email)::text = lower((email)::text))))),
+    CONSTRAINT identities_profile_keys CHECK ((((((profile - 'name'::text) - 'login'::text) - 'avatar_url'::text) - 'locale'::text) = '{}'::jsonb)),
+    CONSTRAINT identities_profile_object CHECK (((jsonb_typeof(profile) = 'object'::text) AND (octet_length((profile)::text) <= 8192))),
+    CONSTRAINT identities_provider_allowlist CHECK (((provider)::text = ANY (ARRAY[('google'::character varying)::text, ('github'::character varying)::text]))),
+    CONSTRAINT identities_revocation_follows_creation CHECK (((revoked_at IS NULL) OR (revoked_at >= created_at))),
+    CONSTRAINT identities_subject_format CHECK (((char_length((provider_subject)::text) >= 1) AND (char_length((provider_subject)::text) <= 255) AND ((provider_subject)::text = btrim((provider_subject)::text)))),
+    CONSTRAINT identities_verified_email_present CHECK (((NOT email_verified) OR (email IS NOT NULL)))
 );
 
 
@@ -1143,33 +1261,7 @@ CREATE TABLE public.integration_connections (
     CONSTRAINT integration_connections_provider_allowlist CHECK (((provider)::text = 'search_console'::text)),
     CONSTRAINT integration_connections_scopes_shape CHECK (((jsonb_typeof(granted_scopes) = 'array'::text) AND (octet_length((granted_scopes)::text) <= 2048))),
     CONSTRAINT integration_connections_separate_consent CHECK (((consent_kind)::text = 'search_console_oauth'::text)),
-    CONSTRAINT integration_connections_state_allowlist CHECK (((state)::text = ANY ((ARRAY['connected'::character varying, 'healthy'::character varying, 'degraded'::character varying, 'reauthorization_required'::character varying, 'revoked'::character varying])::text[])))
-);
-
-
---
--- Name: identities; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.identities (
-    id uuid DEFAULT gen_random_uuid() NOT NULL,
-    created_at timestamp(6) with time zone NOT NULL,
-    email public.citext,
-    email_verified boolean DEFAULT false NOT NULL,
-    last_authenticated_at timestamp(6) with time zone NOT NULL,
-    profile jsonb DEFAULT '{}'::jsonb NOT NULL,
-    provider character varying(32) NOT NULL,
-    provider_subject character varying(255) NOT NULL,
-    revoked_at timestamp(6) with time zone,
-    updated_at timestamp(6) with time zone NOT NULL,
-    user_id uuid NOT NULL,
-    CONSTRAINT identities_normalized_email CHECK (((email IS NULL) OR ((char_length((email)::text) >= 3) AND (char_length((email)::text) <= 320) AND ((email)::text = lower((email)::text))))),
-    CONSTRAINT identities_profile_keys CHECK ((((((profile - 'name'::text) - 'login'::text) - 'avatar_url'::text) - 'locale'::text) = '{}'::jsonb)),
-    CONSTRAINT identities_profile_object CHECK (((jsonb_typeof(profile) = 'object'::text) AND (octet_length((profile)::text) <= 8192))),
-    CONSTRAINT identities_provider_allowlist CHECK (((provider)::text = ANY (ARRAY[('google'::character varying)::text, ('github'::character varying)::text]))),
-    CONSTRAINT identities_revocation_follows_creation CHECK (((revoked_at IS NULL) OR (revoked_at >= created_at))),
-    CONSTRAINT identities_subject_format CHECK (((char_length((provider_subject)::text) >= 1) AND (char_length((provider_subject)::text) <= 255) AND ((provider_subject)::text = btrim((provider_subject)::text)))),
-    CONSTRAINT identities_verified_email_present CHECK (((NOT email_verified) OR (email IS NOT NULL)))
+    CONSTRAINT integration_connections_state_allowlist CHECK (((state)::text = ANY (ARRAY[('connected'::character varying)::text, ('healthy'::character varying)::text, ('degraded'::character varying)::text, ('reauthorization_required'::character varying)::text, ('revoked'::character varying)::text])))
 );
 
 
@@ -1624,9 +1716,9 @@ CREATE TABLE public.projects (
     CONSTRAINT projects_external_release_key_format CHECK (((external_release_key)::text ~ '^prj_[0-9a-f]{32}$'::text)),
     CONSTRAINT projects_lifecycle_consistency CHECK (((((status)::text = 'active'::text) AND (archived_at IS NULL) AND (deletion_requested_at IS NULL)) OR (((status)::text = 'archived'::text) AND (archived_at IS NOT NULL) AND (deletion_requested_at IS NULL)) OR (((status)::text = 'pending_deletion'::text) AND (archived_at IS NOT NULL) AND (deletion_requested_at IS NOT NULL) AND (deletion_requested_at >= archived_at)))),
     CONSTRAINT projects_locale_format CHECK (((default_locale)::text ~ '^[a-z]{2}(?:-[A-Z]{2})?$'::text)),
-    CONSTRAINT projects_name_format CHECK ((((char_length((name)::text) >= 2) AND (char_length((name)::text) <= 160)) AND ((name)::text = btrim((name)::text)))),
+    CONSTRAINT projects_name_format CHECK (((char_length((name)::text) >= 2) AND (char_length((name)::text) <= 160) AND ((name)::text = btrim((name)::text)))),
     CONSTRAINT projects_slug_format CHECK (((slug)::text ~ '^[a-z0-9](?:[a-z0-9-]{1,61}[a-z0-9])$'::text)),
-    CONSTRAINT projects_time_zone_format CHECK ((((char_length((time_zone)::text) >= 1) AND (char_length((time_zone)::text) <= 64)) AND ((time_zone)::text = btrim((time_zone)::text))))
+    CONSTRAINT projects_time_zone_format CHECK (((char_length((time_zone)::text) >= 1) AND (char_length((time_zone)::text) <= 64) AND ((time_zone)::text = btrim((time_zone)::text))))
 );
 
 
@@ -1652,10 +1744,10 @@ CREATE TABLE public.properties (
     updated_at timestamp(6) with time zone NOT NULL,
     CONSTRAINT properties_authorization_scope_types CHECK ((((authorization_scope_type)::text = 'Property'::text) AND ((authorization_project_scope_type)::text = 'Project'::text))),
     CONSTRAINT properties_configuration_version CHECK ((configuration_version = 1)),
-    CONSTRAINT properties_display_name_format CHECK ((((char_length((display_name)::text) >= 2) AND (char_length((display_name)::text) <= 160)) AND ((display_name)::text = btrim((display_name)::text)))),
-    CONSTRAINT properties_kind_allowlist CHECK (((kind)::text = ANY ((ARRAY['website'::character varying, 'web_application'::character varying, 'android_app'::character varying, 'ios_app'::character varying])::text[]))),
+    CONSTRAINT properties_display_name_format CHECK (((char_length((display_name)::text) >= 2) AND (char_length((display_name)::text) <= 160) AND ((display_name)::text = btrim((display_name)::text)))),
+    CONSTRAINT properties_kind_allowlist CHECK (((kind)::text = ANY (ARRAY[('website'::character varying)::text, ('web_application'::character varying)::text, ('android_app'::character varying)::text, ('ios_app'::character varying)::text]))),
     CONSTRAINT properties_lifecycle_consistency CHECK (((((status)::text = 'active'::text) AND (archived_at IS NULL)) OR (((status)::text = 'archived'::text) AND (archived_at IS NOT NULL)))),
-    CONSTRAINT properties_verification_status_allowlist CHECK (((verification_status)::text = ANY ((ARRAY['unverified'::character varying, 'pending'::character varying, 'verified'::character varying, 'failed'::character varying, 'expired'::character varying, 'revoked'::character varying])::text[]))),
+    CONSTRAINT properties_verification_status_allowlist CHECK (((verification_status)::text = ANY (ARRAY[('unverified'::character varying)::text, ('pending'::character varying)::text, ('verified'::character varying)::text, ('failed'::character varying)::text, ('expired'::character varying)::text, ('revoked'::character varying)::text]))),
     CONSTRAINT properties_verified_timestamp CHECK ((((verification_status)::text <> 'verified'::text) OR (verified_at IS NOT NULL)))
 );
 
@@ -1684,19 +1776,19 @@ CREATE TABLE public.property_environments (
     lock_version integer DEFAULT 0 NOT NULL,
     created_at timestamp(6) with time zone NOT NULL,
     updated_at timestamp(6) with time zone NOT NULL,
-    CONSTRAINT property_environments_canonical_origin CHECK ((((char_length(origin) >= 8) AND (char_length(origin) <= 2048)) AND (origin = ((((scheme)::text || '://'::text) || lower((host)::text)) ||
+    CONSTRAINT property_environments_canonical_origin CHECK (((char_length(origin) >= 8) AND (char_length(origin) <= 2048) AND (origin = ((((scheme)::text || '://'::text) || lower((host)::text)) ||
 CASE
     WHEN ((((scheme)::text = 'http'::text) AND (port = 80)) OR (((scheme)::text = 'https'::text) AND (port = 443))) THEN ''::text
     ELSE (':'::text || (port)::text)
 END)))),
-    CONSTRAINT property_environments_display_name_format CHECK ((((char_length((display_name)::text) >= 2) AND (char_length((display_name)::text) <= 120)) AND ((display_name)::text = btrim((display_name)::text)))),
+    CONSTRAINT property_environments_display_name_format CHECK (((char_length((display_name)::text) >= 2) AND (char_length((display_name)::text) <= 120) AND ((display_name)::text = btrim((display_name)::text)))),
     CONSTRAINT property_environments_host_format CHECK ((((host)::text = lower((host)::text)) AND ((host)::text ~ '^[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?$'::text))),
     CONSTRAINT property_environments_key_format CHECK ((((key)::text ~ '^[a-z][a-z0-9-]{1,62}$'::text) AND ((key)::text = lower((key)::text)))),
-    CONSTRAINT property_environments_kind_allowlist CHECK (((kind)::text = ANY ((ARRAY['production'::character varying, 'staging'::character varying, 'development'::character varying, 'custom'::character varying])::text[]))),
+    CONSTRAINT property_environments_kind_allowlist CHECK (((kind)::text = ANY (ARRAY[('production'::character varying)::text, ('staging'::character varying)::text, ('development'::character varying)::text, ('custom'::character varying)::text]))),
     CONSTRAINT property_environments_lifecycle CHECK (((((status)::text = 'active'::text) AND (archived_at IS NULL)) OR (((status)::text = 'archived'::text) AND (archived_at IS NOT NULL)))),
     CONSTRAINT property_environments_primary_shape CHECK ((("primary" = false) OR (((kind)::text = 'production'::text) AND ((status)::text = 'active'::text)))),
-    CONSTRAINT property_environments_property_type CHECK ((((property_kind)::text = ANY ((ARRAY['website'::character varying, 'web_application'::character varying])::text[])) AND (configuration_version = 1))),
-    CONSTRAINT property_environments_transport CHECK ((((scheme)::text = ANY ((ARRAY['http'::character varying, 'https'::character varying])::text[])) AND ((port >= 1) AND (port <= 65535))))
+    CONSTRAINT property_environments_property_type CHECK ((((property_kind)::text = ANY (ARRAY[('website'::character varying)::text, ('web_application'::character varying)::text])) AND (configuration_version = 1))),
+    CONSTRAINT property_environments_transport CHECK ((((scheme)::text = ANY (ARRAY[('http'::character varying)::text, ('https'::character varying)::text])) AND ((port >= 1) AND (port <= 65535))))
 );
 
 
@@ -1860,8 +1952,8 @@ CREATE TABLE public.subscriptions (
     CONSTRAINT subscriptions_provider_shape CHECK ((((billing_customer_id IS NULL) AND (provider IS NULL) AND (provider_environment IS NULL) AND (provider_subscription_id IS NULL) AND (provider_updated_at IS NULL) AND (last_synced_at IS NULL) AND (provider_metadata = '{}'::jsonb)) OR ((billing_customer_id IS NOT NULL) AND (provider IS NOT NULL) AND (provider_environment IS NOT NULL) AND (provider_subscription_id IS NOT NULL) AND (provider_updated_at IS NOT NULL) AND (last_synced_at IS NOT NULL) AND (provider_metadata ? 'raw_status'::text)))),
     CONSTRAINT subscriptions_provider_sync_order CHECK (((last_synced_at IS NULL) OR (provider_updated_at IS NULL) OR (last_synced_at >= provider_updated_at))),
     CONSTRAINT subscriptions_snapshot_price_shape CHECK (((((pricing_kind_snapshot)::text = 'fixed'::text) AND ((billing_interval)::text = ANY (ARRAY[('monthly'::character varying)::text, ('annual'::character varying)::text])) AND (price_cents_snapshot IS NOT NULL) AND (price_cents_snapshot >= 0)) OR (((pricing_kind_snapshot)::text = 'custom'::text) AND ((billing_interval)::text = 'custom'::text) AND (price_cents_snapshot IS NULL)))),
-    CONSTRAINT subscriptions_status_access_shape CHECK (((((status)::text = ANY ((ARRAY['pending'::character varying, 'incomplete'::character varying])::text[])) AND ((access_state)::text = 'pending'::text)) OR (((status)::text = ANY ((ARRAY['trialing'::character varying, 'active'::character varying])::text[])) AND ((access_state)::text = 'full'::text)) OR (((status)::text = 'past_due'::text) AND ((access_state)::text = ANY ((ARRAY['grace'::character varying, 'read_only'::character varying])::text[]))) OR (((status)::text = 'paused'::text) AND ((access_state)::text = ANY ((ARRAY['read_only'::character varying, 'suspended'::character varying])::text[]))) OR (((status)::text = 'canceled'::text) AND ((access_state)::text = ANY ((ARRAY['full'::character varying, 'read_only'::character varying])::text[]))) OR (((status)::text = 'expired'::text) AND ((access_state)::text = 'read_only'::text)))),
-    CONSTRAINT subscriptions_status_allowlist CHECK (((status)::text = ANY ((ARRAY['pending'::character varying, 'incomplete'::character varying, 'trialing'::character varying, 'active'::character varying, 'past_due'::character varying, 'paused'::character varying, 'canceled'::character varying, 'expired'::character varying])::text[]))),
+    CONSTRAINT subscriptions_status_access_shape CHECK (((((status)::text = ANY (ARRAY[('pending'::character varying)::text, ('incomplete'::character varying)::text])) AND ((access_state)::text = 'pending'::text)) OR (((status)::text = ANY (ARRAY[('trialing'::character varying)::text, ('active'::character varying)::text])) AND ((access_state)::text = 'full'::text)) OR (((status)::text = 'past_due'::text) AND ((access_state)::text = ANY (ARRAY[('grace'::character varying)::text, ('read_only'::character varying)::text]))) OR (((status)::text = 'paused'::text) AND ((access_state)::text = ANY (ARRAY[('read_only'::character varying)::text, ('suspended'::character varying)::text]))) OR (((status)::text = 'canceled'::text) AND ((access_state)::text = ANY (ARRAY[('full'::character varying)::text, ('read_only'::character varying)::text]))) OR (((status)::text = 'expired'::text) AND ((access_state)::text = 'read_only'::text)))),
+    CONSTRAINT subscriptions_status_allowlist CHECK (((status)::text = ANY (ARRAY[('pending'::character varying)::text, ('incomplete'::character varying)::text, ('trialing'::character varying)::text, ('active'::character varying)::text, ('past_due'::character varying)::text, ('paused'::character varying)::text, ('canceled'::character varying)::text, ('expired'::character varying)::text]))),
     CONSTRAINT subscriptions_trial_end_order CHECK (((trial_ends_at IS NULL) OR (trial_ends_at >= started_at)))
 );
 
@@ -2158,14 +2250,14 @@ CREATE TABLE public.website_property_configs (
     origin text NOT NULL,
     created_at timestamp(6) with time zone NOT NULL,
     updated_at timestamp(6) with time zone NOT NULL,
-    CONSTRAINT website_configs_canonical_origin CHECK ((((char_length(origin) >= 8) AND (char_length(origin) <= 2048)) AND (origin = ((((scheme)::text || '://'::text) || lower((host)::text)) ||
+    CONSTRAINT website_configs_canonical_origin CHECK (((char_length(origin) >= 8) AND (char_length(origin) <= 2048) AND (origin = ((((scheme)::text || '://'::text) || lower((host)::text)) ||
 CASE
     WHEN ((((scheme)::text = 'http'::text) AND (port = 80)) OR (((scheme)::text = 'https'::text) AND (port = 443))) THEN ''::text
     ELSE (':'::text || (port)::text)
 END)))),
     CONSTRAINT website_configs_host_format CHECK ((((host)::text = lower((host)::text)) AND ((host)::text ~ '^[a-z0-9](?:[a-z0-9.-]{0,251}[a-z0-9])?$'::text))),
-    CONSTRAINT website_configs_transport CHECK ((((scheme)::text = ANY ((ARRAY['http'::character varying, 'https'::character varying])::text[])) AND ((port >= 1) AND (port <= 65535)))),
-    CONSTRAINT website_configs_type_and_version CHECK ((((property_kind)::text = ANY ((ARRAY['website'::character varying, 'web_application'::character varying])::text[])) AND (configuration_version = 1)))
+    CONSTRAINT website_configs_transport CHECK ((((scheme)::text = ANY (ARRAY[('http'::character varying)::text, ('https'::character varying)::text])) AND ((port >= 1) AND (port <= 65535)))),
+    CONSTRAINT website_configs_type_and_version CHECK ((((property_kind)::text = ANY (ARRAY[('website'::character varying)::text, ('web_application'::character varying)::text])) AND (configuration_version = 1)))
 );
 
 
@@ -2295,6 +2387,30 @@ ALTER TABLE ONLY public.billing_webhook_events
 
 
 --
+-- Name: crawl_policy_sets crawl_policy_sets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_policy_sets
+    ADD CONSTRAINT crawl_policy_sets_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: crawl_policy_snapshots crawl_policy_snapshots_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_policy_snapshots
+    ADD CONSTRAINT crawl_policy_snapshots_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: crawl_policy_versions crawl_policy_versions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_policy_versions
+    ADD CONSTRAINT crawl_policy_versions_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: domain_verification_attempts domain_verification_attempts_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2327,19 +2443,19 @@ ALTER TABLE ONLY public.entitlement_subscription_contexts
 
 
 --
--- Name: integration_connections integration_connections_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.integration_connections
-    ADD CONSTRAINT integration_connections_pkey PRIMARY KEY (id);
-
-
---
 -- Name: identities identities_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.identities
     ADD CONSTRAINT identities_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: integration_connections integration_connections_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.integration_connections
+    ADD CONSTRAINT integration_connections_pkey PRIMARY KEY (id);
 
 
 --
@@ -2717,7 +2833,7 @@ CREATE UNIQUE INDEX index_authorization_scopes_on_property_identity ON public.au
 -- Name: index_billing_changes_on_active_subscription; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX index_billing_changes_on_active_subscription ON public.billing_subscription_changes USING btree (subscription_id) WHERE ((state)::text = ANY ((ARRAY['pending'::character varying, 'scheduled'::character varying, 'submitted'::character varying])::text[]));
+CREATE UNIQUE INDEX index_billing_changes_on_active_subscription ON public.billing_subscription_changes USING btree (subscription_id) WHERE ((state)::text = ANY (ARRAY[('pending'::character varying)::text, ('scheduled'::character varying)::text, ('submitted'::character varying)::text]));
 
 
 --
@@ -2808,7 +2924,7 @@ CREATE UNIQUE INDEX index_billing_plan_mappings_on_provider_variant ON public.bi
 -- Name: index_billing_reconciliations_on_active_subscription; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX index_billing_reconciliations_on_active_subscription ON public.billing_reconciliation_runs USING btree (subscription_id) WHERE ((state)::text = ANY ((ARRAY['queued'::character varying, 'running'::character varying, 'retryable'::character varying])::text[]));
+CREATE UNIQUE INDEX index_billing_reconciliations_on_active_subscription ON public.billing_reconciliation_runs USING btree (subscription_id) WHERE ((state)::text = ANY (ARRAY[('queued'::character varying)::text, ('running'::character varying)::text, ('retryable'::character varying)::text]));
 
 
 --
@@ -2875,6 +2991,55 @@ CREATE INDEX index_billing_webhooks_on_tenant_received ON public.billing_webhook
 
 
 --
+-- Name: index_crawl_policy_sets_on_environment; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_policy_sets_on_environment ON public.crawl_policy_sets USING btree (organization_id, project_id, property_id, environment_id);
+
+
+--
+-- Name: index_crawl_policy_sets_on_tenant_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_policy_sets_on_tenant_identity ON public.crawl_policy_sets USING btree (id, organization_id, project_id, property_id, environment_id);
+
+
+--
+-- Name: index_crawl_policy_snapshots_on_scan_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_policy_snapshots_on_scan_id ON public.crawl_policy_snapshots USING btree (scan_id);
+
+
+--
+-- Name: index_crawl_policy_snapshots_on_tenant_scan; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_policy_snapshots_on_tenant_scan ON public.crawl_policy_snapshots USING btree (organization_id, scan_id);
+
+
+--
+-- Name: index_crawl_policy_versions_on_environment_version; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_policy_versions_on_environment_version ON public.crawl_policy_versions USING btree (organization_id, project_id, property_id, environment_id, version);
+
+
+--
+-- Name: index_crawl_policy_versions_on_sequence; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_policy_versions_on_sequence ON public.crawl_policy_versions USING btree (crawl_policy_set_id, version);
+
+
+--
+-- Name: index_crawl_policy_versions_on_tenant_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_crawl_policy_versions_on_tenant_identity ON public.crawl_policy_versions USING btree (organization_id, project_id, property_id, environment_id, id);
+
+
+--
 -- Name: index_domain_verifications_on_challenge_digest; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2885,7 +3050,7 @@ CREATE UNIQUE INDEX index_domain_verifications_on_challenge_digest ON public.dom
 -- Name: index_domain_verifications_on_current_environment; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX index_domain_verifications_on_current_environment ON public.domain_verifications USING btree (organization_id, environment_id) WHERE ((state)::text = ANY ((ARRAY['pending'::character varying, 'verified'::character varying])::text[]));
+CREATE UNIQUE INDEX index_domain_verifications_on_current_environment ON public.domain_verifications USING btree (organization_id, environment_id) WHERE ((state)::text = ANY (ARRAY[('pending'::character varying)::text, ('verified'::character varying)::text]));
 
 
 --
@@ -2952,27 +3117,6 @@ CREATE UNIQUE INDEX index_entitlement_subscription_contexts_on_subscription_id O
 
 
 --
--- Name: index_integration_connections_on_active_account; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX index_integration_connections_on_active_account ON public.integration_connections USING btree (organization_id, provider, external_account_id) WHERE ((state)::text <> 'revoked'::text);
-
-
---
--- Name: index_integration_connections_on_consent_digest; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX index_integration_connections_on_consent_digest ON public.integration_connections USING btree (consent_digest);
-
-
---
--- Name: index_integration_connections_on_tenant_identity; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE UNIQUE INDEX index_integration_connections_on_tenant_identity ON public.integration_connections USING btree (organization_id, id);
-
-
---
 -- Name: index_identities_on_active_user_and_provider; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3005,6 +3149,27 @@ CREATE INDEX index_identities_on_user_id ON public.identities USING btree (user_
 --
 
 CREATE INDEX index_identities_on_user_id_and_provider ON public.identities USING btree (user_id, provider);
+
+
+--
+-- Name: index_integration_connections_on_active_account; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_integration_connections_on_active_account ON public.integration_connections USING btree (organization_id, provider, external_account_id) WHERE ((state)::text <> 'revoked'::text);
+
+
+--
+-- Name: index_integration_connections_on_consent_digest; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_integration_connections_on_consent_digest ON public.integration_connections USING btree (consent_digest);
+
+
+--
+-- Name: index_integration_connections_on_tenant_identity; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX index_integration_connections_on_tenant_identity ON public.integration_connections USING btree (organization_id, id);
 
 
 --
@@ -3834,6 +3999,20 @@ CREATE TRIGGER billing_customers_immutable_mapping BEFORE DELETE OR UPDATE ON pu
 
 
 --
+-- Name: crawl_policy_snapshots crawl_policy_snapshots_immutable; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER crawl_policy_snapshots_immutable BEFORE DELETE OR UPDATE ON public.crawl_policy_snapshots FOR EACH ROW EXECUTE FUNCTION public.reject_crawl_policy_immutable_change();
+
+
+--
+-- Name: crawl_policy_versions crawl_policy_versions_immutable; Type: TRIGGER; Schema: public; Owner: -
+--
+
+CREATE TRIGGER crawl_policy_versions_immutable BEFORE DELETE OR UPDATE ON public.crawl_policy_versions FOR EACH ROW EXECUTE FUNCTION public.reject_crawl_policy_immutable_change();
+
+
+--
 -- Name: domain_verification_attempts domain_verification_attempts_immutable; Type: TRIGGER; Schema: public; Owner: -
 --
 
@@ -4050,6 +4229,38 @@ ALTER TABLE ONLY public.billing_reconciliation_runs
 
 ALTER TABLE ONLY public.billing_webhook_events
     ADD CONSTRAINT fk_billing_webhooks_tenant_subscription FOREIGN KEY (organization_id, subscription_id) REFERENCES public.subscriptions(organization_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_policy_sets fk_crawl_policy_sets_environment; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_policy_sets
+    ADD CONSTRAINT fk_crawl_policy_sets_environment FOREIGN KEY (organization_id, project_id, property_id, environment_id) REFERENCES public.property_environments(organization_id, project_id, property_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_policy_snapshots fk_crawl_policy_snapshots_policy_version; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_policy_snapshots
+    ADD CONSTRAINT fk_crawl_policy_snapshots_policy_version FOREIGN KEY (organization_id, project_id, property_id, environment_id, crawl_policy_version_id) REFERENCES public.crawl_policy_versions(organization_id, project_id, property_id, environment_id, id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_policy_versions fk_crawl_policy_versions_policy_set; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_policy_versions
+    ADD CONSTRAINT fk_crawl_policy_versions_policy_set FOREIGN KEY (crawl_policy_set_id, organization_id, project_id, property_id, environment_id) REFERENCES public.crawl_policy_sets(id, organization_id, project_id, property_id, environment_id) ON DELETE RESTRICT;
+
+
+--
+-- Name: crawl_policy_versions fk_crawl_policy_versions_tenant_actor; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.crawl_policy_versions
+    ADD CONSTRAINT fk_crawl_policy_versions_tenant_actor FOREIGN KEY (organization_id, created_by_membership_id) REFERENCES public.memberships(organization_id, id) ON DELETE RESTRICT;
 
 
 --
@@ -4843,6 +5054,7 @@ ALTER TABLE ONLY public.website_property_configs
 SET search_path TO "$user", public;
 
 INSERT INTO "schema_migrations" (version) VALUES
+('20260904145000'),
 ('20260904144000'),
 ('20260904143000'),
 ('20260904142000'),

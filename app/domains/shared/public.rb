@@ -34,6 +34,10 @@ module Shared
       )
     end
 
+    def http_target(url:)
+      NetworkSafety::HttpTarget.new(url: url)
+    end
+
     def emit_structured_event(event_name, **attributes)
       Observability.emitter.emit(event_name, **attributes)
     end

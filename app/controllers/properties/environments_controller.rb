@@ -27,6 +27,8 @@ module Properties
       scope: -> { { project: @project, property: @property } }
     permission_hint "properties.verify", only: :show,
       scope: -> { { project: @project, property: @property } }
+    permission_hint "scans.configure", only: :show,
+      scope: -> { { project: @project, property: @property } }
 
     def index
       @environment_page = Public.environment_page(
